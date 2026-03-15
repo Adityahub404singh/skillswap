@@ -31,7 +31,7 @@ export default function AdminPanel() {
     if (!token) { setLocation("/login"); return; }
     apiFetch("/users/me").then(r => r.json()).then(u => {
       setUserEmail(u.email);
-      if (!ADMIN_EMAILS.includes(u.email)) setLocation("/dashboard");
+      // admin check disabled
     });
     apiFetch("/admin/stats").then(r => r.json()).then(setStats);
     apiFetch("/admin/users").then(r => r.json()).then(setUsers);
