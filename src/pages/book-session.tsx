@@ -33,8 +33,8 @@ export default function BookSession() {
 
   const { data: mentor, isLoading: mentorLoading } = useGetUserById(mentorId, {
     ...options,
-    query: { enabled: !!mentorId }
-  });
+    enabled: !!mentorId
+  } as any);
 
   const { data: me } = useGetMe(options);
 
@@ -52,18 +52,17 @@ export default function BookSession() {
         toast({ title: "Session Requested!", description: "Waiting for the mentor to accept." });
         setLocation("/sessions");
       },
-      onError: (err) => {
+      onError: (err: any) => {
         toast({ 
           variant: "destructive", 
           title: "Booking failed", 
-          description: err.response?.message || "Not enough credits or invalid request." 
+          description: err?.response?.data?.message || "Not enough credits or invalid request." 
         });
       }
     }
   });
 
   const onSubmit = (data: BookForm) => {
-    // Combine date and time to ISO string
     const dateTimeStr = `${data.date}T${data.time}:00`;
     const scheduledDate = new Date(dateTimeStr).toISOString();
 
@@ -72,7 +71,7 @@ export default function BookSession() {
         mentorId,
         skill: data.skill,
         scheduledDate,
-        duration: 60, // Fixed 1 hr for now
+        duration: 60,
         message: data.message
       }
     });
@@ -120,7 +119,7 @@ export default function BookSession() {
               {...register("skill")}
             >
               <option value="">Select a skill...</option>
-              {mentor.skillsTeach.map(s => (
+              {mentor.skillsTeach.map((s: string) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>

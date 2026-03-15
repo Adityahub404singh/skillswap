@@ -22,7 +22,7 @@ export default function Explore() {
 
   const { data: matchedMentors, isLoading: mentorsLoading } = useGetMatchedMentors(
     selectedSkill || "",
-    { ...options, query: { enabled: !!selectedSkill } }
+    { ...options, enabled: !!selectedSkill }
   );
 
   return (
