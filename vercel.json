@@ -1,1 +1,1 @@
-{"routes":[{"src":"/api/(.*)","dest":"https://skillswap-b59w.onrender.com/api/$1"},{"src":"/(.*)", "dest":"/index.html"}]}
+{"rewrites":[{"source":"/api/(.*)","destination":"https://skillswap-b59w.onrender.com/api/$1"},{"source":"/((?!assets/).*)","destination":"/index.html"}]}
