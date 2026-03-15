@@ -14,6 +14,7 @@ import BookSession from "@/pages/book-session";
 import Sessions from "@/pages/sessions";
 import Wallet from "@/pages/wallet";
 import AIChat from "@/pages/ai-chat";
+import AdminPanel from "@/pages/admin";
 import { useAuthStore } from "@/store/auth";
 
 const queryClient = new QueryClient({
@@ -55,6 +56,7 @@ function Router() {
         <Route path="/ai">
           <ProtectedRoute component={AIChat} />
         </Route>
+        <Route path="/admin" component={AdminPanel} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
