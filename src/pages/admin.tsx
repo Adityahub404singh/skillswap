@@ -34,9 +34,9 @@ export default function AdminPanel() {
       // admin check disabled
     });
     apiFetch("/admin/stats").then(r => r.json()).then(setStats);
-    apiFetch("/admin/users").then(r => r.json()).then(setUsers);
-    apiFetch("/admin/sessions").then(r => r.json()).then(setSessions);
-    apiFetch("/admin/transactions").then(r => r.json()).then(setTransactions);
+    apiFetch("/admin/users").then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : []));
+    apiFetch("/admin/sessions").then(r => r.json()).then(d => setSessions(Array.isArray(d) ? d : []));
+    apiFetch("/admin/transactions").then(r => r.json()).then(d => setTransactions(Array.isArray(d) ? d : []));
   }, [token]);
 
   const handleCredits = async (add: boolean) => {
@@ -47,7 +47,7 @@ export default function AdminPanel() {
       body: JSON.stringify({ amount, reason: creditReason || "Admin adjustment" })
     });
     setCreditModal(null); setCreditAmount(""); setCreditReason("");
-    apiFetch("/admin/users").then(r => r.json()).then(setUsers);
+    apiFetch("/admin/users").then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : []));
     apiFetch("/admin/stats").then(r => r.json()).then(setStats);
   };
 
