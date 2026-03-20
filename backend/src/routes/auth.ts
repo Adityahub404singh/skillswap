@@ -54,7 +54,7 @@ router.post("/register", async (req, res) => {
       passwordHash,
       skillsTeach: body.skillsTeach,
       skillsLearn: body.skillsLearn,
-      credits: 30,
+      credits: 200,
     }).returning();
 
     const token = signToken({ userId: user.id, email: user.email });
