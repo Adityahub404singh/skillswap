@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating } from "@/lib/api";
+import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, CheckCircle2, XCircle, Star, CalendarDays, Loader2, Video } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Clock, CheckCircle2, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, DollarSign } from "lucide-react";
 
 export default function Sessions() {
   const options = useApiOptions();
@@ -17,10 +18,13 @@ export default function Sessions() {
   const [ratingSessionId, setRatingSessionId] = useState<number | null>(null);
   const [ratingVal, setRatingVal] = useState(5);
   const [reviewText, setReviewText] = useState("");
+  const [groupModal, setGroupModal] = useState(false);
+  const [negotiateModal, setNegotiateModal] = useState<any>(null);
+  const [proposedPrice, setProposedPrice] = useState("");
+  const [groupForm, setGroupForm] = useState({ skill: "", scheduledDate: "", creditsAmount: "50", maxStudents: "10", message: "" });
 
-  const { data: sessions, isLoading } = useGetMySessions(
-    { role: tab === "learning" ? "student" : "mentor" }, options
-  );
+  const { data: user } = useGetMe(options);
+  const { data: sessions, isLoading } = useGetMySessions({ role: tab === "learning" ? "student" : "mentor" }, options);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
@@ -40,6 +44,50 @@ export default function Sessions() {
     rateMut.mutate({ data: { sessionId: ratingSessionId, rating: ratingVal, review: reviewText }});
   };
 
+  const createGroupSession = async () => {
+    try {
+      const token = (options as any).headers?.Authorization?.replace("Bearer ", "");
+      const res = await fetch("/api/sessions/group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          ...groupForm,
+          creditsAmount: parseInt(groupForm.creditsAmount),
+          maxStudents: parseInt(groupForm.maxStudents),
+        }),
+      });
+      if (res.ok) {
+        toast({ title: "Group Session Created! 🎉" });
+        setGroupModal(false);
+        invalidate();
+      } else {
+        toast({ title: "Failed to create group session", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    }
+  };
+
+  const negotiatePrice = async () => {
+    if (!negotiateModal || !proposedPrice) return;
+    try {
+      const token = (options as any).headers?.Authorization?.replace("Bearer ", "");
+      const res = await fetch(`/api/sessions/${negotiateModal.id}/negotiate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ proposedPrice: parseInt(proposedPrice) }),
+      });
+      if (res.ok) {
+        toast({ title: `Price negotiated to ${proposedPrice} credits! ✅` });
+        setNegotiateModal(null);
+        setProposedPrice("");
+        invalidate();
+      }
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'requested': return <span className="px-2 py-1 text-xs font-bold rounded-md bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 flex items-center gap-1"><Clock className="w-3 h-3"/> Requested</span>;
@@ -53,9 +101,16 @@ export default function Sessions() {
 
   return (
     <div className="py-6 max-w-5xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-extrabold mb-1">My Sessions</h1>
-        <p className="text-muted-foreground">Manage your teaching and learning appointments.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-extrabold mb-1">My Sessions</h1>
+          <p className="text-muted-foreground">Manage your teaching and learning appointments.</p>
+        </div>
+        {tab === 'teaching' && (
+          <Button onClick={() => setGroupModal(true)} className="bg-accent hover:bg-accent/90 rounded-xl gap-2">
+            <Plus className="w-4 h-4" /> Create Group Session
+          </Button>
+        )}
       </div>
 
       <div className="flex p-1 bg-muted/50 rounded-xl w-full sm:w-fit border border-border/50">
@@ -91,10 +146,21 @@ export default function Sessions() {
                     <div className="flex items-center gap-3 mb-1">
                       <h3 className="font-bold text-lg leading-none">{session.skill}</h3>
                       {getStatusBadge(session.status)}
+                      {session.isGroup === 1 && (
+                        <span className="px-2 py-1 text-xs font-bold rounded-md bg-cyan-500/10 text-cyan-600 border border-cyan-500/20 flex items-center gap-1">
+                          <Users className="w-3 h-3" /> Group
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">with <span className="font-medium text-foreground">{otherUser?.name}</span></p>
-                    <div className="text-sm font-medium bg-background border border-border inline-flex px-3 py-1.5 rounded-lg shadow-sm">
-                      {format(new Date(session.scheduledDate), 'EEEE, MMMM d, yyyy • h:mm a')}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="text-sm font-medium bg-background border border-border inline-flex px-3 py-1.5 rounded-lg shadow-sm">
+                        {format(new Date(session.scheduledDate), 'EEEE, MMMM d, yyyy • h:mm a')}
+                      </div>
+                      <div className="text-sm font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg">
+                        <DollarSign className="w-3 h-3 inline" />{session.creditsAmount} cr
+                        {session.negotiatedPrice && <span className="text-xs text-green-600 ml-1">(negotiated)</span>}
+                      </div>
                     </div>
                     {session.message && (
                       <p className="text-sm text-muted-foreground mt-3 italic border-l-2 border-border pl-3">"{session.message}"</p>
@@ -115,6 +181,9 @@ export default function Sessions() {
                   {/* TEACHING ACTIONS */}
                   {tab === 'teaching' && session.status === 'requested' && (
                     <>
+                      <Button variant="outline" size="sm" className="text-blue-600 border-blue-300" onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
+                        💬 Negotiate
+                      </Button>
                       <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Decline</Button>
                       <Button className="bg-accent hover:bg-accent/90" onClick={() => acceptMut.mutate({ sessionId: session.id })}>Accept ✓</Button>
                     </>
@@ -127,6 +196,11 @@ export default function Sessions() {
                   )}
 
                   {/* LEARNING ACTIONS */}
+                  {tab === 'learning' && session.status === 'requested' && (
+                    <Button variant="outline" size="sm" className="text-blue-600 border-blue-300" onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
+                      💬 Negotiate Price
+                    </Button>
+                  )}
                   {tab === 'learning' && (session.status === 'requested' || session.status === 'accepted') && (
                     <Button variant="outline" className="text-destructive" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel Booking</Button>
                   )}
@@ -150,6 +224,7 @@ export default function Sessions() {
         )}
       </div>
 
+      {/* Rating Dialog */}
       <Dialog open={!!ratingSessionId} onOpenChange={(open) => !open && setRatingSessionId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -171,6 +246,80 @@ export default function Sessions() {
             <Button onClick={handleRate} disabled={rateMut.isPending} className="bg-primary hover:bg-primary/90">
               {rateMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Review"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Negotiate Dialog */}
+      <Dialog open={!!negotiateModal} onOpenChange={(open) => !open && setNegotiateModal(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>💬 Negotiate Price</DialogTitle>
+            <DialogDescription>Propose a new price for this session (10 - 250 credits)</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="bg-muted/50 p-3 rounded-lg text-sm">
+              Current price: <strong>{negotiateModal?.creditsAmount} credits</strong>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Your proposed price</label>
+              <Input type="number" min={10} max={250} value={proposedPrice} onChange={e => setProposedPrice(e.target.value)} placeholder="e.g. 50" />
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+              <div className="bg-green-500/5 p-2 rounded-lg text-center">Basic<br/>10-40 cr</div>
+              <div className="bg-blue-500/5 p-2 rounded-lg text-center">Medium<br/>40-100 cr</div>
+              <div className="bg-purple-500/5 p-2 rounded-lg text-center">Advanced<br/>100-250 cr</div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNegotiateModal(null)}>Cancel</Button>
+            <Button onClick={negotiatePrice} className="bg-blue-600 hover:bg-blue-700 text-white">Send Proposal</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Group Session Dialog */}
+      <Dialog open={groupModal} onOpenChange={setGroupModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>👥 Create Group Session</DialogTitle>
+            <DialogDescription>Create a session multiple students can join</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Skill</label>
+              <Input placeholder="e.g. Python, DSA, Web Dev" value={groupForm.skill} onChange={e => setGroupForm(f => ({ ...f, skill: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Date & Time</label>
+              <Input type="datetime-local" value={groupForm.scheduledDate} onChange={e => setGroupForm(f => ({ ...f, scheduledDate: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Price per student (cr)</label>
+                <Input type="number" min={10} max={250} value={groupForm.creditsAmount} onChange={e => setGroupForm(f => ({ ...f, creditsAmount: e.target.value }))} />
+                <p className="text-xs text-muted-foreground mt-1">Max 250 credits</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Max students</label>
+                <Input type="number" min={2} max={10} value={groupForm.maxStudents} onChange={e => setGroupForm(f => ({ ...f, maxStudents: e.target.value }))} />
+                <p className="text-xs text-muted-foreground mt-1">Max 10 students</p>
+              </div>
+            </div>
+            <div className="bg-muted/50 p-3 rounded-lg text-xs space-y-1">
+              <p className="font-bold">Platform Commission:</p>
+              <p>1-2 students → 10% fee</p>
+              <p>3-5 students → 15% fee</p>
+              <p>6+ students → 20% fee</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Message (optional)</label>
+              <Textarea placeholder="What will you teach?" value={groupForm.message} onChange={e => setGroupForm(f => ({ ...f, message: e.target.value }))} className="resize-none h-16" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGroupModal(false)}>Cancel</Button>
+            <Button onClick={createGroupSession} className="bg-accent hover:bg-accent/90">Create Session</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
