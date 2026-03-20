@@ -13,15 +13,13 @@ export default function Sessions() {
   const options = useApiOptions();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
   const [tab, setTab] = useState<"learning" | "teaching">("learning");
   const [ratingSessionId, setRatingSessionId] = useState<number | null>(null);
   const [ratingVal, setRatingVal] = useState(5);
   const [reviewText, setReviewText] = useState("");
 
   const { data: sessions, isLoading } = useGetMySessions(
-    { role: tab === "learning" ? "student" : "mentor" },
-    options
+    { role: tab === "learning" ? "student" : "mentor" }, options
   );
 
   const invalidate = () => {
@@ -31,19 +29,14 @@ export default function Sessions() {
   };
 
   const acceptMut = useAcceptSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Accepted" }); } } });
-  const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Completed", description: "Credits have been transferred." }); } } });
+  const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Completed", description: "Credits transferred!" }); } } });
   const cancelMut = useCancelSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Cancelled" }); } } });
   const rateMut = useCreateRating({ ...options, mutation: {
-    onSuccess: () => {
-      invalidate();
-      setRatingSessionId(null);
-      setReviewText("");
-      toast({ title: "Review Submitted", description: "Thank you for your feedback!" });
-    }
+    onSuccess: () => { invalidate(); setRatingSessionId(null); setReviewText(""); toast({ title: "Review Submitted!" }); }
   }});
 
   const handleRate = () => {
-    if(!ratingSessionId) return;
+    if (!ratingSessionId) return;
     rateMut.mutate({ data: { sessionId: ratingSessionId, rating: ratingVal, review: reviewText }});
   };
 
@@ -51,6 +44,7 @@ export default function Sessions() {
     switch(status) {
       case 'requested': return <span className="px-2 py-1 text-xs font-bold rounded-md bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 flex items-center gap-1"><Clock className="w-3 h-3"/> Requested</span>;
       case 'accepted': return <span className="px-2 py-1 text-xs font-bold rounded-md bg-blue-500/10 text-blue-600 border border-blue-500/20 flex items-center gap-1"><CalendarDays className="w-3 h-3"/> Upcoming</span>;
+      case 'in_progress': return <span className="px-2 py-1 text-xs font-bold rounded-md bg-purple-500/10 text-purple-600 border border-purple-500/20 flex items-center gap-1"><Video className="w-3 h-3"/> Live</span>;
       case 'completed': return <span className="px-2 py-1 text-xs font-bold rounded-md bg-green-500/10 text-green-600 border border-green-500/20 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Completed</span>;
       case 'cancelled': return <span className="px-2 py-1 text-xs font-bold rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-1"><XCircle className="w-3 h-3"/> Cancelled</span>;
       default: return null;
@@ -59,24 +53,16 @@ export default function Sessions() {
 
   return (
     <div className="py-6 max-w-5xl mx-auto space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold mb-1">My Sessions</h1>
-          <p className="text-muted-foreground">Manage your teaching and learning appointments.</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-extrabold mb-1">My Sessions</h1>
+        <p className="text-muted-foreground">Manage your teaching and learning appointments.</p>
       </div>
 
       <div className="flex p-1 bg-muted/50 rounded-xl w-full sm:w-fit border border-border/50">
-        <button
-          className={`flex-1 sm:px-8 py-2.5 text-sm font-bold rounded-lg transition-all ${tab === 'learning' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-          onClick={() => setTab('learning')}
-        >
+        <button className={`flex-1 sm:px-8 py-2.5 text-sm font-bold rounded-lg transition-all ${tab === 'learning' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setTab('learning')}>
           Learning (Student)
         </button>
-        <button
-          className={`flex-1 sm:px-8 py-2.5 text-sm font-bold rounded-lg transition-all ${tab === 'teaching' ? 'bg-background shadow-sm text-accent' : 'text-muted-foreground hover:text-foreground'}`}
-          onClick={() => setTab('teaching')}
-        >
+        <button className={`flex-1 sm:px-8 py-2.5 text-sm font-bold rounded-lg transition-all ${tab === 'teaching' ? 'bg-background shadow-sm text-accent' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setTab('teaching')}>
           Teaching (Mentor)
         </button>
       </div>
@@ -93,6 +79,7 @@ export default function Sessions() {
         ) : (
           sessions?.sort((a: any, b: any) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()).map((session: any) => {
             const otherUser = tab === 'learning' ? session.mentor : session.student;
+            const isActive = session.status === 'accepted' || session.status === 'in_progress';
 
             return (
               <div key={session.id} className="card-premium p-6 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between group">
@@ -105,80 +92,69 @@ export default function Sessions() {
                       <h3 className="font-bold text-lg leading-none">{session.skill}</h3>
                       {getStatusBadge(session.status)}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      with <span className="font-medium text-foreground">{otherUser?.name}</span>
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-2">with <span className="font-medium text-foreground">{otherUser?.name}</span></p>
                     <div className="text-sm font-medium bg-background border border-border inline-flex px-3 py-1.5 rounded-lg shadow-sm">
                       {format(new Date(session.scheduledDate), 'EEEE, MMMM d, yyyy • h:mm a')}
                     </div>
                     {session.message && (
-                      <p className="text-sm text-muted-foreground mt-3 italic border-l-2 border-border pl-3">
-                        "{session.message}"
-                      </p>
+                      <p className="text-sm text-muted-foreground mt-3 italic border-l-2 border-border pl-3">"{session.message}"</p>
                     )}
-                    {/* Meet Link */}
-                    {(session as any).meetLink && session.status === 'accepted' && (
-                      <a
-                        href={(session as any).meetLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors shadow-sm"
-                      >
-                        <Video className="w-4 h-4" />
-                        Join Google Meet 🎥
+                    {session.meetLink && isActive && (
+                      <a href={session.meetLink} target="_blank" rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors shadow-sm">
+                        <Video className="w-4 h-4" /> Join Meeting 🎥
                       </a>
+                    )}
+                    {session.status === 'completed' && session.actualDuration != null && (
+                      <p className="text-xs text-muted-foreground mt-2">⏱ Duration: {session.actualDuration} min {session.actualDuration < 10 ? '• Full refund issued' : session.actualDuration < 30 ? '• Partial refund issued' : '• Full payment'}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-border/50">
-                  {/* Teaching Actions */}
+                  {/* TEACHING ACTIONS */}
                   {tab === 'teaching' && session.status === 'requested' && (
                     <>
                       <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Decline</Button>
-                      <Button className="bg-accent hover:bg-accent/90" onClick={() => acceptMut.mutate({ sessionId: session.id })}>Accept Request</Button>
+                      <Button className="bg-accent hover:bg-accent/90" onClick={() => acceptMut.mutate({ sessionId: session.id })}>Accept ✓</Button>
                     </>
                   )}
-                  {tab === 'teaching' && session.status === 'accepted' && (
+                  {tab === 'teaching' && (session.status === 'accepted' || session.status === 'in_progress') && (
                     <>
                       <Button variant="outline" className="text-destructive" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel</Button>
                       <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Completed ✓</Button>
                     </>
                   )}
 
-                  {/* Learning Actions */}
+                  {/* LEARNING ACTIONS */}
                   {tab === 'learning' && (session.status === 'requested' || session.status === 'accepted') && (
                     <Button variant="outline" className="text-destructive" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel Booking</Button>
                   )}
-                  {tab === 'learning' && session.status === 'accepted' && (
+                  {tab === 'learning' && (session.status === 'accepted' || session.status === 'in_progress') && (
                     <Button className="bg-primary hover:bg-primary/90" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Completed</Button>
                   )}
-                  {tab === 'learning' && session.status === 'completed' && !(session as any).rating && (
+                  {tab === 'learning' && session.status === 'completed' && !session.rating && (
                     <Button variant="outline" className="border-orange-500 text-orange-600 hover:bg-orange-50" onClick={() => setRatingSessionId(session.id)}>
                       <Star className="w-4 h-4 mr-2" /> Rate Mentor
                     </Button>
                   )}
-
-                  {session.status === 'completed' && (session as any).rating && (
+                  {session.status === 'completed' && session.rating && (
                     <div className="px-3 py-1.5 bg-muted rounded-lg text-sm font-medium flex items-center gap-1">
-                      <Star className="w-4 h-4 fill-orange-500 text-orange-500" /> Rated {(session as any).rating.rating}/5
+                      <Star className="w-4 h-4 fill-orange-500 text-orange-500" /> Rated {session.rating.rating}/5
                     </div>
                   )}
                 </div>
               </div>
-            )
+            );
           })
         )}
       </div>
 
-      {/* Rating Dialog */}
       <Dialog open={!!ratingSessionId} onOpenChange={(open) => !open && setRatingSessionId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Rate your session</DialogTitle>
-            <DialogDescription>
-              Help the community by sharing your experience with this mentor.
-            </DialogDescription>
+            <DialogDescription>Help the community by sharing your experience.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-6">
             <div className="flex justify-center gap-2">
@@ -188,12 +164,7 @@ export default function Sessions() {
                 </button>
               ))}
             </div>
-            <Textarea
-              placeholder="Leave a review (optional)"
-              value={reviewText}
-              onChange={e => setReviewText(e.target.value)}
-              className="resize-none h-24"
-            />
+            <Textarea placeholder="Leave a review (optional)" value={reviewText} onChange={e => setReviewText(e.target.value)} className="resize-none h-24" />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRatingSessionId(null)}>Cancel</Button>

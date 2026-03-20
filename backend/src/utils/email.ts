@@ -12,7 +12,7 @@ function generateMeetLink(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz";
   const part = (len: number) =>
     Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `https://meet.google.com/${part(3)}-${part(4)}-${part(3)}`;
+  return `https://meet.jit.si/skillswap-${Date.now()}-${Math.random().toString(36).substr(2, 9)}#config.lobby.enabled=false`;
 }
 
 export async function sendBookingConfirmation(

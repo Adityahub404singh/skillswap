@@ -12,6 +12,9 @@ export const sessionsTable = pgTable("sessions", {
   message: text("message"),
   creditsAmount: integer("credits_amount").notNull().default(10),
   meetLink: text("meet_link"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  actualDuration: integer("actual_duration"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

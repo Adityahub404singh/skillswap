@@ -79,64 +79,40 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const body = bookSchema.parse(req.body);
     const studentId = req.userId!;
-
     if (body.mentorId === studentId) {
       res.status(400).json({ error: "Bad Request", message: "You cannot book a session with yourself" });
       return;
     }
-
-    // Validate credits against skill max
     const maxCredits = SKILL_MAX_CREDITS[body.skill] || 250;
     const creditsToUse = Math.min(body.creditsAmount || 10, maxCredits);
-
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId)).limit(1);
     if (!student || student.credits < creditsToUse) {
       res.status(400).json({ error: "Bad Request", message: `Insufficient credits. Need ${creditsToUse}, have ${student?.credits || 0}.` });
       return;
     }
-
     const [mentor] = await db.select().from(usersTable).where(eq(usersTable.id, body.mentorId)).limit(1);
     if (!mentor) {
       res.status(404).json({ error: "Not Found", message: "Mentor not found" });
       return;
     }
-
     const meetLink = generateMeetLink();
-
     const [session] = await db.insert(sessionsTable).values({
-      mentorId: body.mentorId,
-      studentId,
+      mentorId: body.mentorId, studentId,
       skill: body.skill,
       scheduledDate: new Date(body.scheduledDate),
-      duration: body.duration,
-      message: body.message,
-      creditsAmount: creditsToUse,
-      status: "requested",
-      meetLink,
+      duration: body.duration, message: body.message,
+      creditsAmount: creditsToUse, status: "requested", meetLink,
     }).returning();
-
-    await db.update(usersTable)
-      .set({ credits: sql`${usersTable.credits} - ${creditsToUse}` })
-      .where(eq(usersTable.id, studentId));
-
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${creditsToUse}` }).where(eq(usersTable.id, studentId));
     await db.insert(transactionsTable).values({
-      userId: studentId,
-      amount: -creditsToUse,
-      type: "spent",
-      description: `Booked ${body.skill} session with ${mentor.name}`,
-      sessionId: session.id,
+      userId: studentId, amount: -creditsToUse, type: "spent",
+      description: `Booked ${body.skill} session with ${mentor.name}`, sessionId: session.id,
     });
-
-    const scheduledDate = new Date(body.scheduledDate);
-    sendBookingConfirmation(student.email, student.name, mentor.name, body.skill, scheduledDate, meetLink).catch(console.error);
-    sendMentorNotification(mentor.email, mentor.name, student.name, body.skill, scheduledDate, meetLink).catch(console.error);
-
+    sendBookingConfirmation(student.email, student.name, mentor.name, body.skill, new Date(body.scheduledDate), meetLink).catch(console.error);
+    sendMentorNotification(mentor.email, mentor.name, student.name, body.skill, new Date(body.scheduledDate), meetLink).catch(console.error);
     res.status(201).json(await formatSession(session));
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ error: "Bad Request", message: err.message });
-      return;
-    }
+    if (err instanceof z.ZodError) { res.status(400).json({ error: "Bad Request", message: err.message }); return; }
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -146,87 +122,89 @@ router.post("/:sessionId/accept", requireAuth, async (req: AuthRequest, res) => 
   try {
     const sessionId = parseInt(req.params.sessionId as string);
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId)).limit(1);
-    if (!session) { res.status(404).json({ error: "Not Found", message: "Session not found" }); return; }
-    if (session.mentorId !== req.userId) { res.status(403).json({ error: "Forbidden", message: "Only mentor can accept" }); return; }
-    if (session.status !== "requested") { res.status(400).json({ error: "Bad Request", message: "Session not in requested status" }); return; }
+    if (!session) { res.status(404).json({ error: "Not Found" }); return; }
+    if (session.mentorId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+    if (session.status !== "requested") { res.status(400).json({ error: "Not in requested status" }); return; }
     const [updated] = await db.update(sessionsTable).set({ status: "accepted" }).where(eq(sessionsTable.id, sessionId)).returning();
     res.json(await formatSession(updated));
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+  } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+router.post("/:sessionId/start", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.sessionId as string);
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId)).limit(1);
+    if (!session) { res.status(404).json({ error: "Not Found" }); return; }
+    if (session.mentorId !== req.userId && session.studentId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+    if (session.status !== "accepted") { res.status(400).json({ error: "Must be accepted first" }); return; }
+    const [updated] = await db.update(sessionsTable)
+      .set({ startedAt: new Date(), status: "in_progress" })
+      .where(eq(sessionsTable.id, sessionId)).returning();
+    res.json(await formatSession(updated));
+  } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.post("/:sessionId/complete", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId)).limit(1);
-    if (!session) { res.status(404).json({ error: "Not Found", message: "Session not found" }); return; }
-    if (session.mentorId !== req.userId && session.studentId !== req.userId) {
-      res.status(403).json({ error: "Forbidden", message: "Not authorized" }); return;
+    if (!session) { res.status(404).json({ error: "Not Found" }); return; }
+    if (session.mentorId !== req.userId && session.studentId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+    if (session.status !== "accepted" && session.status !== "in_progress") { res.status(400).json({ error: "Invalid status" }); return; }
+
+    const now = new Date();
+    const startTime = session.startedAt || session.scheduledDate;
+    const actualMinutes = Math.floor((now.getTime() - new Date(startTime).getTime()) / 60000);
+    const total = session.creditsAmount;
+    let mentorEarns = 0;
+    let refundStudent = 0;
+
+    if (actualMinutes < 10) {
+      refundStudent = total;
+    } else if (actualMinutes < 30) {
+      mentorEarns = Math.floor(total * 0.5 * (1 - PLATFORM_COMMISSION));
+      refundStudent = Math.floor(total * 0.5);
+    } else {
+      mentorEarns = total - Math.floor(total * PLATFORM_COMMISSION);
     }
-    if (session.status !== "accepted") { res.status(400).json({ error: "Bad Request", message: "Session must be accepted first" }); return; }
 
-    const commission = Math.floor(session.creditsAmount * PLATFORM_COMMISSION);
-    const mentorEarns = session.creditsAmount - commission;
+    await db.update(sessionsTable).set({ status: "completed", completedAt: now, actualDuration: actualMinutes }).where(eq(sessionsTable.id, sessionId));
 
-    await db.update(sessionsTable).set({ status: "completed" }).where(eq(sessionsTable.id, sessionId));
-    await db.update(usersTable)
-      .set({ credits: sql`${usersTable.credits} + ${mentorEarns}`, sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1` })
-      .where(eq(usersTable.id, session.mentorId));
-    await db.insert(transactionsTable).values({
-      userId: session.mentorId, amount: mentorEarns, type: "earned",
-      description: `Taught ${session.skill} (+${mentorEarns} cr, ${commission} cr platform fee)`,
-      sessionId: session.id,
-    });
+    if (mentorEarns > 0) {
+      await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${mentorEarns}`, sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1` }).where(eq(usersTable.id, session.mentorId));
+      await db.insert(transactionsTable).values({ userId: session.mentorId, amount: mentorEarns, type: "earned", description: `Taught ${session.skill} - ${actualMinutes} min (+${mentorEarns} cr)`, sessionId: session.id });
+    }
+    if (refundStudent > 0) {
+      await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${refundStudent}` }).where(eq(usersTable.id, session.studentId));
+      await db.insert(transactionsTable).values({ userId: session.studentId, amount: refundStudent, type: "refund", description: `Refund - session ${actualMinutes} min`, sessionId: session.id });
+    }
 
     const [mentor] = await db.select().from(usersTable).where(eq(usersTable.id, session.mentorId)).limit(1);
     if (mentor) {
       const trustScore = Math.min(100, (mentor.averageRating || 0) * 10 + mentor.sessionsCompleted * 2);
       await db.update(usersTable).set({ trustScore }).where(eq(usersTable.id, session.mentorId));
     }
-
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId)).limit(1);
-    if (student && mentor) {
-      sendRatingRequest(student.email, student.name, mentor.name, session.skill, session.id).catch(console.error);
-    }
+    if (student && mentor) sendRatingRequest(student.email, student.name, mentor.name, session.skill, session.id).catch(console.error);
 
     const [updated] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId)).limit(1);
     res.json(await formatSession(updated));
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+  } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.post("/:sessionId/cancel", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId)).limit(1);
-    if (!session) { res.status(404).json({ error: "Not Found", message: "Session not found" }); return; }
-    if (session.mentorId !== req.userId && session.studentId !== req.userId) {
-      res.status(403).json({ error: "Forbidden", message: "Not authorized" }); return;
-    }
-    if (session.status === "completed" || session.status === "cancelled") {
-      res.status(400).json({ error: "Bad Request", message: "Cannot cancel this session" }); return;
-    }
-
+    if (!session) { res.status(404).json({ error: "Not Found" }); return; }
+    if (session.mentorId !== req.userId && session.studentId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+    if (session.status === "completed" || session.status === "cancelled") { res.status(400).json({ error: "Cannot cancel" }); return; }
     await db.update(sessionsTable).set({ status: "cancelled" }).where(eq(sessionsTable.id, sessionId));
-    await db.update(usersTable)
-      .set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` })
-      .where(eq(usersTable.id, session.studentId));
-    await db.insert(transactionsTable).values({
-      userId: session.studentId, amount: session.creditsAmount, type: "refund",
-      description: `Cancelled ${session.skill} session - full refund`,
-      sessionId: session.id,
-    });
-
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
+    await db.insert(transactionsTable).values({ userId: session.studentId, amount: session.creditsAmount, type: "refund", description: `Cancelled ${session.skill} - full refund`, sessionId: session.id });
     const [updated] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId)).limit(1);
     res.json(await formatSession(updated));
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+  } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 export default router;

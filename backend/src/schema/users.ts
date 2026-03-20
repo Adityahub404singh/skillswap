@@ -12,5 +12,6 @@ export const usersTable = pgTable("users", {
   trustScore: integer("trust_score").default(0),
   sessionsCompleted: integer("sessions_completed").default(0),
   averageRating: real("average_rating"),
+  pricePerHour: integer("price_per_hour").default(50),
   createdAt: timestamp("created_at").defaultNow(),
 });

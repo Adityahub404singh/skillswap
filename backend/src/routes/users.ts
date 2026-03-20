@@ -19,6 +19,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     trustScore: user.trustScore,
     sessionsCompleted: user.sessionsCompleted,
     averageRating: user.averageRating,
+    pricePerHour: user.pricePerHour || 50,
     createdAt: user.createdAt,
   };
 }
@@ -26,10 +27,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
-    if (!user) {
-      res.status(404).json({ error: "Not Found", message: "User not found" });
-      return;
-    }
+    if (!user) { res.status(404).json({ error: "Not Found" }); return; }
     res.json(formatUser(user));
   } catch (err) {
     console.error(err);
@@ -43,21 +41,16 @@ const updateSchema = z.object({
   avatar: z.string().optional(),
   skillsTeach: z.array(z.string()).optional(),
   skillsLearn: z.array(z.string()).optional(),
+  pricePerHour: z.number().int().min(10).max(500).optional(),
 });
 
 router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const body = updateSchema.parse(req.body);
-    const [user] = await db.update(usersTable)
-      .set(body)
-      .where(eq(usersTable.id, req.userId!))
-      .returning();
+    const [user] = await db.update(usersTable).set(body).where(eq(usersTable.id, req.userId!)).returning();
     res.json(formatUser(user));
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ error: "Bad Request", message: err.message });
-      return;
-    }
+    if (err instanceof z.ZodError) { res.status(400).json({ error: "Bad Request", message: err.message }); return; }
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -66,15 +59,9 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
 router.get("/:userId", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      res.status(400).json({ error: "Bad Request", message: "Invalid user ID" });
-      return;
-    }
+    if (isNaN(userId)) { res.status(400).json({ error: "Invalid user ID" }); return; }
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    if (!user) {
-      res.status(404).json({ error: "Not Found", message: "User not found" });
-      return;
-    }
+    if (!user) { res.status(404).json({ error: "Not Found" }); return; }
     res.json(formatUser(user));
   } catch (err) {
     console.error(err);

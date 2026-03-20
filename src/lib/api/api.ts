@@ -1065,7 +1065,7 @@ export const acceptSession = async (
 ): Promise<Session> => {
   return customFetch<Session>(getAcceptSessionUrl(sessionId), {
     ...options,
-    method: "PUT",
+    method: "POST",
   });
 };
 
@@ -1149,7 +1149,7 @@ export const completeSession = async (
 ): Promise<Session> => {
   return customFetch<Session>(getCompleteSessionUrl(sessionId), {
     ...options,
-    method: "PUT",
+    method: "POST",
   });
 };
 
@@ -1233,7 +1233,7 @@ export const cancelSession = async (
 ): Promise<Session> => {
   return customFetch<Session>(getCancelSessionUrl(sessionId), {
     ...options,
-    method: "PUT",
+    method: "POST",
   });
 };
 
