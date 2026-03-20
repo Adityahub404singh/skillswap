@@ -8,6 +8,7 @@ import sessionsRouter from "./sessions.js";
 import walletRouter from "./wallet.js";
 import ratingsRouter from "./ratings.js";
 import aiRouter from "./ai.js";
+import adminRouter from "./admin.js";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use("/sessions", sessionsRouter);
 router.use("/wallet", walletRouter);
 router.use("/ratings", ratingsRouter);
 router.use("/ai", aiRouter);
+router.use("/admin", adminRouter);
 
 export default router;
