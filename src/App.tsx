@@ -15,6 +15,7 @@ import Sessions from "@/pages/sessions";
 import Wallet from "@/pages/wallet";
 import AIChat from "@/pages/ai-chat";
 import AdminPanel from "@/pages/admin";
+import Profile from "@/pages/profile";
 import { useAuthStore } from "@/store/auth";
 
 const queryClient = new QueryClient({
@@ -57,6 +58,9 @@ function Router() {
           <ProtectedRoute component={AIChat} />
         </Route>
         <Route path="/admin" component={AdminPanel} />
+        <Route path="/profile">
+          <ProtectedRoute component={Profile} />
+        </Route>
         <Route component={NotFound} />
       </Switch>
     </Layout>
