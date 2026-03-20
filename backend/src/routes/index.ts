@@ -7,6 +7,7 @@ import matchingRouter from "./matching.js";
 import sessionsRouter from "./sessions.js";
 import walletRouter from "./wallet.js";
 import ratingsRouter from "./ratings.js";
+import aiRouter from "./ai.js";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use("/match", matchingRouter);
 router.use("/sessions", sessionsRouter);
 router.use("/wallet", walletRouter);
 router.use("/ratings", ratingsRouter);
+router.use("/ai", aiRouter);
 
 export default router;
