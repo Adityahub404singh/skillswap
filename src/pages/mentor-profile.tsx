@@ -1,8 +1,8 @@
 import { useRoute, Link } from "wouter";
-import { useGetUserById, useGetMentorRatings } from "@/lib/api";
+import { useGetUserById, useGetMentorRatings, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { format } from "date-fns";
-import { Star, Award, ShieldCheck, CheckCircle2, MessageSquare } from "lucide-react";
+import { Star, Award, ShieldCheck, CheckCircle2, MessageSquare, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -16,10 +16,17 @@ export default function MentorProfile() {
     query: { queryKey: [], enabled: !!mentorId }
   });
 
+  const { data: currentUser } = useGetMe({
+    ...options,
+    query: { queryKey: [], enabled: true }
+  });
+
   const { data: ratings, isLoading: ratingsLoading } = useGetMentorRatings(mentorId, {
     ...options,
     query: { queryKey: [], enabled: !!mentorId }
   });
+
+  const isOwnProfile = currentUser?.id === mentorId;
 
   if (isLoading) return <div className="py-12 flex justify-center"><Skeleton className="w-full max-w-4xl h-96 rounded-3xl" /></div>;
   if (!mentor) return <div className="py-12 text-center text-xl font-bold">Mentor not found</div>;
@@ -46,9 +53,7 @@ export default function MentorProfile() {
             <div className="flex-1 pb-2">
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-3xl font-extrabold">{mentor.name}</h1>
-                {mentor.trustScore > 80 && (
-                  <ShieldCheck className="w-6 h-6 text-accent" />
-                )}
+                {mentor.trustScore > 80 && <ShieldCheck className="w-6 h-6 text-accent" />}
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground font-medium">
                 <span className="flex items-center gap-1">
@@ -61,17 +66,28 @@ export default function MentorProfile() {
                 </span>
                 <span className="flex items-center gap-1">
                   <Award className="w-4 h-4 text-primary" />
-                  Trust Score: {mentor.trustScore}</span><span className="flex items-center gap-1 text-green-600 font-bold">?? {(mentor as any).pricePerHour || 50} cr/session
+                  Trust Score: {mentor.trustScore}
+                </span>
+                <span className="flex items-center gap-1 text-green-600 font-bold">
+                  💰 {(mentor as any).pricePerHour || 50} cr/session
                 </span>
               </div>
             </div>
 
-            <div className="w-full md:w-auto mt-4 md:mt-0 pb-2">
-              <Link href={`/book/${mentor.id}`}>
-                <Button size="lg" className="w-full rounded-xl bg-gradient-premium shadow-lg shadow-primary/20 h-12 px-8">
-                  Book Session
-                </Button>
-              </Link>
+            <div className="w-full md:w-auto mt-4 md:mt-0 pb-2 flex flex-col gap-2">
+              {isOwnProfile ? (
+                <Link href="/profile">
+                  <Button size="lg" className="w-full rounded-xl h-12 px-8 bg-accent hover:bg-accent/90">
+                    <Edit className="w-4 h-4 mr-2" /> Edit My Profile
+                  </Button>
+                </Link>
+              ) : (
+                <Link href={`/book/${mentor.id}`}>
+                  <Button size="lg" className="w-full rounded-xl bg-gradient-premium shadow-lg shadow-primary/20 h-12 px-8">
+                    Book Session
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -84,7 +100,6 @@ export default function MentorProfile() {
                 </p>
               </div>
             </div>
-
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Expertise</h3>
