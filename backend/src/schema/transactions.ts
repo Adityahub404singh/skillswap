@@ -5,5 +5,7 @@ export const transactionsTable = pgTable("transactions", {
   amount: integer("amount").notNull(),
   type: text("type").notNull(),
   description: text("description"),
+  sessionId: integer("session_id"),
+  sessionId: integer("session_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
