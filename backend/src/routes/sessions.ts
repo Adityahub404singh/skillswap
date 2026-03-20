@@ -28,7 +28,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     skillsLearn: user.skillsLearn || [],
     credits: user.credits, trustScore: user.trustScore,
     sessionsCompleted: user.sessionsCompleted,
-    averageRating: user.averageRating, createdAt: user.createdAt,
+    averageRating: user.averageRating, pricePerHour: user.pricePerHour || 50, createdAt: user.createdAt,
   };
 }
 
