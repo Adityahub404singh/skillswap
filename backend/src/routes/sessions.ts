@@ -10,24 +10,25 @@ import { z } from "zod";
 import { sendBookingConfirmation, sendMentorNotification, sendRatingRequest, generateMeetLink } from "../utils/email.js";
 
 const router: IRouter = Router();
-
-const CREDITS_PER_SESSION = 10;
 const PLATFORM_COMMISSION = 0.10;
+
+const SKILL_MAX_CREDITS: Record<string, number> = {
+  "English": 40, "Maths": 40, "Music": 40, "Chess": 30,
+  "Spanish": 40, "Photography": 50, "Marketing": 60,
+  "Design": 80, "Coding": 80, "Web Dev": 100,
+  "JavaScript": 100, "Python": 100,
+  "DSA": 180, "AI/ML": 220,
+};
 
 function formatUser(user: typeof usersTable.$inferSelect) {
   return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    bio: user.bio,
-    avatar: user.avatar,
+    id: user.id, name: user.name, email: user.email,
+    bio: user.bio, avatar: user.avatar,
     skillsTeach: user.skillsTeach || [],
     skillsLearn: user.skillsLearn || [],
-    credits: user.credits,
-    trustScore: user.trustScore,
+    credits: user.credits, trustScore: user.trustScore,
     sessionsCompleted: user.sessionsCompleted,
-    averageRating: user.averageRating,
-    createdAt: user.createdAt,
+    averageRating: user.averageRating, createdAt: user.createdAt,
   };
 }
 
@@ -43,7 +44,6 @@ async function formatSession(session: typeof sessionsTable.$inferSelect) {
   };
 }
 
-// GET /sessions
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { role, status } = req.query;
@@ -70,11 +70,11 @@ const bookSchema = z.object({
   mentorId: z.number().int().positive(),
   skill: z.string().min(1),
   scheduledDate: z.string(),
-  duration: z.number().int().positive().default(60),
+  duration: z.number().int().positive().default(45),
   message: z.string().optional(),
+  creditsAmount: z.number().int().min(10).max(250).optional(),
 });
 
-// POST /sessions - Book session with email + Meet link
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const body = bookSchema.parse(req.body);
@@ -85,9 +85,13 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       return;
     }
 
+    // Validate credits against skill max
+    const maxCredits = SKILL_MAX_CREDITS[body.skill] || 250;
+    const creditsToUse = Math.min(body.creditsAmount || 10, maxCredits);
+
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId)).limit(1);
-    if (!student || student.credits < CREDITS_PER_SESSION) {
-      res.status(400).json({ error: "Bad Request", message: "Insufficient credits. You need at least 10 credits." });
+    if (!student || student.credits < creditsToUse) {
+      res.status(400).json({ error: "Bad Request", message: `Insufficient credits. Need ${creditsToUse}, have ${student?.credits || 0}.` });
       return;
     }
 
@@ -97,7 +101,6 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       return;
     }
 
-    // Generate Google Meet link
     const meetLink = generateMeetLink();
 
     const [session] = await db.insert(sessionsTable).values({
@@ -107,35 +110,26 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       scheduledDate: new Date(body.scheduledDate),
       duration: body.duration,
       message: body.message,
-      creditsAmount: CREDITS_PER_SESSION,
+      creditsAmount: creditsToUse,
       status: "requested",
       meetLink,
     }).returning();
 
-    // Deduct credits from student
     await db.update(usersTable)
-      .set({ credits: sql`${usersTable.credits} - ${CREDITS_PER_SESSION}` })
+      .set({ credits: sql`${usersTable.credits} - ${creditsToUse}` })
       .where(eq(usersTable.id, studentId));
 
     await db.insert(transactionsTable).values({
       userId: studentId,
-      amount: -CREDITS_PER_SESSION,
+      amount: -creditsToUse,
       type: "spent",
       description: `Booked ${body.skill} session with ${mentor.name}`,
       sessionId: session.id,
     });
 
-    // Send emails (non-blocking)
     const scheduledDate = new Date(body.scheduledDate);
-    sendBookingConfirmation(
-      student.email, student.name, mentor.name,
-      body.skill, scheduledDate, meetLink
-    ).catch(console.error);
-
-    sendMentorNotification(
-      mentor.email, mentor.name, student.name,
-      body.skill, scheduledDate, meetLink
-    ).catch(console.error);
+    sendBookingConfirmation(student.email, student.name, mentor.name, body.skill, scheduledDate, meetLink).catch(console.error);
+    sendMentorNotification(mentor.email, mentor.name, student.name, body.skill, scheduledDate, meetLink).catch(console.error);
 
     res.status(201).json(await formatSession(session));
   } catch (err) {
@@ -148,7 +142,6 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// POST /sessions/:sessionId/accept
 router.post("/:sessionId/accept", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
@@ -156,10 +149,7 @@ router.post("/:sessionId/accept", requireAuth, async (req: AuthRequest, res) => 
     if (!session) { res.status(404).json({ error: "Not Found", message: "Session not found" }); return; }
     if (session.mentorId !== req.userId) { res.status(403).json({ error: "Forbidden", message: "Only mentor can accept" }); return; }
     if (session.status !== "requested") { res.status(400).json({ error: "Bad Request", message: "Session not in requested status" }); return; }
-    const [updated] = await db.update(sessionsTable)
-      .set({ status: "accepted" })
-      .where(eq(sessionsTable.id, sessionId))
-      .returning();
+    const [updated] = await db.update(sessionsTable).set({ status: "accepted" }).where(eq(sessionsTable.id, sessionId)).returning();
     res.json(await formatSession(updated));
   } catch (err) {
     console.error(err);
@@ -167,7 +157,6 @@ router.post("/:sessionId/accept", requireAuth, async (req: AuthRequest, res) => 
   }
 });
 
-// POST /sessions/:sessionId/complete
 router.post("/:sessionId/complete", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
@@ -178,23 +167,15 @@ router.post("/:sessionId/complete", requireAuth, async (req: AuthRequest, res) =
     }
     if (session.status !== "accepted") { res.status(400).json({ error: "Bad Request", message: "Session must be accepted first" }); return; }
 
-    const totalCredits = session.creditsAmount;
-    const commission = Math.floor(totalCredits * PLATFORM_COMMISSION);
-    const mentorEarns = totalCredits - commission;
+    const commission = Math.floor(session.creditsAmount * PLATFORM_COMMISSION);
+    const mentorEarns = session.creditsAmount - commission;
 
     await db.update(sessionsTable).set({ status: "completed" }).where(eq(sessionsTable.id, sessionId));
-
     await db.update(usersTable)
-      .set({
-        credits: sql`${usersTable.credits} + ${mentorEarns}`,
-        sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1`,
-      })
+      .set({ credits: sql`${usersTable.credits} + ${mentorEarns}`, sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1` })
       .where(eq(usersTable.id, session.mentorId));
-
     await db.insert(transactionsTable).values({
-      userId: session.mentorId,
-      amount: mentorEarns,
-      type: "earned",
+      userId: session.mentorId, amount: mentorEarns, type: "earned",
       description: `Taught ${session.skill} (+${mentorEarns} cr, ${commission} cr platform fee)`,
       sessionId: session.id,
     });
@@ -205,7 +186,6 @@ router.post("/:sessionId/complete", requireAuth, async (req: AuthRequest, res) =
       await db.update(usersTable).set({ trustScore }).where(eq(usersTable.id, session.mentorId));
     }
 
-    // Send rating request email
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId)).limit(1);
     if (student && mentor) {
       sendRatingRequest(student.email, student.name, mentor.name, session.skill, session.id).catch(console.error);
@@ -219,7 +199,6 @@ router.post("/:sessionId/complete", requireAuth, async (req: AuthRequest, res) =
   }
 });
 
-// POST /sessions/:sessionId/cancel
 router.post("/:sessionId/cancel", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
@@ -233,16 +212,11 @@ router.post("/:sessionId/cancel", requireAuth, async (req: AuthRequest, res) => 
     }
 
     await db.update(sessionsTable).set({ status: "cancelled" }).where(eq(sessionsTable.id, sessionId));
-
-    // Refund credits to student
     await db.update(usersTable)
       .set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` })
       .where(eq(usersTable.id, session.studentId));
-
     await db.insert(transactionsTable).values({
-      userId: session.studentId,
-      amount: session.creditsAmount,
-      type: "refund",
+      userId: session.studentId, amount: session.creditsAmount, type: "refund",
       description: `Cancelled ${session.skill} session - full refund`,
       sessionId: session.id,
     });
