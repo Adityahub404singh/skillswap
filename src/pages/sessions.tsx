@@ -7,14 +7,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, CheckCircle2, XCircle, Star, CalendarDays, Loader2 } from "lucide-react";
-import { Session } from "@/lib/api";
+import { Clock, CheckCircle2, XCircle, Star, CalendarDays, Loader2, Video } from "lucide-react";
 
 export default function Sessions() {
   const options = useApiOptions();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  
+
   const [tab, setTab] = useState<"learning" | "teaching">("learning");
   const [ratingSessionId, setRatingSessionId] = useState<number | null>(null);
   const [ratingVal, setRatingVal] = useState(5);
@@ -34,13 +33,13 @@ export default function Sessions() {
   const acceptMut = useAcceptSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Accepted" }); } } });
   const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Completed", description: "Credits have been transferred." }); } } });
   const cancelMut = useCancelSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Cancelled" }); } } });
-  const rateMut = useCreateRating({ ...options, mutation: { 
-    onSuccess: () => { 
-      invalidate(); 
-      setRatingSessionId(null); 
+  const rateMut = useCreateRating({ ...options, mutation: {
+    onSuccess: () => {
+      invalidate();
+      setRatingSessionId(null);
       setReviewText("");
-      toast({ title: "Review Submitted", description: "Thank you for your feedback!" }); 
-    } 
+      toast({ title: "Review Submitted", description: "Thank you for your feedback!" });
+    }
   }});
 
   const handleRate = () => {
@@ -68,13 +67,13 @@ export default function Sessions() {
       </div>
 
       <div className="flex p-1 bg-muted/50 rounded-xl w-full sm:w-fit border border-border/50">
-        <button 
+        <button
           className={`flex-1 sm:px-8 py-2.5 text-sm font-bold rounded-lg transition-all ${tab === 'learning' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
           onClick={() => setTab('learning')}
         >
           Learning (Student)
         </button>
-        <button 
+        <button
           className={`flex-1 sm:px-8 py-2.5 text-sm font-bold rounded-lg transition-all ${tab === 'teaching' ? 'bg-background shadow-sm text-accent' : 'text-muted-foreground hover:text-foreground'}`}
           onClick={() => setTab('teaching')}
         >
@@ -92,14 +91,14 @@ export default function Sessions() {
             <p className="text-muted-foreground">You don't have any {tab} sessions yet.</p>
           </div>
         ) : (
-          sessions?.sort((a,b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()).map(session => {
+          sessions?.sort((a: any, b: any) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()).map((session: any) => {
             const otherUser = tab === 'learning' ? session.mentor : session.student;
-            
+
             return (
               <div key={session.id} className="card-premium p-6 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between group">
                 <div className="flex items-start gap-4 flex-1">
                   <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0 ${tab === 'learning' ? 'bg-gradient-to-br from-primary/80 to-primary' : 'bg-gradient-to-br from-accent/80 to-accent'} shadow-inner`}>
-                    {otherUser.avatar ? <img src={otherUser.avatar} className="w-full h-full rounded-full object-cover" /> : otherUser.name.charAt(0)}
+                    {otherUser?.avatar ? <img src={otherUser.avatar} className="w-full h-full rounded-full object-cover" /> : otherUser?.name?.charAt(0)}
                   </div>
                   <div>
                     <div className="flex items-center gap-3 mb-1">
@@ -107,7 +106,7 @@ export default function Sessions() {
                       {getStatusBadge(session.status)}
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      with <span className="font-medium text-foreground">{otherUser.name}</span>
+                      with <span className="font-medium text-foreground">{otherUser?.name}</span>
                     </p>
                     <div className="text-sm font-medium bg-background border border-border inline-flex px-3 py-1.5 rounded-lg shadow-sm">
                       {format(new Date(session.scheduledDate), 'EEEE, MMMM d, yyyy • h:mm a')}
@@ -116,6 +115,18 @@ export default function Sessions() {
                       <p className="text-sm text-muted-foreground mt-3 italic border-l-2 border-border pl-3">
                         "{session.message}"
                       </p>
+                    )}
+                    {/* Meet Link */}
+                    {(session as any).meetLink && session.status === 'accepted' && (
+                      <a
+                        href={(session as any).meetLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors shadow-sm"
+                      >
+                        <Video className="w-4 h-4" />
+                        Join Google Meet 🎥
+                      </a>
                     )}
                   </div>
                 </div>
@@ -129,7 +140,10 @@ export default function Sessions() {
                     </>
                   )}
                   {tab === 'teaching' && session.status === 'accepted' && (
-                    <Button variant="outline" className="text-destructive" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel</Button>
+                    <>
+                      <Button variant="outline" className="text-destructive" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel</Button>
+                      <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Completed ✓</Button>
+                    </>
                   )}
 
                   {/* Learning Actions */}
@@ -139,15 +153,15 @@ export default function Sessions() {
                   {tab === 'learning' && session.status === 'accepted' && (
                     <Button className="bg-primary hover:bg-primary/90" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Completed</Button>
                   )}
-                  {tab === 'learning' && session.status === 'completed' && !session.rating && (
+                  {tab === 'learning' && session.status === 'completed' && !(session as any).rating && (
                     <Button variant="outline" className="border-orange-500 text-orange-600 hover:bg-orange-50" onClick={() => setRatingSessionId(session.id)}>
                       <Star className="w-4 h-4 mr-2" /> Rate Mentor
                     </Button>
                   )}
-                  
-                  {session.status === 'completed' && session.rating && (
+
+                  {session.status === 'completed' && (session as any).rating && (
                     <div className="px-3 py-1.5 bg-muted rounded-lg text-sm font-medium flex items-center gap-1">
-                      <Star className="w-4 h-4 fill-orange-500 text-orange-500" /> Rated {session.rating.rating}/5
+                      <Star className="w-4 h-4 fill-orange-500 text-orange-500" /> Rated {(session as any).rating.rating}/5
                     </div>
                   )}
                 </div>
@@ -174,8 +188,8 @@ export default function Sessions() {
                 </button>
               ))}
             </div>
-            <Textarea 
-              placeholder="Leave a review (optional)" 
+            <Textarea
+              placeholder="Leave a review (optional)"
               value={reviewText}
               onChange={e => setReviewText(e.target.value)}
               className="resize-none h-24"
