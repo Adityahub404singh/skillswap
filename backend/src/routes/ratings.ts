@@ -42,7 +42,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     const [rating] = await db.insert(ratingsTable).values({
       sessionId: body.sessionId,
       mentorId: session.mentorId,
-      studentId,
+      raterId: studentId,
       rating: body.rating,
       review: body.review,
     }).returning();
