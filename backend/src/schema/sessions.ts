@@ -15,6 +15,9 @@ export const sessionsTable = pgTable("sessions", {
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
   actualDuration: integer("actual_duration"),
+  isGroup: integer("is_group").default(0),
+  maxStudents: integer("max_students").default(1),
+  negotiatedPrice: integer("negotiated_price"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -27,6 +30,9 @@ export const insertSessionSchema = z.object({
   message: z.string().optional(),
   creditsAmount: z.number().int().default(10),
   meetLink: z.string().optional(),
+  isGroup: z.number().int().default(0),
+  maxStudents: z.number().int().default(1),
+  negotiatedPrice: z.number().int().optional(),
 });
 
 export type InsertSession = z.infer<typeof insertSessionSchema>;
