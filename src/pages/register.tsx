@@ -8,11 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, User, Mail, Lock, Loader2, BookOpen, Lightbulb, Check, Sparkles, Gift } from "lucide-react";
+import { ArrowRight, User, Mail, Lock, Loader2, BookOpen, Lightbulb, Check, Sparkles, Gift, Tag } from "lucide-react";
 
 const POPULAR_SKILLS = [
   "Python", "JavaScript", "Design", "Spanish",
-  "Photography", "Marketing", "Music", "Chess"
+  "Photography", "Marketing", "Music", "Chess",
+  "Web Dev", "DSA", "AI/ML", "English", "Maths", "Coding"
 ];
 
 const registerSchema = z.object({
@@ -21,6 +22,7 @@ const registerSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   skillsTeachStr: z.string().optional(),
   skillsLearnStr: z.string().optional(),
+  referralCode: z.string().optional(),
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -30,8 +32,13 @@ export default function Register() {
   const { setToken } = useAuthStore();
   const { toast } = useToast();
 
+  // Check for referral code in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const refCode = urlParams.get("ref") || "";
+
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
+    defaultValues: { referralCode: refCode }
   });
 
   const watchTeach = watch("skillsTeachStr") || "";
@@ -71,20 +78,26 @@ export default function Register() {
   const onSubmit = (data: RegisterForm) => {
     const skillsTeach = data.skillsTeachStr ? data.skillsTeachStr.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
     const skillsLearn = data.skillsLearnStr ? data.skillsLearnStr.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-    registerMutation.mutate({ data: { name: data.name, email: data.email, password: data.password, skillsTeach, skillsLearn } });
+    registerMutation.mutate({
+      data: {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        skillsTeach,
+        skillsLearn,
+        referralCode: data.referralCode || undefined
+      }
+    });
   };
 
   return (
     <div className="min-h-[90vh] flex items-center justify-center py-12 px-4">
-      {/* Background blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-primary/8 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-[400px] h-[400px] rounded-full bg-accent/6 blur-3xl" />
       </div>
 
       <div className="relative z-10 w-full max-w-2xl">
-
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary font-semibold text-sm mb-4">
             <Gift className="w-4 h-4" />
@@ -96,7 +109,6 @@ export default function Register() {
           <p className="text-muted-foreground">Start teaching, start learning. No money needed.</p>
         </div>
 
-        {/* Main card */}
         <div className="glass-card border border-primary/15 shadow-2xl shadow-primary/10">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
@@ -106,26 +118,15 @@ export default function Register() {
                 <label className="text-sm font-semibold ml-1">Full Name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Jane Doe"
-                    className={`pl-10 h-12 bg-background/50 border-2 focus-visible:ring-primary/20 ${errors.name ? 'border-destructive' : 'border-border focus:border-primary/50'}`}
-                    {...register("name")}
-                  />
+                  <Input type="text" placeholder="Jane Doe" className={`pl-10 h-12 bg-background/50 border-2 focus-visible:ring-primary/20 ${errors.name ? 'border-destructive' : 'border-border focus:border-primary/50'}`} {...register("name")} />
                 </div>
                 {errors.name && <p className="text-sm text-destructive ml-1">{errors.name.message}</p>}
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-semibold ml-1">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    className={`pl-10 h-12 bg-background/50 border-2 focus-visible:ring-primary/20 ${errors.email ? 'border-destructive' : 'border-border focus:border-primary/50'}`}
-                    {...register("email")}
-                  />
+                  <Input type="email" placeholder="you@example.com" className={`pl-10 h-12 bg-background/50 border-2 focus-visible:ring-primary/20 ${errors.email ? 'border-destructive' : 'border-border focus:border-primary/50'}`} {...register("email")} />
                 </div>
                 {errors.email && <p className="text-sm text-destructive ml-1">{errors.email.message}</p>}
               </div>
@@ -136,14 +137,26 @@ export default function Register() {
               <label className="text-sm font-semibold ml-1">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
-                <Input
-                  type="password"
-                  placeholder="At least 6 characters"
-                  className={`pl-10 h-12 bg-background/50 border-2 focus-visible:ring-primary/20 ${errors.password ? 'border-destructive' : 'border-border focus:border-primary/50'}`}
-                  {...register("password")}
-                />
+                <Input type="password" placeholder="At least 6 characters" className={`pl-10 h-12 bg-background/50 border-2 focus-visible:ring-primary/20 ${errors.password ? 'border-destructive' : 'border-border focus:border-primary/50'}`} {...register("password")} />
               </div>
               {errors.password && <p className="text-sm text-destructive ml-1">{errors.password.message}</p>}
+            </div>
+
+            {/* Referral Code */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold ml-1 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-green-500" />
+                Referral Code <span className="text-xs text-muted-foreground font-normal">(optional - get bonus credits!)</span>
+              </label>
+              <Input
+                type="text"
+                placeholder="Enter referral code..."
+                className="h-11 bg-background/50 border-2 border-green-500/30 focus:border-green-500/60 focus-visible:ring-green-500/20"
+                {...register("referralCode")}
+              />
+              {refCode && (
+                <p className="text-xs text-green-600 font-medium ml-1">✓ Referral code applied automatically!</p>
+              )}
             </div>
 
             {/* Skills section */}
@@ -151,8 +164,18 @@ export default function Register() {
               <p className="text-sm font-bold text-center mb-4 text-muted-foreground uppercase tracking-wider text-xs">
                 Customize your experience (optional)
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
+              {/* Skill pricing guide */}
+              <div className="mb-4 p-3 rounded-xl bg-muted/40 border border-border/50 text-xs">
+                <p className="font-bold mb-2 text-foreground">💡 Skill pricing guide:</p>
+                <div className="grid grid-cols-3 gap-2 text-muted-foreground">
+                  <div><span className="text-green-600 font-bold">Basic</span><br/>English, Maths<br/>10–40 cr</div>
+                  <div><span className="text-blue-600 font-bold">Medium</span><br/>Coding, Web Dev<br/>30–100 cr</div>
+                  <div><span className="text-purple-600 font-bold">Advanced</span><br/>DSA, AI/ML<br/>80–220 cr</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Teach */}
                 <div className="space-y-3">
                   <label className="text-sm font-semibold flex items-center gap-2">
@@ -165,27 +188,14 @@ export default function Register() {
                     {POPULAR_SKILLS.map(skill => {
                       const selected = isSkillSelected(skill, watchTeach);
                       return (
-                        <button
-                          key={`teach-${skill}`}
-                          type="button"
-                          onClick={() => handleToggleSkill(skill, "skillsTeachStr", watchTeach)}
-                          className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-200 flex items-center gap-1 font-medium ${
-                            selected
-                              ? 'bg-primary text-white border-primary shadow-md shadow-primary/25'
-                              : 'bg-background hover:bg-primary/8 border-border text-muted-foreground hover:border-primary/40 hover:text-primary'
-                          }`}
-                        >
-                          {selected && <Check className="w-3 h-3" />}
-                          {skill}
+                        <button key={`teach-${skill}`} type="button" onClick={() => handleToggleSkill(skill, "skillsTeachStr", watchTeach)}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-200 flex items-center gap-1 font-medium ${selected ? 'bg-primary text-white border-primary shadow-md shadow-primary/25' : 'bg-background hover:bg-primary/8 border-border text-muted-foreground hover:border-primary/40 hover:text-primary'}`}>
+                          {selected && <Check className="w-3 h-3" />}{skill}
                         </button>
                       );
                     })}
                   </div>
-                  <Textarea
-                    placeholder="e.g. React, UI Design, Spanish..."
-                    className="resize-none h-16 bg-background/50 border-2 text-sm focus-visible:ring-primary/20"
-                    {...register("skillsTeachStr")}
-                  />
+                  <Textarea placeholder="e.g. React, UI Design, Spanish..." className="resize-none h-16 bg-background/50 border-2 text-sm focus-visible:ring-primary/20" {...register("skillsTeachStr")} />
                 </div>
 
                 {/* Learn */}
@@ -200,52 +210,31 @@ export default function Register() {
                     {POPULAR_SKILLS.map(skill => {
                       const selected = isSkillSelected(skill, watchLearn);
                       return (
-                        <button
-                          key={`learn-${skill}`}
-                          type="button"
-                          onClick={() => handleToggleSkill(skill, "skillsLearnStr", watchLearn)}
-                          className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-200 flex items-center gap-1 font-medium ${
-                            selected
-                              ? 'bg-primary text-white border-primary shadow-md shadow-primary/25'
-                              : 'bg-background hover:bg-primary/8 border-border text-muted-foreground hover:border-primary/40 hover:text-primary'
-                          }`}
-                        >
-                          {selected && <Check className="w-3 h-3" />}
-                          {skill}
+                        <button key={`learn-${skill}`} type="button" onClick={() => handleToggleSkill(skill, "skillsLearnStr", watchLearn)}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-200 flex items-center gap-1 font-medium ${selected ? 'bg-primary text-white border-primary shadow-md shadow-primary/25' : 'bg-background hover:bg-primary/8 border-border text-muted-foreground hover:border-primary/40 hover:text-primary'}`}>
+                          {selected && <Check className="w-3 h-3" />}{skill}
                         </button>
                       );
                     })}
                   </div>
-                  <Textarea
-                    placeholder="e.g. Python, Piano, Copywriting..."
-                    className="resize-none h-16 bg-background/50 border-2 text-sm focus-visible:ring-primary/20"
-                    {...register("skillsLearnStr")}
-                  />
+                  <Textarea placeholder="e.g. Python, Piano, Copywriting..." className="resize-none h-16 bg-background/50 border-2 text-sm focus-visible:ring-primary/20" {...register("skillsLearnStr")} />
                 </div>
               </div>
             </div>
 
-            {/* Submit button */}
-            <Button
-              type="submit"
-              disabled={registerMutation.isPending}
-              className="w-full h-14 rounded-2xl bg-gradient-premium btn-glow hover:-translate-y-0.5 text-white font-bold shadow-xl shadow-primary/30 transition-all text-base mt-2"
-            >
-              {registerMutation.isPending
-                ? <Loader2 className="w-5 h-5 animate-spin" />
-                : (
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5" />
-                    Create Account - Get 200 Credits Free!
-                    <ArrowRight className="w-5 h-5" />
-                  </span>
-                )
-              }
+            {/* Submit */}
+            <Button type="submit" disabled={registerMutation.isPending}
+              className="w-full h-14 rounded-2xl bg-gradient-premium btn-glow hover:-translate-y-0.5 text-white font-bold shadow-xl shadow-primary/30 transition-all text-base mt-2">
+              {registerMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5" />
+                  Create Account – Get 200 Credits Free!
+                  <ArrowRight className="w-5 h-5" />
+                </span>
+              )}
             </Button>
-
           </form>
 
-          {/* Sign in link */}
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/login" className="font-bold text-primary hover:underline inline-flex items-center gap-1">
@@ -253,7 +242,6 @@ export default function Register() {
             </Link>
           </div>
         </div>
-
       </div>
     </div>
   );
