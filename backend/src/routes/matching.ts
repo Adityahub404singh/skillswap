@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, ratingsTable } from "@workspace/db";
+import { db, usersTable, ratingsTable } from "../db.js";
 
 const router: IRouter = Router();
 
