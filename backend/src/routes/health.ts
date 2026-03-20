@@ -1,11 +1,6 @@
-import { Router, type IRouter } from "express";
-import { HealthCheckResponse } from "../schema/index.js";
-
-const router: IRouter = Router();
-
-router.get("/healthz", (_req, res) => {
-  const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json(data);
+import { Router } from "express";
+const router = Router();
+router.get("/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
-
 export default router;
