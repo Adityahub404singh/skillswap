@@ -13,7 +13,7 @@ const router: IRouter = Router();
 const PLATFORM_COMMISSION = 0.10;
 
 const SKILL_MAX_CREDITS: Record<string, number> = {
-  "English": 40, "Maths": 40, "Music": 40, "Chess": 30,
+  "English": 30, "Maths": 40, "Music": 40, "Chess": 30,
   "Spanish": 40, "Photography": 50, "Marketing": 60,
   "Design": 80, "Coding": 80, "Web Dev": 100,
   "JavaScript": 100, "Python": 100,
@@ -44,6 +44,7 @@ async function formatSession(session: typeof sessionsTable.$inferSelect) {
   };
 }
 
+// GET all sessions
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { role, status } = req.query;
@@ -66,6 +67,16 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// GET available group sessions
+router.get("/group/available", async (req, res) => {
+  try {
+    const sessions = await db.select().from(sessionsTable);
+    const groupSessions = sessions.filter(s => s.isGroup === 1 && s.status === "accepted");
+    const formatted = await Promise.all(groupSessions.map(formatSession));
+    res.json(formatted);
+  } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
+});
+
 const bookSchema = z.object({
   mentorId: z.number().int().positive(),
   skill: z.string().min(1),
@@ -75,6 +86,7 @@ const bookSchema = z.object({
   creditsAmount: z.number().int().min(10).max(250).optional(),
 });
 
+// POST book session
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const body = bookSchema.parse(req.body);
@@ -91,15 +103,11 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       return;
     }
     const [mentor] = await db.select().from(usersTable).where(eq(usersTable.id, body.mentorId)).limit(1);
-    if (!mentor) {
-      res.status(404).json({ error: "Not Found", message: "Mentor not found" });
-      return;
-    }
+    if (!mentor) { res.status(404).json({ error: "Not Found", message: "Mentor not found" }); return; }
     const meetLink = generateMeetLink();
     const [session] = await db.insert(sessionsTable).values({
       mentorId: body.mentorId, studentId,
-      skill: body.skill,
-      scheduledDate: new Date(body.scheduledDate),
+      skill: body.skill, scheduledDate: new Date(body.scheduledDate),
       duration: body.duration, message: body.message,
       creditsAmount: creditsToUse, status: "requested", meetLink,
     }).returning();
@@ -118,6 +126,25 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// POST create group session (mentor only)
+router.post("/group", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { skill, scheduledDate, duration, creditsAmount, maxStudents, message } = req.body;
+    const mentorId = req.userId!;
+    const meetLink = generateMeetLink();
+    const [session] = await db.insert(sessionsTable).values({
+      mentorId, studentId: mentorId, skill,
+      scheduledDate: new Date(scheduledDate),
+      duration: duration || 45,
+      creditsAmount: creditsAmount || 50,
+      maxStudents: maxStudents || 10,
+      isGroup: 1, status: "accepted", meetLink, message,
+    }).returning();
+    res.status(201).json(await formatSession(session));
+  } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// POST accept session
 router.post("/:sessionId/accept", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
@@ -130,6 +157,46 @@ router.post("/:sessionId/accept", requireAuth, async (req: AuthRequest, res) => 
   } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// POST join group session
+router.post("/:sessionId/join", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.sessionId as string);
+    const studentId = req.userId!;
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId)).limit(1);
+    if (!session) { res.status(404).json({ error: "Not Found" }); return; }
+    if (!session.isGroup) { res.status(400).json({ error: "Not a group session" }); return; }
+    if (session.status !== "accepted") { res.status(400).json({ error: "Session not available" }); return; }
+    if (session.mentorId === studentId) { res.status(400).json({ error: "Mentor cannot join own session" }); return; }
+    const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId)).limit(1);
+    if (!student || student.credits < session.creditsAmount) {
+      res.status(400).json({ error: "Insufficient credits" }); return;
+    }
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${session.creditsAmount}` }).where(eq(usersTable.id, studentId));
+    const commission = (session.maxStudents || 1) <= 2 ? 0.10 : (session.maxStudents || 1) <= 5 ? 0.15 : 0.20;
+    const mentorEarns = Math.floor(session.creditsAmount * (1 - commission));
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${mentorEarns}` }).where(eq(usersTable.id, session.mentorId));
+    await db.insert(transactionsTable).values({ userId: studentId, amount: -session.creditsAmount, type: "spent", description: `Joined group: ${session.skill}`, sessionId: session.id });
+    await db.insert(transactionsTable).values({ userId: session.mentorId, amount: mentorEarns, type: "earned", description: `Group earning: ${session.skill} (+${mentorEarns} cr)`, sessionId: session.id });
+    res.json({ success: true, meetLink: session.meetLink, creditsDeducted: session.creditsAmount });
+  } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// POST negotiate price
+router.post("/:sessionId/negotiate", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.sessionId as string);
+    const { proposedPrice } = req.body;
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId)).limit(1);
+    if (!session) { res.status(404).json({ error: "Not Found" }); return; }
+    if (session.mentorId !== req.userId && session.studentId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+    if (session.status !== "requested") { res.status(400).json({ error: "Cannot negotiate now" }); return; }
+    const finalPrice = Math.min(Math.max(proposedPrice, 10), 250);
+    const [updated] = await db.update(sessionsTable).set({ negotiatedPrice: finalPrice, creditsAmount: finalPrice }).where(eq(sessionsTable.id, sessionId)).returning();
+    res.json({ success: true, negotiatedPrice: finalPrice, session: await formatSession(updated) });
+  } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// POST start session
 router.post("/:sessionId/start", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
@@ -137,13 +204,12 @@ router.post("/:sessionId/start", requireAuth, async (req: AuthRequest, res) => {
     if (!session) { res.status(404).json({ error: "Not Found" }); return; }
     if (session.mentorId !== req.userId && session.studentId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
     if (session.status !== "accepted") { res.status(400).json({ error: "Must be accepted first" }); return; }
-    const [updated] = await db.update(sessionsTable)
-      .set({ startedAt: new Date(), status: "in_progress" })
-      .where(eq(sessionsTable.id, sessionId)).returning();
+    const [updated] = await db.update(sessionsTable).set({ startedAt: new Date(), status: "in_progress" }).where(eq(sessionsTable.id, sessionId)).returning();
     res.json(await formatSession(updated));
   } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// POST complete session
 router.post("/:sessionId/complete", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
@@ -192,6 +258,7 @@ router.post("/:sessionId/complete", requireAuth, async (req: AuthRequest, res) =
   } catch (err) { console.error(err); res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// POST cancel session
 router.post("/:sessionId/cancel", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId as string);
