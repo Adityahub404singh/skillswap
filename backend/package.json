@@ -9,13 +9,16 @@
     "start": "node dist/index.cjs"
   },
   "dependencies": {
+    "@sentry/node": "^10.55.0",
     "bcryptjs": "^3.0.3",
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.1",
     "drizzle-zod": "^0.7.0",
     "esbuild": "^0.25.0",
     "express": "^5.0.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.10.1",
     "pg": "^8.13.3",

@@ -17,6 +17,7 @@ import AIChat from "@/pages/ai-chat";
 import AdminPanel from "@/pages/admin";
 import Profile from "@/pages/profile";
 import BuyCredits from "@/pages/buy-credits";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuthStore } from "@/store/auth";
 
 const queryClient = new QueryClient({
@@ -73,7 +74,7 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <ErrorBoundary><QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter>
           <Router />
