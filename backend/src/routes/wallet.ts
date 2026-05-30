@@ -11,22 +11,26 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
-async function sendWithdrawalAlert(userName: string, amount: number, upiId: string, userId: number) {
+async function sendWithdrawalAlert(userName: string, amount: number, userReceives: number, platformFee: number, upiId: string, userId: number) {
   await transporter.sendMail({
     from: `"SkillSwap" <${process.env.EMAIL_USER}>`,
     to: process.env.EMAIL_USER,
-    subject: `Withdrawal Request - Rs.${amount} from ${userName}`,
+    subject: `Withdrawal Request - Rs.${userReceives} to ${userName}`,
     html: `
       <div style="font-family: Arial; padding: 20px; background: #f9f9f9;">
         <h2 style="color: #7c3aed;">New Withdrawal Request!</h2>
-        <table style="width:100%; border-collapse:collapse;">
-          <tr><td><strong>User:</strong></td><td>${userName} (ID: ${userId})</td></tr>
-          <tr><td><strong>Amount:</strong></td><td>Rs.${amount}</td></tr>
-          <tr><td><strong>UPI ID:</strong></td><td>${upiId}</td></tr>
-          <tr><td><strong>Time:</strong></td><td>${new Date().toLocaleString("en-IN", {timeZone:"Asia/Kolkata"})}</td></tr>
+        <table style="width:100%; border-collapse:collapse; margin: 20px 0;">
+          <tr style="background:#f0f0ff;"><td style="padding:8px;"><strong>User:</strong></td><td style="padding:8px;">${userName} (ID: ${userId})</td></tr>
+          <tr><td style="padding:8px;"><strong>Credits withdrawn:</strong></td><td style="padding:8px;">${amount} cr</td></tr>
+          <tr style="background:#f0f0ff;"><td style="padding:8px;"><strong>Platform fee (5%):</strong></td><td style="padding:8px; color:green;">Rs.${platformFee} (yours!)</td></tr>
+          <tr><td style="padding:8px;"><strong>User receives:</strong></td><td style="padding:8px; color:#e11d48;">Rs.${userReceives}</td></tr>
+          <tr style="background:#f0f0ff;"><td style="padding:8px;"><strong>UPI ID:</strong></td><td style="padding:8px;">${upiId}</td></tr>
+          <tr><td style="padding:8px;"><strong>Time:</strong></td><td style="padding:8px;">${new Date().toLocaleString("en-IN", {timeZone:"Asia/Kolkata"})}</td></tr>
         </table>
-        <p style="color:red;"><strong>Action needed: Transfer Rs.${amount} to ${upiId} via UPI</strong></p>
-        <p>Go to Razorpay Dashboard to make the transfer.</p>
+        <div style="background:#fee2e2; padding:15px; border-radius:8px; margin:20px 0;">
+          <p style="color:red; margin:0;"><strong>Action needed: Transfer Rs.${userReceives} to UPI: ${upiId}</strong></p>
+        </div>
+        <p style="color:#666;">Go to Razorpay Dashboard or any UPI app to complete the transfer.</p>
       </div>
     `,
   });
@@ -67,13 +71,20 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
     if (amount < 500) { res.status(400).json({ error: "Minimum 500 credits required" }); return; }
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user || user.credits < amount) { res.status(400).json({ error: "Insufficient credits" }); return; }
+    const platformFee = Math.floor(amount * 0.05);
+    const userReceives = amount - platformFee;
     await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${amount}` }).where(eq(usersTable.id, userId));
     await db.insert(transactionsTable).values({
       userId, amount: -amount, type: "withdrawal",
-      description: "Withdrawal to UPI: " + upiId + " (Processing in 24-48hrs)"
+      description: "Withdrawal Rs." + userReceives + " to " + upiId + " (5% fee: Rs." + platformFee + ")"
     });
-    sendWithdrawalAlert(user.name, amount, upiId, userId).catch(console.error);
-    res.json({ success: true, message: "Withdrawal request submitted! Will be processed in 24-48 hours." });
+    sendWithdrawalAlert(user.name, amount, userReceives, platformFee, upiId, userId).catch(console.error);
+    res.json({
+      success: true,
+      message: "Withdrawal of Rs." + userReceives + " submitted! (5% platform fee applied) Processing in 24-48 hours.",
+      userReceives,
+      platformFee
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
