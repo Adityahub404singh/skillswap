@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 
 interface Props { children: ReactNode; }
-interface State { hasError: boolean; error?: Error; }
+interface State { hasError: boolean; }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -10,8 +10,8 @@ export class ErrorBoundary extends Component<Props, State> {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+  static getDerivedStateFromError(): State {
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, info: any) {
@@ -23,9 +23,9 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen flex items-center justify-center p-4">
           <div className="text-center space-y-4 max-w-md">
-            <div className="text-6xl">😕</div>
+            <div className="text-6xl">Sorry</div>
             <h1 className="text-2xl font-bold">Something went wrong</h1>
-            <p className="text-muted-foreground">We are working on a fix. Please refresh the page.</p>
+            <p className="text-muted-foreground">Please refresh the page.</p>
             <Button onClick={() => window.location.reload()} className="rounded-full">
               Refresh Page
             </Button>

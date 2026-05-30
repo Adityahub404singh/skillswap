@@ -81,8 +81,9 @@ function App() {
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
-    </QueryClientProvider>
+    </QueryClientProvider></ErrorBoundary>
   );
 }
 
 export default App;
+
