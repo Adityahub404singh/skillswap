@@ -16,6 +16,8 @@ import Wallet from "@/pages/wallet";
 import AIChat from "@/pages/ai-chat";
 import AdminPanel from "@/pages/admin";
 import Profile from "@/pages/profile";
+import PrivacyPolicy from "@/pages/privacy-policy";
+import Terms from "@/pages/terms";
 import BuyCredits from "@/pages/buy-credits";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuthStore } from "@/store/auth";
@@ -66,6 +68,8 @@ function Router() {
         <Route path="/profile">
           <ProtectedRoute component={Profile} />
         </Route>
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/terms" component={Terms} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
