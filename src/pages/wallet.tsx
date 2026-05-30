@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { useGetWallet, useGetTransactions } from "@/lib/api";
-import { useApiOptions, API_BASE_URL } from "@/lib/api-utils";
+import { useApiOptions } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
 import { format } from "date-fns";
 import { Link } from "wouter";
@@ -24,7 +24,6 @@ export default function Wallet() {
   const [upiId, setUpiId] = useState("");
   const [withdrawLoading, setWithdrawLoading] = useState(false);
 
-  // âœ… FIXED: Removed wallet?.referralCode (doesn't exist on Wallet type)
   const referralCode = "SKILL" + (token?.slice(-6) || Math.random().toString(36).slice(2, 8)).toUpperCase();
   const referralLink = `https://skillswap-fawn-mu.vercel.app/register?ref=${referralCode}`;
 
@@ -51,13 +50,13 @@ export default function Wallet() {
     }
     setWithdrawLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/wallet/withdraw`, {
+      const res = await fetch("/api/wallet/withdraw", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ amount, upiId })
       });
       if (res.ok) {
-        toast({ title: "Withdrawal Requested! ðŸŽ‰", description: `â‚¹${amount} withdrawal request submitted. Will be processed in 24-48 hours.` });
+        toast({ title: "Withdrawal Requested! 🎉", description: `Rs.${amount} withdrawal request submitted. Will be processed in 24-48 hours.` });
         setShowWithdraw(false);
         setWithdrawAmount("");
         setUpiId("");
@@ -81,7 +80,7 @@ export default function Wallet() {
 
       {/* Balance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 card-premium bg-gradient-premium text-white p-8 relative overflow-hidden">
+        <div className="md:col-span-2 card-premium text-white p-8 relative overflow-hidden" style={{background: "linear-gradient(135deg, #7c3aed, #6366f1)"}}>
           <div className="absolute -right-8 -top-8 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
           <div className="relative z-10">
             <p className="text-white/80 font-medium uppercase tracking-wider text-sm mb-2">Available Balance</p>
@@ -89,12 +88,12 @@ export default function Wallet() {
               <Skeleton className="h-16 w-48 bg-white/20" />
             ) : (
               <div className="flex items-baseline gap-2">
-                <span className="text-6xl font-extrabold tracking-tighter">{wallet?.balance || 0}</span>
+                <span className="text-6xl font-extrabold tracking-tighter">{wallet?.balance ?? 0}</span>
                 <span className="text-xl font-medium text-white/80">cr</span>
               </div>
             )}
-            <p className="mt-3 text-sm text-white/70">= â‚¹{wallet?.balance || 0} withdrawal value</p>
-            <div className="mt-6 flex gap-3">
+            <p className="mt-3 text-sm text-white/70">= Rs.{wallet?.balance ?? 0} withdrawal value</p>
+            <div className="mt-6 flex flex-wrap gap-3 items-center">
               <Button
                 onClick={() => setShowWithdraw(true)}
                 className="bg-white text-primary hover:bg-white/90 font-bold rounded-full h-10 px-5"
@@ -103,7 +102,13 @@ export default function Wallet() {
                 <Send className="w-4 h-4 mr-2" /> Withdraw
               </Button>
               {(wallet?.balance || 0) < 500 && (
-                <><p className="text-white/60 text-xs self-center">Min. 500 cr needed</p><Link href="/buy-credits"><Button className="bg-white/20 hover:bg-white/30 text-white font-bold rounded-full h-10 px-5 border border-white/30">+ Buy Credits</Button></Link></>) }
+                <p className="text-white/60 text-xs">Min. 500 cr needed</p>
+              )}
+              <Link href="/buy-credits">
+                <Button className="bg-white/20 hover:bg-white/30 text-white font-bold rounded-full h-10 px-5 border border-white/30">
+                  + Buy Credits
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -113,7 +118,7 @@ export default function Wallet() {
             <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Total Earned</p>
             {walletLoading ? <Skeleton className="h-8 w-24" /> : (
               <p className="text-2xl font-bold text-green-600 flex items-center gap-1">
-                <ArrowUpRight className="w-5 h-5" /> {wallet?.totalEarned || 0} cr
+                <ArrowUpRight className="w-5 h-5" /> {wallet?.totalEarned ?? 0} cr
               </p>
             )}
           </div>
@@ -121,7 +126,7 @@ export default function Wallet() {
             <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Total Spent</p>
             {walletLoading ? <Skeleton className="h-8 w-24" /> : (
               <p className="text-2xl font-bold text-destructive flex items-center gap-1">
-                <ArrowDownRight className="w-5 h-5" /> {Math.abs(wallet?.totalSpent || 0)} cr
+                <ArrowDownRight className="w-5 h-5" /> {Math.abs(wallet?.totalSpent ?? 0)} cr
               </p>
             )}
           </div>
@@ -162,7 +167,7 @@ export default function Wallet() {
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2 ml-1">Share this link â€” when friends sign up, you both get credits!</p>
+        <p className="text-xs text-muted-foreground mt-2 ml-1">Share this link — when friends sign up, you both get credits!</p>
       </div>
 
       {/* Transaction History */}
@@ -188,7 +193,7 @@ export default function Wallet() {
                     </div>
                     <div>
                       <p className="font-bold text-sm">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(tx.createdAt), 'MMM d, yyyy â€¢ h:mm a')}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(tx.createdAt), 'MMM d, yyyy • h:mm a')}</p>
                     </div>
                   </div>
                   <div className={`font-bold text-right ${
@@ -215,7 +220,7 @@ export default function Wallet() {
               <button onClick={() => setShowWithdraw(false)}><X className="w-5 h-5" /></button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Balance: <span className="font-bold text-primary">{wallet?.balance} cr</span> â€¢ Min: 500 cr â€¢ 1 cr = â‚¹1
+              Balance: <span className="font-bold text-primary">{wallet?.balance} cr</span> • Min: 500 cr • 1 cr = Rs.1
             </p>
             <div className="space-y-3">
               <div>
@@ -229,7 +234,7 @@ export default function Wallet() {
                   max={wallet?.balance}
                 />
                 {withdrawAmount && parseInt(withdrawAmount) >= 500 && (
-                  <p className="text-xs text-green-600 mt-1">= â‚¹{withdrawAmount} will be transferred</p>
+                  <p className="text-xs text-green-600 mt-1">= Rs.{withdrawAmount} will be transferred</p>
                 )}
               </div>
               <div>
@@ -241,11 +246,11 @@ export default function Wallet() {
                 />
               </div>
               <Button
-                className="w-full bg-gradient-premium text-white font-bold rounded-xl h-12"
+                className="w-full bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl h-12"
                 onClick={handleWithdraw}
                 disabled={withdrawLoading}
               >
-                {withdrawLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : `Withdraw â‚¹${withdrawAmount || 0}`}
+                {withdrawLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : `Withdraw Rs.${withdrawAmount || 0}`}
               </Button>
               <p className="text-xs text-muted-foreground text-center">Processed within 24-48 hours via UPI</p>
             </div>
@@ -255,5 +260,3 @@ export default function Wallet() {
     </div>
   );
 }
-
-
