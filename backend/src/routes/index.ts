@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import healthRouter from "./health.js";
 import authRouter from "./auth.js";
 import usersRouter from "./users.js";
@@ -9,9 +9,9 @@ import walletRouter from "./wallet.js";
 import ratingsRouter from "./ratings.js";
 import aiRouter from "./ai.js";
 import adminRouter from "./admin.js";
+import paymentRouter from "./payment.js";
 
 const router: IRouter = Router();
-
 router.use(healthRouter);
 router.use("/auth", authRouter);
 router.use("/users", usersRouter);
@@ -22,5 +22,5 @@ router.use("/wallet", walletRouter);
 router.use("/ratings", ratingsRouter);
 router.use("/ai", aiRouter);
 router.use("/admin", adminRouter);
-
+router.use("/payment", paymentRouter);
 export default router;

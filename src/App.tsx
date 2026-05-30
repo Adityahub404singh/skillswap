@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+﻿import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +16,7 @@ import Wallet from "@/pages/wallet";
 import AIChat from "@/pages/ai-chat";
 import AdminPanel from "@/pages/admin";
 import Profile from "@/pages/profile";
+import BuyCredits from "@/pages/buy-credits";
 import { useAuthStore } from "@/store/auth";
 
 const queryClient = new QueryClient({
@@ -53,6 +54,9 @@ function Router() {
         </Route>
         <Route path="/wallet">
           <ProtectedRoute component={Wallet} />
+        </Route>
+        <Route path="/buy-credits">
+          <ProtectedRoute component={BuyCredits} />
         </Route>
         <Route path="/ai">
           <ProtectedRoute component={AIChat} />

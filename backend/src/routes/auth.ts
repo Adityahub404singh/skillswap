@@ -1,9 +1,9 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "../db.js";
-import { transactionsTable } from "../schema/transactions.js";
+import { db, usersTable, transactionsTable } from "../db.js";
 import { eq, sql } from "drizzle-orm";
 import { signToken } from "../utils/jwt.js";
+import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -39,10 +39,7 @@ router.post("/register", async (req, res) => {
   try {
     const body = registerSchema.parse(req.body);
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
-    if (existing.length > 0) {
-      res.status(409).json({ error: "Conflict", message: "Email already in use" });
-      return;
-    }
+    if (existing.length > 0) { res.status(409).json({ error: "Conflict", message: "Email already in use" }); return; }
 
     const passwordHash = await bcrypt.hash(body.password, 10);
     const [user] = await db.insert(usersTable).values({
@@ -51,23 +48,19 @@ router.post("/register", async (req, res) => {
       credits: 200,
     }).returning();
 
-    // Referral bonus
+    await db.insert(transactionsTable).values({
+      userId: user.id, amount: 200, type: "bonus",
+      description: "Welcome bonus - 200 credits on signup!",
+    });
+
     if (body.referralCode) {
       const referralEmail = Buffer.from(body.referralCode, "base64").toString("utf-8");
       const [referrer] = await db.select().from(usersTable).where(eq(usersTable.email, referralEmail)).limit(1);
       if (referrer && referrer.id !== user.id) {
-        // Give referrer 50 credits
         await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 50` }).where(eq(usersTable.id, referrer.id));
-        await db.insert(transactionsTable).values({
-          userId: referrer.id, amount: 50, type: "referral",
-          description: `Referral bonus - ${user.name} joined!`,
-        });
-        // Give new user 25 extra credits
+        await db.insert(transactionsTable).values({ userId: referrer.id, amount: 50, type: "referral", description: "Referral bonus - " + user.name + " joined!" });
         await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 25` }).where(eq(usersTable.id, user.id));
-        await db.insert(transactionsTable).values({
-          userId: user.id, amount: 25, type: "referral",
-          description: `Welcome bonus - referred by ${referrer.name}!`,
-        });
+        await db.insert(transactionsTable).values({ userId: user.id, amount: 25, type: "referral", description: "Welcome bonus - referred by " + referrer.name + "!" });
       }
     }
 
@@ -96,18 +89,13 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Get referral link
-router.get("/referral", async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) { res.status(401).json({ error: "Unauthorized" }); return; }
+router.get("/referral", requireAuth, async (req: any, res) => {
   try {
-    const { verifyToken } = await import("../utils/jwt.js");
-    const token = authHeader.replace("Bearer ", "");
-    const payload = verifyToken(token) as any;
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, payload.userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
     if (!user) { res.status(404).json({ error: "Not Found" }); return; }
     const referralCode = Buffer.from(user.email).toString("base64");
-    res.json({ referralCode, referralLink: `${process.env.FRONTEND_URL}/register?ref=${referralCode}` });
+    const referralLink = (process.env.FRONTEND_URL || "https://skillswap-fawn-mu.vercel.app") + "/register?ref=" + referralCode;
+    res.json({ referralCode, referralLink });
   } catch (err) {
     res.status(401).json({ error: "Unauthorized" });
   }

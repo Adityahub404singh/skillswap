@@ -1,9 +1,9 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
-import { sessionsTable } from "../schema/sessions.js";
-import { usersTable } from "../schema/users.js";
-import { transactionsTable } from "../schema/transactions.js";
-import { ratingsTable } from "../schema/ratings.js";
+import { sessionsTable } from "../db.js";
+import { usersTable } from "../db.js";
+import { transactionsTable } from "../db.js";
+import { ratingsTable } from "../db.js";
 import { eq, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";

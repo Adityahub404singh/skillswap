@@ -1,4 +1,5 @@
-import { useState } from "react";
+﻿import { useState } from "react";
+import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import { Clock, CheckCircle2, XCircle, Star, CalendarDays, Loader2, Video, Users
 
 export default function Sessions() {
   const options = useApiOptions();
+  const token = useAuthStore(s => s.token);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [tab, setTab] = useState<"learning" | "teaching">("learning");
@@ -46,7 +48,6 @@ export default function Sessions() {
 
   const createGroupSession = async () => {
     try {
-      const token = (options as any).headers?.Authorization?.replace("Bearer ", "");
       const res = await fetch("/api/sessions/group", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -71,7 +72,6 @@ export default function Sessions() {
   const negotiatePrice = async () => {
     if (!negotiateModal || !proposedPrice) return;
     try {
-      const token = (options as any).headers?.Authorization?.replace("Bearer ", "");
       const res = await fetch(`/api/sessions/${negotiateModal.id}/negotiate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -178,7 +178,6 @@ export default function Sessions() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-border/50">
-                  {/* TEACHING ACTIONS */}
                   {tab === 'teaching' && session.status === 'requested' && (
                     <>
                       <Button variant="outline" size="sm" className="text-blue-600 border-blue-300" onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
@@ -194,8 +193,6 @@ export default function Sessions() {
                       <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Completed ✓</Button>
                     </>
                   )}
-
-                  {/* LEARNING ACTIONS */}
                   {tab === 'learning' && session.status === 'requested' && (
                     <Button variant="outline" size="sm" className="text-blue-600 border-blue-300" onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
                       💬 Negotiate Price
@@ -224,7 +221,6 @@ export default function Sessions() {
         )}
       </div>
 
-      {/* Rating Dialog */}
       <Dialog open={!!ratingSessionId} onOpenChange={(open) => !open && setRatingSessionId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -250,7 +246,6 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* Negotiate Dialog */}
       <Dialog open={!!negotiateModal} onOpenChange={(open) => !open && setNegotiateModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -278,7 +273,6 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Group Session Dialog */}
       <Dialog open={groupModal} onOpenChange={setGroupModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

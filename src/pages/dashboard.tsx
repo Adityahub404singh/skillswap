@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+﻿import { Link } from "wouter";
 import { useGetMe, useGetMySessions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { format } from "date-fns";
@@ -46,7 +46,6 @@ export default function Dashboard() {
   return (
     <motion.div initial="hidden" animate="show" variants={containerVariants} className="py-6 space-y-8">
 
-      {/* Welcome Hero */}
       <motion.div
         variants={itemVariants}
         whileHover={{ scale: 1.01 }}
@@ -91,7 +90,6 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* Quick Stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { icon: Wallet, color: "primary", label: "Balance", value: `${user.credits}`, unit: "cr" },
@@ -120,10 +118,7 @@ export default function Dashboard() {
         ))}
       </motion.div>
 
-      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-        {/* Upcoming Sessions */}
         <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -198,7 +193,6 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* My Skills */}
         <motion.div variants={itemVariants} className="space-y-6">
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Compass className="w-6 h-6 text-accent" /> My Skills
@@ -236,9 +230,11 @@ export default function Dashboard() {
               ) : <p className="text-sm text-muted-foreground italic">No skills listed to learn.</p>}
             </div>
             <motion.div whileHover={{ x: 4 }}>
-              <Button variant="ghost" className="w-full justify-between mt-2 text-muted-foreground">
-                Edit Profile <ArrowRight className="w-4 h-4" />
-              </Button>
+              <Link href="/profile">
+                <Button variant="ghost" className="w-full justify-between mt-2 text-muted-foreground">
+                  Edit Profile <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
             </motion.div>
           </motion.div>
         </motion.div>

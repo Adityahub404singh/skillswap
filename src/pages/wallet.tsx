@@ -1,8 +1,9 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useGetWallet, useGetTransactions } from "@/lib/api";
 import { useApiOptions, API_BASE_URL } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
 import { format } from "date-fns";
+import { Link } from "wouter";
 import { Wallet as WalletIcon, ArrowUpRight, ArrowDownRight, Gift, Loader2, Copy, Check, Users, CreditCard, Send, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ export default function Wallet() {
   const [upiId, setUpiId] = useState("");
   const [withdrawLoading, setWithdrawLoading] = useState(false);
 
-  // ✅ FIXED: Removed wallet?.referralCode (doesn't exist on Wallet type)
+  // âœ… FIXED: Removed wallet?.referralCode (doesn't exist on Wallet type)
   const referralCode = "SKILL" + (token?.slice(-6) || Math.random().toString(36).slice(2, 8)).toUpperCase();
   const referralLink = `https://skillswap-fawn-mu.vercel.app/register?ref=${referralCode}`;
 
@@ -56,7 +57,7 @@ export default function Wallet() {
         body: JSON.stringify({ amount, upiId })
       });
       if (res.ok) {
-        toast({ title: "Withdrawal Requested! 🎉", description: `₹${amount} withdrawal request submitted. Will be processed in 24-48 hours.` });
+        toast({ title: "Withdrawal Requested! ðŸŽ‰", description: `â‚¹${amount} withdrawal request submitted. Will be processed in 24-48 hours.` });
         setShowWithdraw(false);
         setWithdrawAmount("");
         setUpiId("");
@@ -92,7 +93,7 @@ export default function Wallet() {
                 <span className="text-xl font-medium text-white/80">cr</span>
               </div>
             )}
-            <p className="mt-3 text-sm text-white/70">= ₹{wallet?.balance || 0} withdrawal value</p>
+            <p className="mt-3 text-sm text-white/70">= â‚¹{wallet?.balance || 0} withdrawal value</p>
             <div className="mt-6 flex gap-3">
               <Button
                 onClick={() => setShowWithdraw(true)}
@@ -102,8 +103,7 @@ export default function Wallet() {
                 <Send className="w-4 h-4 mr-2" /> Withdraw
               </Button>
               {(wallet?.balance || 0) < 500 && (
-                <p className="text-white/60 text-xs self-center">Min. 500 cr needed</p>
-              )}
+                <><p className="text-white/60 text-xs self-center">Min. 500 cr needed</p><Link href="/buy-credits"><Button className="bg-white/20 hover:bg-white/30 text-white font-bold rounded-full h-10 px-5 border border-white/30">+ Buy Credits</Button></Link></>) }
             </div>
           </div>
         </div>
@@ -162,7 +162,7 @@ export default function Wallet() {
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2 ml-1">Share this link — when friends sign up, you both get credits!</p>
+        <p className="text-xs text-muted-foreground mt-2 ml-1">Share this link â€” when friends sign up, you both get credits!</p>
       </div>
 
       {/* Transaction History */}
@@ -188,7 +188,7 @@ export default function Wallet() {
                     </div>
                     <div>
                       <p className="font-bold text-sm">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(tx.createdAt), 'MMM d, yyyy • h:mm a')}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(tx.createdAt), 'MMM d, yyyy â€¢ h:mm a')}</p>
                     </div>
                   </div>
                   <div className={`font-bold text-right ${
@@ -215,7 +215,7 @@ export default function Wallet() {
               <button onClick={() => setShowWithdraw(false)}><X className="w-5 h-5" /></button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Balance: <span className="font-bold text-primary">{wallet?.balance} cr</span> • Min: 500 cr • 1 cr = ₹1
+              Balance: <span className="font-bold text-primary">{wallet?.balance} cr</span> â€¢ Min: 500 cr â€¢ 1 cr = â‚¹1
             </p>
             <div className="space-y-3">
               <div>
@@ -229,7 +229,7 @@ export default function Wallet() {
                   max={wallet?.balance}
                 />
                 {withdrawAmount && parseInt(withdrawAmount) >= 500 && (
-                  <p className="text-xs text-green-600 mt-1">= ₹{withdrawAmount} will be transferred</p>
+                  <p className="text-xs text-green-600 mt-1">= â‚¹{withdrawAmount} will be transferred</p>
                 )}
               </div>
               <div>
@@ -245,7 +245,7 @@ export default function Wallet() {
                 onClick={handleWithdraw}
                 disabled={withdrawLoading}
               >
-                {withdrawLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : `Withdraw ₹${withdrawAmount || 0}`}
+                {withdrawLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : `Withdraw â‚¹${withdrawAmount || 0}`}
               </Button>
               <p className="text-xs text-muted-foreground text-center">Processed within 24-48 hours via UPI</p>
             </div>
@@ -255,3 +255,5 @@ export default function Wallet() {
     </div>
   );
 }
+
+
