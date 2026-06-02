@@ -1,3 +1,4 @@
+import Footer from "@/components/footer";
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/store/auth";
@@ -83,7 +84,12 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="flex justify-between items-center h-20">
             <div className="flex-shrink-0 flex items-center">
               <Link href="/" className="flex items-center gap-2 group">
-                <div className="w-10 h-10 rounded-xl bg-gradient-premium flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-all duration-300 group-hover:scale-105">S</div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-all duration-300 group-hover:scale-105">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M4 9h10M4 13h16M4 17h7" />
+                    <path d="M17 7l3 3-3 3" />
+                  </svg>
+                </div>
                 <span className="font-display font-bold text-2xl tracking-tight text-foreground">Skill<span className="text-primary">Swap</span></span>
               </Link>
             </div>
@@ -140,6 +146,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-24 md:pb-8">
         {children}
       </main>
+      <Footer />
 
       {/* Floating AI + Feedback */}
       {token && (

@@ -186,3 +186,4 @@ export const GetMySessionsStatus = {
   completed: "completed",
   cancelled: "cancelled",
 } as const;
+

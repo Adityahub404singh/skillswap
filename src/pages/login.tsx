@@ -84,7 +84,10 @@ export default function Login() {
                   {...register("password")}
                 />
               </div>
-              {errors.password && <p className="text-sm text-destructive ml-1">{errors.password.message}</p>}
+              {errors.password && <p className="text-sm text-destructive ml-1">{errors.password.message}
+              <div className="flex justify-end">
+                <Link href="/forgot-password" className="text-xs text-primary hover:underline font-medium">Forgot password?</Link>
+              </div></p>}
             </div>
 
             <Button
@@ -107,3 +110,4 @@ export default function Login() {
     </div>
   );
 }
+

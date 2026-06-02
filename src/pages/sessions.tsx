@@ -125,10 +125,10 @@ export default function Sessions() {
       {/* Status Guide */}
 <div className="bg-muted/30 border border-border/50 rounded-xl p-4 text-xs flex flex-wrap gap-4">
   <span className="font-bold text-foreground">Status Guide:</span>
-  <span className="flex items-center gap-1">?? <strong>Requested</strong> — Waiting for mentor to accept</span>
-  <span className="flex items-center gap-1">?? <strong>Upcoming</strong> — Accepted! Join Meeting button will appear</span>
-  <span className="flex items-center gap-1">?? <strong>Live</strong> — Session in progress</span>
-  <span className="flex items-center gap-1">?? <strong>Completed</strong> — Done! Rate your mentor</span>
+  <span className="flex items-center gap-1">?? <strong>Requested</strong> ï¿½ Waiting for mentor to accept</span>
+  <span className="flex items-center gap-1">?? <strong>Upcoming</strong> ï¿½ Accepted! Join Meeting button will appear</span>
+  <span className="flex items-center gap-1">?? <strong>Live</strong> ï¿½ Session in progress</span>
+  <span className="flex items-center gap-1">?? <strong>Completed</strong> ï¿½ Done! Rate your mentor</span>
 </div>
 <div className="space-y-4">
         {isLoading ? (
@@ -163,7 +163,7 @@ export default function Sessions() {
                     <p className="text-sm text-muted-foreground mb-2">with <span className="font-medium text-foreground">{otherUser?.name}</span></p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="text-sm font-medium bg-background border border-border inline-flex px-3 py-1.5 rounded-lg shadow-sm">
-                        {format(new Date(session.scheduledDate), 'EEEE, MMMM d, yyyy • h:mm a')}
+                        {format(new Date(session.scheduledDate), 'EEEE, MMMM d, yyyy ï¿½ h:mm a')}
                       </div>
                       <div className="text-sm font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg">
                         <DollarSign className="w-3 h-3 inline" />{session.creditsAmount} cr
@@ -180,7 +180,7 @@ export default function Sessions() {
                       </a>
                     )}
                     {session.status === 'completed' && session.actualDuration != null && (
-                      <p className="text-xs text-muted-foreground mt-2">? Duration: {session.actualDuration} min {session.actualDuration < 10 ? '• Full refund issued' : session.actualDuration < 30 ? '• Partial refund issued' : '• Full payment'}</p>
+                      <p className="text-xs text-muted-foreground mt-2">? Duration: {session.actualDuration} min {session.actualDuration < 10 ? 'ï¿½ Full refund issued' : session.actualDuration < 30 ? 'ï¿½ Partial refund issued' : 'ï¿½ Full payment'}</p>
                     )}
                   </div>
                 </div>

@@ -1,0 +1,8 @@
+﻿User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /wallet
+Disallow: /sessions
+
+Sitemap: https://skillswap-fawn-mu.vercel.app/sitemap.xml

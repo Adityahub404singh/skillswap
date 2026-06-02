@@ -1,4 +1,4 @@
-﻿import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +18,8 @@ import AdminPanel from "@/pages/admin";
 import Profile from "@/pages/profile";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
+import ForgotPassword from "@/pages/forgot-password";
+import SkillPage from "@/pages/skill-page";
 import BuyCredits from "@/pages/buy-credits";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuthStore } from "@/store/auth";
@@ -43,6 +45,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Landing} />
         <Route path="/login" component={Login} />
+        <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/register" component={Register} />
         <Route path="/dashboard">
           <ProtectedRoute component={Dashboard} />
@@ -69,6 +72,7 @@ function Router() {
           <ProtectedRoute component={Profile} />
         </Route>
         <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/skills/:skill" component={SkillPage} />
         <Route path="/terms" component={Terms} />
         <Route component={NotFound} />
       </Switch>
@@ -90,4 +94,5 @@ function App() {
 }
 
 export default App;
+
 
