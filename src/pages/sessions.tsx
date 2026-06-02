@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -58,7 +58,7 @@ export default function Sessions() {
         }),
       });
       if (res.ok) {
-        toast({ title: "Group Session Created! 🎉" });
+        toast({ title: "Group Session Created! ??" });
         setGroupModal(false);
         invalidate();
       } else {
@@ -78,7 +78,7 @@ export default function Sessions() {
         body: JSON.stringify({ proposedPrice: parseInt(proposedPrice) }),
       });
       if (res.ok) {
-        toast({ title: `Price negotiated to ${proposedPrice} credits! ✅` });
+        toast({ title: `Price negotiated to ${proposedPrice} credits! ?` });
         setNegotiateModal(null);
         setProposedPrice("");
         invalidate();
@@ -122,7 +122,15 @@ export default function Sessions() {
         </button>
       </div>
 
-      <div className="space-y-4">
+      {/* Status Guide */}
+<div className="bg-muted/30 border border-border/50 rounded-xl p-4 text-xs flex flex-wrap gap-4">
+  <span className="font-bold text-foreground">Status Guide:</span>
+  <span className="flex items-center gap-1">?? <strong>Requested</strong> � Waiting for mentor to accept</span>
+  <span className="flex items-center gap-1">?? <strong>Upcoming</strong> � Accepted! Join Meeting button will appear</span>
+  <span className="flex items-center gap-1">?? <strong>Live</strong> � Session in progress</span>
+  <span className="flex items-center gap-1">?? <strong>Completed</strong> � Done! Rate your mentor</span>
+</div>
+<div className="space-y-4">
         {isLoading ? (
           <div className="text-center py-20"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
         ) : sessions?.length === 0 ? (
@@ -155,7 +163,7 @@ export default function Sessions() {
                     <p className="text-sm text-muted-foreground mb-2">with <span className="font-medium text-foreground">{otherUser?.name}</span></p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="text-sm font-medium bg-background border border-border inline-flex px-3 py-1.5 rounded-lg shadow-sm">
-                        {format(new Date(session.scheduledDate), 'EEEE, MMMM d, yyyy • h:mm a')}
+                        {format(new Date(session.scheduledDate), 'EEEE, MMMM d, yyyy � h:mm a')}
                       </div>
                       <div className="text-sm font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg">
                         <DollarSign className="w-3 h-3 inline" />{session.creditsAmount} cr
@@ -168,11 +176,11 @@ export default function Sessions() {
                     {session.meetLink && isActive && (
                       <a href={session.meetLink} target="_blank" rel="noopener noreferrer"
                         className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors shadow-sm">
-                        <Video className="w-4 h-4" /> Join Meeting 🎥
+                        <Video className="w-4 h-4" /> Join Meeting ??
                       </a>
                     )}
                     {session.status === 'completed' && session.actualDuration != null && (
-                      <p className="text-xs text-muted-foreground mt-2">⏱ Duration: {session.actualDuration} min {session.actualDuration < 10 ? '• Full refund issued' : session.actualDuration < 30 ? '• Partial refund issued' : '• Full payment'}</p>
+                      <p className="text-xs text-muted-foreground mt-2">? Duration: {session.actualDuration} min {session.actualDuration < 10 ? '� Full refund issued' : session.actualDuration < 30 ? '� Partial refund issued' : '� Full payment'}</p>
                     )}
                   </div>
                 </div>
@@ -181,21 +189,21 @@ export default function Sessions() {
                   {tab === 'teaching' && session.status === 'requested' && (
                     <>
                       <Button variant="outline" size="sm" className="text-blue-600 border-blue-300" onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
-                        💬 Negotiate
+                        ?? Negotiate
                       </Button>
                       <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Decline</Button>
-                      <Button className="bg-accent hover:bg-accent/90" onClick={() => acceptMut.mutate({ sessionId: session.id })}>Accept ✓</Button>
+                      <Button className="bg-accent hover:bg-accent/90" onClick={() => acceptMut.mutate({ sessionId: session.id })}>Accept ?</Button>
                     </>
                   )}
                   {tab === 'teaching' && (session.status === 'accepted' || session.status === 'in_progress') && (
                     <>
                       <Button variant="outline" className="text-destructive" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel</Button>
-                      <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Completed ✓</Button>
+                      <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Completed ?</Button>
                     </>
                   )}
                   {tab === 'learning' && session.status === 'requested' && (
                     <Button variant="outline" size="sm" className="text-blue-600 border-blue-300" onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
-                      💬 Negotiate Price
+                      ?? Negotiate Price
                     </Button>
                   )}
                   {tab === 'learning' && (session.status === 'requested' || session.status === 'accepted') && (
@@ -249,7 +257,7 @@ export default function Sessions() {
       <Dialog open={!!negotiateModal} onOpenChange={(open) => !open && setNegotiateModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>💬 Negotiate Price</DialogTitle>
+            <DialogTitle>?? Negotiate Price</DialogTitle>
             <DialogDescription>Propose a new price for this session (10 - 250 credits)</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -276,7 +284,7 @@ export default function Sessions() {
       <Dialog open={groupModal} onOpenChange={setGroupModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>👥 Create Group Session</DialogTitle>
+            <DialogTitle>?? Create Group Session</DialogTitle>
             <DialogDescription>Create a session multiple students can join</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -302,9 +310,9 @@ export default function Sessions() {
             </div>
             <div className="bg-muted/50 p-3 rounded-lg text-xs space-y-1">
               <p className="font-bold">Platform Commission:</p>
-              <p>1-2 students → 10% fee</p>
-              <p>3-5 students → 15% fee</p>
-              <p>6+ students → 20% fee</p>
+              <p>1-2 students ? 10% fee</p>
+              <p>3-5 students ? 15% fee</p>
+              <p>6+ students ? 20% fee</p>
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Message (optional)</label>
@@ -320,3 +328,4 @@ export default function Sessions() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-﻿import { Link } from "wouter";
+import { Link } from "wouter";
 import { useGetMe, useGetMySessions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { format } from "date-fns";
@@ -64,7 +64,7 @@ export default function Dashboard() {
         <div className="relative z-10">
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
             <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
-              Welcome back, {user.name.split(' ')[0]}! 👋
+              Welcome back, {user.name.split(' ')[0]}! ??
             </h1>
             <p className="text-white/80 text-lg max-w-xl mb-8">
               You have <strong className="text-white">{user.credits} credits</strong> available. That's{" "}
@@ -79,7 +79,27 @@ export default function Dashboard() {
                 </Button>
               </motion.div>
             </Link>
-            <Link href="/wallet">
+            {/* Onboarding Steps */}
+{user.sessionsCompleted === 0 && (
+  <motion.div variants={itemVariants} className="bg-muted/40 border border-border rounded-2xl p-6">
+    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">?? How to get started</h3>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+      <div className="flex gap-3 items-start">
+        <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold flex-shrink-0">1</div>
+        <div><p className="font-bold">Add your skills</p><p className="text-muted-foreground">Go to Profile ? add what you can teach and want to learn</p></div>
+      </div>
+      <div className="flex gap-3 items-start">
+        <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold flex-shrink-0">2</div>
+        <div><p className="font-bold">Find a mentor</p><p className="text-muted-foreground">Go to Explore ? click any skill ? book a session</p></div>
+      </div>
+      <div className="flex gap-3 items-start">
+        <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold flex-shrink-0">3</div>
+        <div><p className="font-bold">Join the session</p><p className="text-muted-foreground">Go to Sessions ? wait for mentor to accept ? click Join Meeting</p></div>
+      </div>
+    </div>
+  </motion.div>
+)}
+<Link href="/wallet">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 rounded-full font-bold h-12 px-6 backdrop-blur-sm">
                   View Wallet
@@ -242,3 +262,4 @@ export default function Dashboard() {
     </motion.div>
   );
 }
+

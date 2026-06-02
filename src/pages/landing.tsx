@@ -70,7 +70,7 @@ export default function Landing() {
     { step: "01", title: "Sign Up Free", desc: "Create your account and get 200 bonus credits instantly.", icon: Sparkles },
     { step: "02", title: "List Your Skills", desc: "Tell us what you can teach and what you want to learn.", icon: BookOpen },
     { step: "03", title: "Start Exchanging", desc: "Book sessions, teach others, and grow your credit balance.", icon: TrendingUp },
-    { step: "04", title: "Withdraw Earnings", desc: "Convert your credits to real money via UPI. 1 cr = ₹1.", icon: Globe },
+    { step: "04", title: "Grow Your Network", desc: "Build your trust score, earn badges, and become a verified expert on SkillSwap.", icon: Globe },
   ];
 
   return (

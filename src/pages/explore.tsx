@@ -77,7 +77,7 @@ export default function Explore() {
               <p className="text-muted-foreground">Try a different search term or category.</p>
             </div>
           ) : (
-            skills?.map((skill) => (
+            skills?.filter(skill => skill.mentorCount > 0).map((skill) => (
               <div 
                 key={skill.id} 
                 className="card-premium cursor-pointer group flex flex-col h-full"
@@ -177,3 +177,4 @@ export default function Explore() {
     </div>
   );
 }
+
