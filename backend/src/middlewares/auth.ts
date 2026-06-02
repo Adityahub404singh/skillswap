@@ -12,7 +12,6 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
     res.status(401).json({ error: "Unauthorized", message: "No token provided" });
     return;
   }
-
   const token = authHeader.split(" ")[1];
   try {
     const payload = verifyToken(token);
@@ -22,4 +21,14 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   } catch {
     res.status(401).json({ error: "Unauthorized", message: "Invalid or expired token" });
   }
+}
+
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "singhaditya4560@gmail.com").split(",");
+
+export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.userEmail || !ADMIN_EMAILS.includes(req.userEmail)) {
+    res.status(403).json({ error: "Forbidden", message: "Admin access only" });
+    return;
+  }
+  next();
 }
