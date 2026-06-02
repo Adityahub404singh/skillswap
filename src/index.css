@@ -322,3 +322,11 @@
     50% { box-shadow: 0 0 40px hsl(var(--primary) / 0.6); }
   }
 }
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 4s ease infinite;
+}
