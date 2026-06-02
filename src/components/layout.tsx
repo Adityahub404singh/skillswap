@@ -84,10 +84,13 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="flex justify-between items-center h-20">
             <div className="flex-shrink-0 flex items-center">
               <Link href="/" className="flex items-center gap-2 group">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-all duration-300 group-hover:scale-105">
-                  <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M4 9h10M4 13h16M4 17h7" />
-                    <path d="M17 7l3 3-3 3" />
+                <div className="w-10 h-10 flex-shrink-0 group-hover:scale-105 transition-transform duration-300 drop-shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" className="w-full h-full">
+                    <rect width="48" height="48" rx="12" fill="#5B5BF6"/>
+                    <path d="M13 18 C13 13 18 11 22 11 C26 11 31 13 31 18 C31 23 26 25 22 25" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round"/>
+                    <polyline points="27,14 31,18 27,22" stroke="#ffffff" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M35 30 C35 35 30 37 26 37 C22 37 17 35 17 30 C17 25 22 23 26 23" stroke="#a5a5ff" strokeWidth="3.5" strokeLinecap="round"/>
+                    <polyline points="21,34 17,30 21,26" stroke="#a5a5ff" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
                 <span className="font-display font-bold text-2xl tracking-tight text-foreground">Skill<span className="text-primary">Swap</span></span>

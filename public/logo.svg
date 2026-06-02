@@ -1,45 +1,9 @@
-<svg width="100%" viewBox="0 0 680 320" role="img" xmlns="http://www.w3.org/2000/svg" style="">
-  <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">SkillSwap professional logo</title>
-  <desc style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">SkillSwap logo featuring a geometric icon mark with two opposing arrows forming an S shape, paired with bold wordmark and tagline</desc>
-
-  <defs>
-    
-  </defs>
-
-  <!-- ── Icon mark: square container ── -->
-  <rect x="60" y="80" width="148" height="148" rx="32" fill="#0F0F0F" style="fill:rgb(15, 15, 15);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-  <!-- S-shaped swap path — top arc -->
-  <path d="M100 128 C100 108 120 100 134 100 C148 100 168 108 168 128 C168 148 148 156 134 156" stroke="#ffffff" stroke-width="10" fill="none" stroke-linecap="round" style="fill:none;stroke:rgb(255, 255, 255);color:rgb(255, 255, 255);stroke-width:10px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-  <!-- S-shaped swap path — bottom arc -->
-  <path d="M134 156 C120 156 100 164 100 184 C100 204 120 212 134 212 C148 212 168 204 168 184" stroke="#5B5BF6" stroke-width="10" fill="none" stroke-linecap="round" style="fill:none;stroke:rgb(91, 91, 246);color:rgb(255, 255, 255);stroke-width:10px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-  <!-- Top arrow head (pointing right) -->
-  <polyline points="158,118 168,128 158,138" stroke="#ffffff" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round" style="fill:none;stroke:rgb(255, 255, 255);color:rgb(255, 255, 255);stroke-width:10px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-  <!-- Bottom arrow head (pointing left) -->
-  <polyline points="110,174 100,184 110,194" stroke="#5B5BF6" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round" style="fill:none;stroke:rgb(91, 91, 246);color:rgb(255, 255, 255);stroke-width:10px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-  <!-- ── Wordmark ── -->
-  <!-- "Skill" in dark -->
-  <text x="234" y="152" font-family="'Inter', var(--font-sans)" font-size="58" font-weight="700" fill="#0F0F0F" letter-spacing="-2" style="fill:rgb(15, 15, 15);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Inter, &quot;Anthropic Sans&quot;, sans-serif;font-size:58px;font-weight:700;text-anchor:start;dominant-baseline:auto">Skill</text>
-
-  <!-- "Swap" in brand purple -->
-  <text x="366" y="152" font-family="'Inter', var(--font-sans)" font-size="58" font-weight="700" fill="#5B5BF6" letter-spacing="-2" style="fill:rgb(91, 91, 246);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Inter, &quot;Anthropic Sans&quot;, sans-serif;font-size:58px;font-weight:700;text-anchor:start;dominant-baseline:auto">Swap</text>
-
-  <!-- ── Divider dot ── -->
-  <circle cx="354" cy="136" r="5" fill="#5B5BF6" opacity="0.4" style="fill:rgb(91, 91, 246);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.4;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-  <!-- ── Tagline ── -->
-  <text x="234" y="182" font-family="'Inter', var(--font-sans)" font-size="13" font-weight="400" fill="#888888" letter-spacing="3.5" style="fill:rgb(136, 136, 136);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Inter, &quot;Anthropic Sans&quot;, sans-serif;font-size:13px;font-weight:400;text-anchor:start;dominant-baseline:auto">LEARN · TEACH · GROW</text>
-
-  <!-- ── Bottom rule + version pill ── -->
-  <line x1="234" y1="200" x2="580" y2="200" stroke="#E5E5E5" stroke-width="1" style="fill:rgb(0, 0, 0);stroke:rgb(229, 229, 229);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-  <rect x="234" y="210" width="52" height="20" rx="10" fill="#5B5BF6" style="fill:rgb(91, 91, 246);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-  <text x="260" y="224" font-family="'Inter', var(--font-sans)" font-size="10" font-weight="600" fill="#ffffff" text-anchor="middle" letter-spacing="1" style="fill:rgb(255, 255, 255);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Inter, &quot;Anthropic Sans&quot;, sans-serif;font-size:10px;font-weight:600;text-anchor:middle;dominant-baseline:auto">BETA</text>
-
-  <text x="297" y="224" font-family="'Inter', var(--font-sans)" font-size="12" font-weight="400" fill="#AAAAAA" style="fill:rgb(170, 170, 170);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Inter, &quot;Anthropic Sans&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:start;dominant-baseline:auto">Peer-to-peer skill exchange</text>
-
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="12" fill="#5B5BF6"/>
+  <path d="M13 18 C13 13 18 11 22 11 C26 11 31 13 31 18 C31 23 26 25 22 25"
+        stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+  <polyline points="27,14 31,18 27,22" stroke="#ffffff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M35 30 C35 35 30 37 26 37 C22 37 17 35 17 30 C17 25 22 23 26 23"
+        stroke="#a5a5ff" stroke-width="3.5" stroke-linecap="round"/>
+  <polyline points="21,34 17,30 21,26" stroke="#a5a5ff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
