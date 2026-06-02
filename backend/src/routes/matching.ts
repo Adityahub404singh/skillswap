@@ -1,52 +1,58 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db, usersTable } from "../db.js";
 
 const router: IRouter = Router();
 
 function formatUser(user: typeof usersTable.$inferSelect) {
   return {
-    id: user.id, name: user.name, email: user.email,
-    bio: user.bio, avatar: user.avatar,
-    skillsTeach: user.skillsTeach || [],
-    skillsLearn: user.skillsLearn || [],
-    credits: user.credits, trustScore: user.trustScore,
-    sessionsCompleted: user.sessionsCompleted,
-    averageRating: user.averageRating,
-    pricePerHour: user.pricePerHour || 50,
+    id: user.id, name: user.name, bio: user.bio, avatar: user.avatar,
+    skillsTeach: user.skillsTeach || [], skillsLearn: user.skillsLearn || [],
+    trustScore: user.trustScore || 0, sessionsCompleted: user.sessionsCompleted || 0,
+    averageRating: user.averageRating || 0, pricePerHour: user.pricePerHour || 50,
     createdAt: user.createdAt,
   };
 }
 
+function calculateMatchScore(mentor: typeof usersTable.$inferSelect, skillName: string): number {
+  let score = 0;
+  const teaches = (mentor.skillsTeach as string[]) || [];
+  const exactMatch = teaches.some(s => s.toLowerCase() === skillName.toLowerCase());
+  const partialMatch = teaches.some(s =>
+    s.toLowerCase().includes(skillName.toLowerCase()) ||
+    skillName.toLowerCase().includes(s.toLowerCase())
+  );
+  if (exactMatch) score += 50;
+  else if (partialMatch) score += 25;
+  else return 0;
+  score += (mentor.averageRating || 0) * 5;
+  score += (mentor.trustScore || 0) * 0.1;
+  score += Math.min((mentor.sessionsCompleted || 0) * 0.5, 15);
+  if (mentor.bio && mentor.bio.length > 20) score += 3;
+  if (mentor.avatar) score += 2;
+  score -= ((mentor.pricePerHour || 50) * 0.02);
+  score += Math.min(teaches.length * 0.5, 3);
+  return Math.max(0, Math.round(score * 100) / 100);
+}
+
 router.get("/:skill", async (req, res) => {
   try {
-    const skillName = req.params.skill.toLowerCase();
+    const skillName = decodeURIComponent(req.params.skill).trim();
+    if (!skillName) { res.status(400).json({ error: "Skill name required" }); return; }
     const users = await db.select().from(usersTable);
-
-    const mentors = users.filter(u =>
-      Array.isArray(u.skillsTeach) &&
-      u.skillsTeach.some((s: string) =>
-        s.toLowerCase().includes(skillName) || skillName.includes(s.toLowerCase())
-      )
-    );
-
-    const result = mentors.map(mentor => {
-      const rating = mentor.averageRating || 0;
-      const trust = mentor.trustScore || 0;
-      const sessions = mentor.sessionsCompleted || 0;
-      const price = mentor.pricePerHour || 50;
-
-      // AI Match Score: rating + trust + experience - price penalty
-      const matchScore = (rating * 20) + (trust * 0.3) + Math.min(sessions * 2, 20) - (price * 0.05);
-
-      return {
+    const result = users
+      .map(mentor => ({ mentor, score: calculateMatchScore(mentor, skillName) }))
+      .filter(m => m.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+      .map(({ mentor, score }) => ({
         user: formatUser(mentor),
-        matchScore: Math.round(matchScore * 100) / 100,
-        skill: req.params.skill,
-        pricePerHour: price,
-      };
-    });
-
-    result.sort((a, b) => b.matchScore - a.matchScore);
+        matchScore: score,
+        skill: skillName,
+        pricePerHour: mentor.pricePerHour || 50,
+        isTopRated: (mentor.averageRating || 0) >= 4.5,
+        isExperienced: (mentor.sessionsCompleted || 0) >= 10,
+        isVerified: (mentor.trustScore || 0) >= 50,
+      }));
     res.json(result);
   } catch (err) {
     console.error(err);
