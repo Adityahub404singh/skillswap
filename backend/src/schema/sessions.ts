@@ -1,6 +1,5 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { z } from "zod";
-
 export const sessionsTable = pgTable("sessions", {
   id: serial("id").primaryKey(),
   mentorId: integer("mentor_id").notNull(),
@@ -20,7 +19,6 @@ export const sessionsTable = pgTable("sessions", {
   negotiatedPrice: integer("negotiated_price"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
-
 export const insertSessionSchema = z.object({
   mentorId: z.number().int(),
   studentId: z.number().int(),
@@ -34,6 +32,5 @@ export const insertSessionSchema = z.object({
   maxStudents: z.number().int().default(1),
   negotiatedPrice: z.number().int().optional(),
 });
-
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type Session = typeof sessionsTable.$inferSelect;

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, real, timestamp, json } from "drizzle-orm/pg-core";
+﻿import { pgTable, serial, text, integer, real, timestamp, json } from "drizzle-orm/pg-core";
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -13,5 +13,6 @@ export const usersTable = pgTable("users", {
   sessionsCompleted: integer("sessions_completed").default(0),
   averageRating: real("average_rating"),
   pricePerHour: integer("price_per_hour").default(50),
+  isAdmin: integer("is_admin").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
