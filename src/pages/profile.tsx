@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useGetMe, useUpdateMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,7 +20,7 @@ export default function Profile() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
-        toast({ title: "Profile Updated! ✅" });
+        toast({ title: "Profile Updated! ✅ });
       }
     }
   });

@@ -1,10 +1,10 @@
-import { Link } from "wouter";
+﻿import { Link } from "wouter";
 import { motion, Variants, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import { ArrowRight, BookOpen, Users, Star, ShieldCheck, Zap, TrendingUp, Award, Sparkles, Globe, Heart, Play, CheckCircle, Quote, ChevronRight, Code, Palette, Music, Brain, Camera, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, useEffect, useState } from "react";
 
-// ── Typewriter hook ─────────────────────────────────────────────────────────
+// â”€â”€ Typewriter hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function useTypewriter(words: string[], speed = 80, pause = 1800) {
   const [display, setDisplay] = useState("");
   const [wordIdx, setWordIdx] = useState(0);
@@ -38,7 +38,7 @@ function useTypewriter(words: string[], speed = 80, pause = 1800) {
   return display;
 }
 
-// ── Animated counter hook ────────────────────────────────────────────────────
+// â”€â”€ Animated counter hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function useCounter(target: number, duration = 2000) {
   const [count, setCount] = useState(0);
   const [started, setStarted] = useState(false);
@@ -66,7 +66,7 @@ function useCounter(target: number, duration = 2000) {
   return { count, ref };
 }
 
-// ── Particle canvas ──────────────────────────────────────────────────────────
+// â”€â”€ Particle canvas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ParticleField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -139,7 +139,7 @@ function ParticleField() {
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
 }
 
-// ── Mouse glow ───────────────────────────────────────────────────────────────
+// â”€â”€ Mouse glow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MouseGlow() {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -166,7 +166,7 @@ function MouseGlow() {
   );
 }
 
-// ── Stat card with counter ────────────────────────────────────────────────────
+// â”€â”€ Stat card with counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function StatCard({ value, suffix, label, icon: Icon }: { value: number; suffix: string; label: string; icon: React.ElementType }) {
   const { count, ref } = useCounter(value);
   return (
@@ -186,7 +186,7 @@ function StatCard({ value, suffix, label, icon: Icon }: { value: number; suffix:
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function Landing() {
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: heroRef });
@@ -238,8 +238,8 @@ export default function Landing() {
 
   const testimonials = [
     {
-      name: "Rahul Sharma", role: "Python → Web Dev", avatar: "RS",
-      text: "Learned React in 2 weeks through SkillSwap. My mentor was incredible — better than any Udemy course I've taken.",
+      name: "Rahul Sharma", role: "Python â†’ Web Dev", avatar: "RS",
+      text: "Learned React in 2 weeks through SkillSwap. My mentor was incredible â€” better than any Udemy course I've taken.",
       rating: 5,
     },
     {
@@ -255,7 +255,7 @@ export default function Landing() {
   ];
 
   const howItWorks = [
-    { step: "01", icon: Sparkles, title: "Sign Up Free", desc: "Create your account and get 200 bonus credits instantly — no credit card needed." },
+    { step: "01", icon: Sparkles, title: "Sign Up Free", desc: "Create your account and get 200 bonus credits instantly â€” no credit card needed." },
     { step: "02", icon: BookOpen, title: "List Your Skills", desc: "Tell us what you can teach and what you want to learn. Set your own price." },
     { step: "03", icon: Users, title: "Match & Connect", desc: "Our smart algorithm matches you with the best mentor or student for your needs." },
     { step: "04", icon: Award, title: "Grow & Earn", desc: "Complete sessions, earn credits, build your trust score, become a verified expert." },
@@ -265,7 +265,7 @@ export default function Landing() {
     <div className="relative flex flex-col overflow-hidden">
       <MouseGlow />
 
-      {/* ── HERO ─────────────────────────────────────────────── */}
+      {/* â”€â”€ HERO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section ref={heroRef} className="relative min-h-[calc(100vh-80px)] flex flex-col px-4 sm:px-6 lg:px-8 overflow-hidden">
 
         {/* Particle background */}
@@ -332,7 +332,7 @@ export default function Landing() {
               The world's first{" "}
               <span className="text-foreground font-semibold">peer-to-peer skill economy</span>.
               Teach what you know to earn credits.
-              Spend credits to learn anything — from anyone.
+              Spend credits to learn anything â€” from anyone.
             </motion.p>
 
             {/* CTAs */}
@@ -406,7 +406,7 @@ export default function Landing() {
               >
                 {f.popular && (
                   <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-gradient-to-r from-primary to-violet-600 text-white text-[11px] font-bold shadow-lg">
-                    ⭐ Most Popular
+                    â­ Most Popular
                   </div>
                 )}
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.bg} flex items-center justify-center mb-5`}>
@@ -432,7 +432,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── STATS ────────────────────────────────────────────── */}
+      {/* â”€â”€ STATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section className="px-4 sm:px-6 lg:px-8 py-20 bg-muted/20 border-y border-border/40">
         <div className="max-w-5xl mx-auto">
           <motion.p
@@ -452,7 +452,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ─────────────────────────────────────── */}
+      {/* â”€â”€ HOW IT WORKS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section className="px-4 sm:px-6 lg:px-8 py-24">
         <div className="max-w-6xl mx-auto">
           <motion.div
@@ -493,7 +493,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ─────────────────────────────────────── */}
+      {/* â”€â”€ TESTIMONIALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section className="px-4 sm:px-6 lg:px-8 py-24 bg-muted/20 border-y border-border/40">
         <div className="max-w-6xl mx-auto">
           <motion.div
@@ -541,7 +541,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── FINAL CTA ────────────────────────────────────────── */}
+      {/* â”€â”€ FINAL CTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section className="px-4 sm:px-6 lg:px-8 py-28">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -586,7 +586,7 @@ export default function Landing() {
             </div>
             <p className="text-white/50 text-sm mt-6">
               Already have an account?{" "}
-              <Link href="/login" className="text-white font-semibold hover:underline">Sign in →</Link>
+              <Link href="/login" className="text-white font-semibold hover:underline">Sign in â†’</Link>
             </p>
           </div>
         </motion.div>
@@ -594,3 +594,4 @@ export default function Landing() {
     </div>
   );
 }
+

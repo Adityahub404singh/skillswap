@@ -1,4 +1,4 @@
-import { useRoute, Link } from "wouter";
+﻿import { useRoute, Link } from "wouter";
 import { useGetUserById, useGetMentorRatings, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { format } from "date-fns";
@@ -69,7 +69,7 @@ export default function MentorProfile() {
                   Trust Score: {mentor.trustScore}
                 </span>
                 <span className="flex items-center gap-1 text-green-600 font-bold">
-                  💰 {(mentor as any).pricePerHour || 50} cr/session
+                  ðŸ’° {(mentor as any).pricePerHour || 50} cr/session
                 </span>
               </div>
             </div>
