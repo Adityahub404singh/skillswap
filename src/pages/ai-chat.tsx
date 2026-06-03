@@ -1,164 +1,161 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Send, User, Sparkles, BookOpen, Map } from "lucide-react";
+import { Bot, Send, User, Sparkles, BookOpen, Map, Zap, Brain, Code2, Globe, Flame, RotateCcw } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
+import { motion, AnimatePresence } from "framer-motion";
 
-interface Message { role: "user" | "ai"; text: string; }
+interface Message { role: "user" | "ai"; text: string; time: string; }
+
+const SUGGESTIONS = [
+  { icon: Code2, text: "How to learn Python fast?", color: "text-blue-500" },
+  { icon: Brain, text: "Best DSA resources for beginners", color: "text-purple-500" },
+  { icon: Globe, text: "How to improve English speaking?", color: "text-green-500" },
+  { icon: Zap, text: "How do credits work on SkillSwap?", color: "text-orange-500" },
+  { icon: Flame, text: "How to earn more credits?", color: "text-red-500" },
+  { icon: BookOpen, text: "Create a React learning roadmap", color: "text-cyan-500" },
+];
 
 export default function AIChat() {
   const token = useAuthStore((s) => s.token);
-  const headers: Record<string, string> = {
-    "Authorization": `Bearer ${token}`,
-    "Content-Type": "application/json"
-  };
-
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "ai", text: "Hi! I'm SkillAI 🤖 Ask me anything about skills, learning paths, or mentors!" }
+    { role: "ai", text: "Hi! I'm SkillAI 🤖 Your personal learning assistant!\n\nI can help you:\n• Find the right mentors\n• Create learning roadmaps\n• Understand the credit system\n• Suggest skills to learn\n\nWhat would you like to learn today?", time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [recommendations, setRecommendations] = useState<string[]>([]);
-  const [learningPath, setLearningPath] = useState<any>(null);
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-    const userMsg = input.trim();
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async (text?: string) => {
+    const msg = (text || input).trim();
+    if (!msg) return;
     setInput("");
-    setMessages(prev => [...prev, { role: "user", text: userMsg }]);
+    const time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    setMessages(prev => [...prev, { role: "user", text: msg, time }]);
     setLoading(true);
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers,
-        body: JSON.stringify({ message: userMsg }),
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg }),
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { role: "ai", text: data.reply }]);
+      setMessages(prev => [...prev, { role: "ai", text: data.reply || "Sorry, I could not process that. Try again!", time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }]);
     } catch {
-      setMessages(prev => [...prev, { role: "ai", text: "Sorry, something went wrong!" }]);
+      setMessages(prev => [...prev, { role: "ai", text: "Connection error! Please try again. 😅", time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }]);
     }
     setLoading(false);
   };
 
-  const getRecommendations = async () => {
-    try {
-      const res = await fetch("/api/ai/recommend", { headers });
-      const data = await res.json();
-      setRecommendations(data.recommendations || []);
-    } catch {}
-  };
-
-  const getLearningPath = async (skill: string) => {
-    try {
-      const res = await fetch("/api/ai/learning-path", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ skill }),
-      });
-      const data = await res.json();
-      setLearningPath(data);
-    } catch {}
-  };
+  const clearChat = () => setMessages([{
+    role: "ai", text: "Hi! I'm SkillAI 🤖 How can I help you today?",
+    time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+  }]);
 
   return (
-    <div className="py-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-          <Bot className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-extrabold">SkillAI</h1>
-          <p className="text-muted-foreground">Your personal learning assistant</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <button onClick={getRecommendations} className="card-premium flex items-center gap-3 hover:border-primary/50 transition-colors text-left">
-          <Sparkles className="w-8 h-8 text-primary" />
-          <div><p className="font-bold">Get Recommendations</p><p className="text-sm text-muted-foreground">AI suggests skills for you</p></div>
-        </button>
-        <button onClick={() => getLearningPath("React")} className="card-premium flex items-center gap-3 hover:border-primary/50 transition-colors text-left">
-          <Map className="w-8 h-8 text-accent" />
-          <div><p className="font-bold">React Learning Path</p><p className="text-sm text-muted-foreground">4-week roadmap</p></div>
-        </button>
-        <button onClick={() => getLearningPath("Python")} className="card-premium flex items-center gap-3 hover:border-primary/50 transition-colors text-left">
-          <BookOpen className="w-8 h-8 text-green-500" />
-          <div><p className="font-bold">Python Learning Path</p><p className="text-sm text-muted-foreground">4-week roadmap</p></div>
-        </button>
-      </div>
-
-      {recommendations.length > 0 && (
-        <div className="card-premium">
-          <h2 className="font-bold text-lg mb-3 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" /> Recommended for You
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {recommendations.map(r => (
-              <button key={r} onClick={() => getLearningPath(r)}
-                className="px-3 py-1.5 bg-primary/10 text-primary font-medium text-sm rounded-lg hover:bg-primary/20 transition-colors">
-                {r}
-              </button>
-            ))}
+    <div className="max-w-3xl mx-auto py-6 h-[calc(100vh-140px)] flex flex-col gap-4">
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between p-4 card-premium">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30">
+            <Bot className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="font-bold text-lg">SkillAI Assistant</h1>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <motion.span className="w-2 h-2 rounded-full bg-green-400 inline-block"
+                animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
+              Online — Powered by AI
+            </div>
           </div>
         </div>
-      )}
+        <Button variant="ghost" size="sm" onClick={clearChat} className="text-muted-foreground gap-1 text-xs">
+          <RotateCcw className="w-3.5 h-3.5" /> Clear
+        </Button>
+      </motion.div>
 
-      {learningPath && (
-        <div className="card-premium">
-          <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
-            <Map className="w-5 h-5 text-accent" /> {learningPath.skill} — {learningPath.totalWeeks} Week Plan
-          </h2>
-          <div className="space-y-3">
-            {learningPath.path.map((step: any) => (
-              <div key={step.week} className="flex gap-4 items-start">
-                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm flex items-center justify-center flex-shrink-0">
-                  {step.week}
-                </div>
-                <div>
-                  <p className="font-bold">{step.topic}</p>
-                  <p className="text-sm text-muted-foreground">{step.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="card-premium flex flex-col h-96">
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto space-y-4 px-1 scroll-smooth">
+        <AnimatePresence initial={false}>
           {messages.map((msg, i) => (
-            <div key={i} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === "ai" ? "bg-primary/10" : "bg-accent/10"}`}>
-                {msg.role === "ai" ? <Bot className="w-4 h-4 text-primary" /> : <User className="w-4 h-4 text-accent" />}
+            <motion.div key={i}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                msg.role === "ai" ? "bg-gradient-to-br from-primary to-accent" : "bg-muted border border-border"
+              }`}>
+                {msg.role === "ai" ? <Bot className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-muted-foreground" />}
               </div>
-              <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm ${msg.role === "ai" ? "bg-muted" : "bg-primary text-primary-foreground"}`}>
-                {msg.text}
+              <div className={`max-w-[78%] ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col gap-1`}>
+                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
+                  msg.role === "ai"
+                    ? "bg-muted text-foreground rounded-tl-sm"
+                    : "bg-gradient-to-br from-primary to-accent text-white rounded-tr-sm shadow-lg shadow-primary/20"
+                }`}>
+                  {msg.text}
+                </div>
+                <span className="text-[10px] text-muted-foreground px-1">{msg.time}</span>
               </div>
-            </div>
+            </motion.div>
           ))}
-          {loading && (
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-primary" />
-              </div>
-              <div className="bg-muted px-4 py-2 rounded-2xl text-sm text-muted-foreground">Thinking...</div>
+        </AnimatePresence>
+
+        {loading && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <Bot className="w-4 h-4 text-white" />
             </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Ask SkillAI anything..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && sendMessage()}
-            className="rounded-full"
-          />
-          <Button onClick={sendMessage} size="icon" className="rounded-full flex-shrink-0">
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
+            <div className="bg-muted px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+              <div className="flex gap-1">
+                {[0, 150, 300].map(d => (
+                  <motion.span key={d} className="w-2 h-2 rounded-full bg-primary/60"
+                    animate={{ y: [-4, 4, -4] }} transition={{ duration: 0.8, repeat: Infinity, delay: d/1000 }} />
+                ))}
+              </div>
+              <span className="text-xs text-muted-foreground">SkillAI is thinking...</span>
+            </div>
+          </motion.div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
+
+      {/* Suggestions (show only on empty) */}
+      {messages.length <= 1 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {SUGGESTIONS.map((s, i) => (
+            <motion.button key={i} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              onClick={() => sendMessage(s.text)}
+              className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all text-left text-xs font-medium">
+              <s.icon className={`w-4 h-4 flex-shrink-0 ${s.color}`} />
+              {s.text}
+            </motion.button>
+          ))}
+        </motion.div>
+      )}
+
+      {/* Input */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        className="flex gap-2 p-3 card-premium">
+        <Input
+          value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
+          placeholder="Ask SkillAI anything... (Press Enter to send)"
+          className="flex-1 rounded-xl border-border/50 focus:border-primary/50"
+          disabled={loading}
+        />
+        <Button onClick={() => sendMessage()} disabled={loading || !input.trim()}
+          className="rounded-xl px-4 bg-gradient-to-r from-primary to-accent border-0 shadow-lg shadow-primary/20">
+          <Send className="w-4 h-4" />
+        </Button>
+      </motion.div>
     </div>
   );
 }
