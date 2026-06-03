@@ -20,7 +20,7 @@ export default function Profile() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
-        toast({ title: "Profile Updated! ✅ });
+        toast({ title: "Profile Updated!", description: "Your profile has been saved." });
       }
     }
   });
@@ -137,3 +137,4 @@ export default function Profile() {
     </div>
   );
 }
+
