@@ -69,7 +69,7 @@ export default function MentorProfile() {
                   Trust Score: {mentor.trustScore}
                 </span>
                 <span className="flex items-center gap-1 text-green-600 font-bold">
-                  ðŸ’° {(mentor as any).pricePerHour || 50} cr/session
+                   {(mentor as any).pricePerHour || 50} cr/session
                 </span>
               </div>
             </div>
