@@ -14,5 +14,10 @@ export const usersTable = pgTable("users", {
   averageRating: real("average_rating"),
   pricePerHour: integer("price_per_hour").default(50),
   isAdmin: integer("is_admin").default(0),
+  currentStreak: integer("current_streak").default(0),
+  longestStreak: integer("longest_streak").default(0),
+  lastActiveDate: text("last_active_date"),
+  verifiedSkills: json("verified_skills").$type<string[]>().default([]),
+  badges: json("badges").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
