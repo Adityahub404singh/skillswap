@@ -24,6 +24,8 @@ import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import ForgotPassword from "@/pages/forgot-password";
 import SkillPage from "@/pages/skill-page";
+import Leaderboard from "@/pages/leaderboard";
+import Subscription from "@/pages/subscription";
 import BuyCredits from "@/pages/buy-credits";
 
 const queryClient = new QueryClient({
@@ -57,6 +59,8 @@ function Router() {
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/skills/:skill" component={SkillPage} />
+        <Route path="/leaderboard" component={Leaderboard} />
+        <Route path="/premium" component={Subscription} />
         <Route path="/terms" component={Terms} />
         <Route component={NotFound} />
       </Switch>
