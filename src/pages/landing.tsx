@@ -1,8 +1,8 @@
 import { Link } from "wouter";
-import { motion, Variants, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
+import { motion, Variants, useScroll, useTransform, useMotionValue, useSpring, AnimatePresence } from "framer-motion";
 import { ArrowRight, BookOpen, Users, Star, ShieldCheck, Zap, TrendingUp, Award, Sparkles, Globe, Heart, Play, CheckCircle, Quote, ChevronRight, Code, Palette, Music, Brain, Camera, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 
 // ── Typewriter hook ─────────────────────────────────────────────────────────
 function useTypewriter(words: string[], speed = 80, pause = 1800) {
@@ -190,7 +190,8 @@ function StatCard({ value, suffix, label, icon: Icon }: { value: number; suffix:
 export default function Landing() {
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: heroRef });
-  const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "15%"]);
+  const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "25%"]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
 
   const typeText = useTypewriter(["Python", "Design", "Music", "DSA", "Web Dev", "AI / ML", "Chess", "Marketing"], 70, 1600);
 
@@ -266,7 +267,7 @@ export default function Landing() {
       <MouseGlow />
 
       {/* ── HERO ─────────────────────────────────────────────── */}
-      <section ref={heroRef} className="relative min-h-screen flex flex-col px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section ref={heroRef} className="relative min-h-[calc(100vh-80px)] flex flex-col px-4 sm:px-6 lg:px-8 overflow-hidden">
 
         {/* Particle background */}
         <div className="absolute inset-0 z-0">
@@ -287,14 +288,14 @@ export default function Landing() {
           />
         </div>
 
-        <motion.div style={{ y: heroY }} className="relative z-10 flex-1 flex flex-col justify-center max-w-6xl mx-auto pt-20 pb-10 lg:pt-24 lg:pb-16 w-full">
+        <motion.div style={{ y: heroY, opacity: heroOpacity }} className="relative z-10 flex-1 flex flex-col justify-center max-w-6xl mx-auto py-16 lg:py-20 w-full">
           <motion.div initial="hidden" animate="show" variants={container} className="text-center max-w-5xl mx-auto">
 
             {/* Live badge */}
             <motion.div variants={item}>
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-primary/20 bg-primary/10 text-primary font-semibold text-sm mb-8 backdrop-blur-md shadow-lg cursor-default"
+                className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-primary/20 bg-primary/8 text-primary font-semibold text-sm mb-8 backdrop-blur-md shadow-lg cursor-default"
               >
                 <motion.span
                   animate={{ scale: [1, 1.5, 1], opacity: [1, 0.4, 1] }}
@@ -519,7 +520,7 @@ export default function Landing() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15 }}
                 whileHover={{ y: -5 }}
-                className="p-7 rounded-2xl bg-background border border-border hover:border-primary/30 hover:shadow-lg transition-all duration-300 cursor-default relative"
+                className="p-7 rounded-2xl bg-background border border-border/50 hover:border-primary/20 hover:shadow-lg transition-all duration-300 cursor-default relative"
               >
                 <Quote className="w-8 h-8 text-primary/20 mb-4" />
                 <p className="text-sm leading-relaxed text-muted-foreground mb-6">"{t.text}"</p>

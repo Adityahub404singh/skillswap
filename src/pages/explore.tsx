@@ -1,11 +1,17 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "wouter";
 import { useGetSkills, useGetSkillCategories, useGetMatchedMentors } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
-import { Search, Compass, Users, ArrowRight, Loader2, Star } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Compass, Users, ArrowRight, Star, ShieldCheck, Award, ChevronLeft, BookOpen, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const SKILL_ICONS: Record<string, string> = {
+  Technology: "💻", Design: "🎨", Business: "📈", Language: "🌍",
+  Music: "🎵", Sports: "⚽", Arts: "🖼️", Science: "🔬",
+};
 
 export default function Explore() {
   const options = useApiOptions();
@@ -14,168 +20,166 @@ export default function Explore() {
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
 
   const { data: categories } = useGetSkillCategories(options);
-  
   const { data: skills, isLoading: skillsLoading } = useGetSkills(
-    { search: search || undefined, category: selectedCategory || undefined },
-    options
+    { search: search || undefined, category: selectedCategory || undefined }, options
+  );
+  const { data: matchedMentors, isLoading: mentorsLoading } = useGetMatchedMentors(
+    selectedSkill || "", { ...options, enabled: !!selectedSkill } as any
   );
 
-  const { data: matchedMentors, isLoading: mentorsLoading } = useGetMatchedMentors(
-    selectedSkill || "",
-    { ...options, enabled: !!selectedSkill } as any
-  );
+  const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.07 } } };
+  const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 
   return (
-    <div className="py-6 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div className="py-6 space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold mb-2">Explore Skills</h1>
-          <p className="text-muted-foreground text-lg">Find the perfect mentor to level up your abilities.</p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold mb-1">Explore Skills</h1>
+          <p className="text-muted-foreground">Find the perfect mentor to level up your abilities.</p>
         </div>
-        
-        <div className="relative w-full md:w-72">
+        <div className="relative w-full sm:w-72 flex-shrink-0">
           <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-          <Input 
-            placeholder="Search skills..." 
-            className="pl-10 rounded-full h-12 bg-background border-2 border-border focus-visible:ring-primary/20"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <Input placeholder="Search skills..."
+            className="pl-10 rounded-full h-11 border-2 border-border focus:border-primary/50"
+            value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
-      {/* Categories */}
-      <div className="flex overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide gap-2">
-        <Button 
-          variant={selectedCategory === "" ? "default" : "outline"}
-          className={`rounded-full whitespace-nowrap ${selectedCategory === "" ? 'bg-foreground text-background shadow-md' : 'bg-background'}`}
-          onClick={() => { setSelectedCategory(""); setSelectedSkill(null); }}
-        >
-          All Categories
+      <div className="flex overflow-x-auto pb-2 gap-2 scrollbar-hide">
+        <Button variant={selectedCategory === "" ? "default" : "outline"}
+          className={"rounded-full whitespace-nowrap text-sm h-9 " + (selectedCategory === "" ? "bg-foreground text-background" : "")}
+          onClick={() => { setSelectedCategory(""); setSelectedSkill(null); }}>
+          All
         </Button>
         {categories?.map(cat => (
-          <Button 
-            key={cat}
-            variant={selectedCategory === cat ? "default" : "outline"}
-            className={`rounded-full whitespace-nowrap ${selectedCategory === cat ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-background'}`}
-            onClick={() => { setSelectedCategory(cat); setSelectedSkill(null); }}
-          >
-            {cat}
+          <Button key={cat} variant={selectedCategory === cat ? "default" : "outline"}
+            className={"rounded-full whitespace-nowrap text-sm h-9 " + (selectedCategory === cat ? "bg-primary text-white" : "")}
+            onClick={() => { setSelectedCategory(cat); setSelectedSkill(null); }}>
+            {SKILL_ICONS[cat] || "📚"} {cat}
           </Button>
         ))}
       </div>
 
-      {/* Main Content Area */}
-      {!selectedSkill ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {skillsLoading ? (
-            [...Array(8)].map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-2xl" />)
-          ) : skills?.length === 0 ? (
-            <div className="col-span-full py-20 text-center">
-              <Compass className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="text-xl font-bold mb-2">No skills found</h3>
-              <p className="text-muted-foreground">Try a different search term or category.</p>
-            </div>
-          ) : (
-            skills?.filter(skill => skill.mentorCount > 0).map((skill) => (
-              <div 
-                key={skill.id} 
-                className="card-premium cursor-pointer group flex flex-col h-full"
-                onClick={() => setSelectedSkill(skill.name)}
-              >
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-xs font-bold uppercase tracking-wider text-primary px-2 py-1 bg-primary/10 rounded-md">
-                      {skill.category}
-                    </span>
-                    <div className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
-                      <Users className="w-4 h-4" />
-                      {skill.mentorCount}
-                    </div>
-                  </div>
-                  <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{skill.name}</h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{skill.description || "Learn this skill from experts."}</p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-border/50 flex justify-between items-center text-sm font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">
-                  Find Mentors <ArrowRight className="w-4 h-4" />
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      ) : (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <button 
-                onClick={() => setSelectedSkill(null)}
-                className="text-sm font-semibold text-muted-foreground hover:text-foreground mb-2 flex items-center transition-colors"
-              >
-                ← Back to skills
-              </button>
-              <h2 className="text-3xl font-extrabold">Mentors for <span className="text-primary">{selectedSkill}</span></h2>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {mentorsLoading ? (
-              [...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full rounded-2xl" />)
-            ) : matchedMentors?.length === 0 ? (
-              <div className="col-span-full py-20 text-center card-premium bg-muted/20">
-                <Users className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="text-xl font-bold mb-2">No mentors available yet</h3>
-                <p className="text-muted-foreground">Be the first to teach this skill!</p>
+      <AnimatePresence mode="wait">
+        {!selectedSkill ? (
+          <motion.div key="skills" initial="hidden" animate="show" exit={{ opacity: 0 }} variants={container}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {skillsLoading ? (
+              [...Array(8)].map((_, i) => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)
+            ) : skills?.filter(s => s.mentorCount > 0).length === 0 ? (
+              <div className="col-span-full py-20 text-center">
+                <Compass className="w-14 h-14 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-xl font-bold mb-2">No skills found</h3>
+                <p className="text-muted-foreground">Try a different search or category.</p>
               </div>
             ) : (
-              matchedMentors?.map((match) => (
-                <div key={match.user.id} className="card-premium flex flex-col h-full">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/20 flex-shrink-0 bg-muted">
-                      {match.user.avatar ? (
-                        <img src={match.user.avatar} alt={match.user.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xl font-bold text-muted-foreground">
-                          {match.user.name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg leading-tight">{match.user.name}</h3>
-                      <div className="flex items-center gap-3 mt-1 text-sm">
-                        <span className="flex items-center gap-1 text-orange-500 font-medium">
-                          <Star className="w-4 h-4 fill-orange-500" />
-                          {match.user.averageRating?.toFixed(1) || 'New'}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {match.user.sessionsCompleted} sessions
-                        </span>
-                      </div>
-                      <div className="mt-2 text-xs font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-md inline-block">
-                        Match Score: {Math.round(match.matchScore * 100)}%
+              skills?.filter(s => s.mentorCount > 0).map(skill => (
+                <motion.div key={skill.id} variants={item} whileHover={{ y: -4, scale: 1.02 }}
+                  className="card-premium cursor-pointer group flex flex-col h-full"
+                  onClick={() => setSelectedSkill(skill.name)}>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-primary px-2 py-1 bg-primary/10 rounded-lg">
+                        {SKILL_ICONS[skill.category] || "📚"} {skill.category}
+                      </span>
+                      <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                        <Users className="w-3 h-3" /> {skill.mentorCount}
                       </div>
                     </div>
+                    <h3 className="text-lg font-bold mb-1 group-hover:text-primary transition-colors">{skill.name}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{skill.description || "Learn this skill from experts."}</p>
                   </div>
-                  
-                  <p className="text-sm text-muted-foreground flex-1 mb-6 line-clamp-3">
-                    {match.user.bio || "No bio provided."}
-                  </p>
-                  
-                  <div className="pt-4 border-t border-border/50 flex gap-3">
-                    <Link href={`/mentor/${match.user.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full rounded-xl">Profile</Button>
-                    </Link>
-                    <Link href={`/book/${match.user.id}?skill=${encodeURIComponent(selectedSkill)}`} className="flex-1">
-                      <Button className="w-full rounded-xl bg-primary hover:bg-primary/90">Book (10cr)</Button>
-                    </Link>
+                  <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center text-sm font-bold text-primary opacity-0 group-hover:opacity-100 transition-all">
+                    Find Mentors <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
-          </div>
-        </div>
-      )}
+          </motion.div>
+        ) : (
+          <motion.div key="mentors" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <button onClick={() => setSelectedSkill(null)}
+                  className="flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground mb-2 transition-colors">
+                  <ChevronLeft className="w-4 h-4" /> Back to Skills
+                </button>
+                <h2 className="text-2xl font-bold">Mentors for <span className="text-primary">{selectedSkill}</span></h2>
+                <p className="text-muted-foreground text-sm">{matchedMentors?.length || 0} mentors available</p>
+              </div>
+            </div>
+
+            {mentorsLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-56 rounded-2xl" />)}
+              </div>
+            ) : !matchedMentors?.length ? (
+              <div className="py-20 text-center card-premium">
+                <BookOpen className="w-14 h-14 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-xl font-bold mb-2">No mentors yet</h3>
+                <p className="text-muted-foreground mb-4">Be the first mentor for {selectedSkill}!</p>
+                <Link href="/profile"><Button>Become a Mentor</Button></Link>
+              </div>
+            ) : (
+              <motion.div initial="hidden" animate="show" variants={container}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {matchedMentors.map((match: any) => (
+                  <motion.div key={match.user.id} variants={item} whileHover={{ y: -4 }}
+                    className="card-premium flex flex-col gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-2xl font-bold text-primary flex-shrink-0 overflow-hidden border-2 border-primary/10">
+                        {match.user.avatar ? <img src={match.user.avatar} alt={match.user.name} className="w-full h-full object-cover" /> : match.user.name?.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-base truncate">{match.user.name}</h3>
+                          {match.isVerified && <ShieldCheck className="w-4 h-4 text-accent flex-shrink-0" />}
+                          {match.isTopRated && <Award className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                          <div className="flex items-center gap-1">
+                            <Star className="w-3.5 h-3.5 fill-orange-500 text-orange-500" />
+                            <span className="text-sm font-semibold">{match.user.averageRating?.toFixed(1) || "New"}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{match.user.sessionsCompleted} sessions</span>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Zap className="w-3 h-3" /> Score: {match.matchScore}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {match.user.bio && (
+                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{match.user.bio}</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-1">
+                      {match.user.skillsTeach?.slice(0, 3).map((s: string) => (
+                        <span key={s} className="px-2 py-0.5 bg-accent/10 text-accent text-xs font-medium rounded-full border border-accent/20">{s}</span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Price per session</p>
+                        <p className="text-lg font-extrabold text-primary">{match.pricePerHour} <span className="text-sm font-normal text-muted-foreground">credits</span></p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Link href={`/mentor/${match.user.id}`}>
+                          <Button variant="outline" size="sm" className="rounded-xl text-xs">Profile</Button>
+                        </Link>
+                        <Link href={`/book/${match.user.id}?skill=${encodeURIComponent(selectedSkill || "")}`}>
+                          <Button size="sm" className="rounded-xl text-xs bg-gradient-to-r from-primary to-accent text-white">Book</Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-
-
