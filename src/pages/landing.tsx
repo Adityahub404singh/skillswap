@@ -589,7 +589,7 @@ export default function Landing() {
               <Link href="/login" className="text-white font-semibold hover:underline">Sign in →</Link>
             </p>
           </div>
-        </div>
+        </motion.div>
       </section>
     </div>
   );
