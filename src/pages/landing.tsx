@@ -262,7 +262,7 @@ export default function Landing() {
   ];
 
   return (
-    <div className="relative flex flex-col -mx-4 sm:-mx-6 lg:-mx-8 overflow-hidden">
+    <div className="relative flex flex-col overflow-hidden">
       <MouseGlow />
 
       {/* ── HERO ─────────────────────────────────────────────── */}
@@ -287,7 +287,7 @@ export default function Landing() {
           />
         </div>
 
-        <motion.div style={{ y: heroY }} className="relative z-10 flex-1 flex flex-col justify-center max-w-6xl mx-auto pt-8 pb-10 lg:pt-12 lg:pb-16 w-full">
+        <div className="relative z-10 flex-1 flex flex-col justify-center max-w-6xl mx-auto pt-8 pb-10 lg:pt-12 lg:pb-16 w-full">
           <motion.div initial="hidden" animate="show" variants={container} className="text-center max-w-5xl mx-auto">
 
             {/* Live badge */}
@@ -429,7 +429,7 @@ export default function Landing() {
               </motion.div>
             ))}
           </motion.div>
-        </motion.div>
+        </div>
       </section>
 
       {/* ── STATS ────────────────────────────────────────────── */}
@@ -589,7 +589,7 @@ export default function Landing() {
               <Link href="/login" className="text-white font-semibold hover:underline">Sign in →</Link>
             </p>
           </div>
-        </motion.div>
+        </div>
       </section>
     </div>
   );

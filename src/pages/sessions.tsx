@@ -197,9 +197,9 @@ export default function Sessions() {
                         <Video className="w-3.5 h-3.5" /> Join Meeting
                       </a>
                     )}
-                    {session.status === "completed" && session.actualDuration != null && (
+                    {session.status === "completed" && session.actualDuration != null && session.actualDuration > 0 && (
                       <p className="text-xs text-muted-foreground mt-2">
-                        Duration: {session.actualDuration} min
+                        Duration: {Math.min(session.actualDuration, 480)} min
                         {session.actualDuration < 10 ? " · Full refund issued" : session.actualDuration < 30 ? " · Partial refund issued" : " · Full payment"}
                       </p>
                     )}
