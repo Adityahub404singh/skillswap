@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Zap, Clock, CheckCircle, ArrowRight, Star, ShieldCheck, Loader2, Calendar } from "lucide-react";
@@ -75,16 +75,7 @@ export default function BookSession() {
 
     const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
 
-    bookMut.mutate({
-      mentorId: selectedMentorId,
-      skill: skill.trim(),
-      sessionType: selectedType,
-      scheduledAt,
-      scheduledDate: scheduledAt,
-      duration: selectedTypeObj.duration,
-      creditsAmount: sessionCredits,
-      message: message || undefined,
-    } as any);
+    bookMut.mutate({ data: { mentorId: selectedMentorId!, skill: skill.trim(), scheduledDate: new Date(`${date}T${time}:00`).toISOString(), duration: selectedTypeObj.duration, creditsAmount: sessionCredits, message: message || undefined } });
   }
 
   if (booked) {
