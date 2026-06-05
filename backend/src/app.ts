@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import authRouter from "./routes/auth.js";
@@ -21,7 +21,7 @@ app.use(express.json());
 // Global limit: 100 requests per 15 minutes per IP
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 500,
   message: { error: "Too many requests from this IP, please try again after 15 minutes." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -41,7 +41,7 @@ app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toIS
 // ROUTES (Auth and Users restored!)
 app.use("/api/auth", strictLimiter, authRouter);
 app.use("/api/users",         usersRouter);
-app.use("/api/sessions", strictLimiter, sessionsRouter);
+app.use("/api/sessions", sessionsRouter);
 app.use("/api/wallet",        walletRouter);
 app.use("/api/skills",        skillsRouter);
 app.use("/api/notifications", notificationsRouter);
