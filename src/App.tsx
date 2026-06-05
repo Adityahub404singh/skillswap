@@ -8,6 +8,7 @@ import { useAuthStore } from "@/store/auth";
 import { useState, useEffect } from "react";
 import LoadingScreen from "@/components/loading-screen";
 import NotFound from "@/pages/not-found";
+import BookMicroSession from "@/pages/book-session";
 import PublicPortfolio from "@/pages/public-portfolio";
 import NotificationsPage from "@/pages/notifications";
 import Landing from "@/pages/landing";
@@ -51,6 +52,7 @@ function Router() {
         <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
         <Route path="/explore" component={Explore} />
         <Route path="/mentor/:id" component={MentorProfile} />
+        <Route path="/book-session"><ProtectedRoute component={BookMicroSession} /></Route>
         <Route path="/book/:mentorId"><ProtectedRoute component={BookSession} /></Route>
         <Route path="/sessions"><ProtectedRoute component={Sessions} /></Route>
         <Route path="/wallet"><ProtectedRoute component={Wallet} /></Route>
