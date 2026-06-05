@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, or, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -309,4 +309,145 @@ router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+
+// â”€â”€ POST /api/sessions/group â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const GroupSchema = z.object({
+  skill:         z.string().min(1),
+  scheduledDate: z.string(),
+  creditsAmount: z.number().int().min(1).default(20),
+  maxStudents:   z.number().int().min(2).max(50).default(10),
+  duration:      z.number().int().optional().default(60),
+  meetLink:      z.string().optional(),
+  message:       z.string().optional(),
+});
+
+router.post("/group", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const data = GroupSchema.parse(req.body);
+
+    const mentors = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    const mentor  = mentors[0];
+    if (!mentor) return res.status(404).json({ error: "User not found" });
+
+    const [session] = await db.insert(sessionsTable).values({
+      mentorId:      req.userId!,
+      studentId:     req.userId!, // group sessions: creator is also host
+      skill:         data.skill,
+      scheduledDate: new Date(data.scheduledDate),
+      duration:      data.duration ?? 60,
+      status:        "pending",
+      creditsAmount: data.creditsAmount,
+      isGroup:       1,
+      maxStudents:   data.maxStudents,
+      sessionType:   "standard",
+      meetLink:      data.meetLink ?? null,
+      message:       data.message ?? null,
+    }).returning();
+
+    res.status(201).json({
+      ...session,
+      message: `Group session created for up to ${data.maxStudents} students`,
+    });
+  } catch (err: any) {
+    console.error("[sessions/group]", err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// â”€â”€ GET /api/sessions/group â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+router.get("/group", requireAuth, async (_req: AuthRequest, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.isGroup, 1))
+      .orderBy(desc(sessionsTable.scheduledDate));
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// â”€â”€ POST /api/sessions/group/:id/join â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+router.post("/group/:id/join", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id);
+    const sessions  = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    const session   = sessions[0];
+
+    if (!session)          return res.status(404).json({ error: "Group session not found" });
+    if (!session.isGroup)  return res.status(400).json({ error: "Not a group session" });
+    if (session.status !== "pending") return res.status(400).json({ error: "Session not joinable" });
+
+    const learners = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    const learner  = learners[0];
+    if (!learner) return res.status(404).json({ error: "User not found" });
+    if (learner.credits < session.creditsAmount) {
+      return res.status(400).json({ error: `Need ${session.creditsAmount} credits, you have ${learner.credits}` });
+    }
+
+    // Deduct credits
+    await db.update(usersTable)
+      .set({ credits: learner.credits - session.creditsAmount })
+      .where(eq(usersTable.id, req.userId!));
+
+    await db.insert(transactionsTable).values({
+      userId:      req.userId!,
+      type:        "spent",
+      amount:      session.creditsAmount,
+      description: `Joined group session: ${session.skill}`,
+      sessionId:   session.id,
+    });
+
+    res.json({ success: true, message: "Joined group session successfully!" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// â”€â”€ GET /api/sessions/micro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Returns only micro sessions (15 or 30 min)
+router.get("/micro", requireAuth, async (_req: AuthRequest, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(sessionsTable)
+      .where(
+        or(
+          eq(sessionsTable.sessionType, "micro_15"),
+          eq(sessionsTable.sessionType, "micro_30"),
+          eq(sessionsTable.sessionType, "doubt")
+        )
+      )
+      .orderBy(desc(sessionsTable.scheduledDate));
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// â”€â”€ GET /api/sessions/stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+router.get("/stats", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const allSessions = await db
+      .select()
+      .from(sessionsTable)
+      .where(
+        or(
+          eq(sessionsTable.mentorId, req.userId!),
+          eq(sessionsTable.studentId, req.userId!)
+        )
+      );
+
+    const completed  = allSessions.filter(s => s.status === "completed").length;
+    const asMentor   = allSessions.filter(s => s.mentorId === req.userId && s.status === "completed").length;
+    const asLearner  = allSessions.filter(s => s.studentId === req.userId && s.status === "completed").length;
+    const microCount = allSessions.filter(s => ["micro_15","micro_30","doubt"].includes(s.sessionType ?? "")).length;
+    const groupCount = allSessions.filter(s => s.isGroup === 1).length;
+
+    res.json({ total: allSessions.length, completed, asMentor, asLearner, microCount, groupCount });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 export default router;
