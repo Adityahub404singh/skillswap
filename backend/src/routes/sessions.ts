@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, or, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -64,13 +64,22 @@ const transactionsTable = pgTable("transactions", {
   createdAt:   timestamp("created_at").notNull().defaultNow(),
 });
 
-const SESSION_CONFIG: Record<string, { duration: number; credits: number; label: string }> = {
-  micro_15: { duration: 15, credits: 3,  label: "15-min Quick Session" },
-  micro_30: { duration: 30, credits: 5,  label: "30-min Session" },
-  doubt:    { duration: 20, credits: 4,  label: "Doubt Solving" },
-  standard: { duration: 60, credits: 10, label: "1-hour Session" },
-  extended: { duration: 90, credits: 15, label: "1.5-hour Deep Dive" },
+const SESSION_CONFIG: Record<string, { duration: number; multiplier: number; label: string; minCredits: number }> = {
+  micro_15: { duration: 15, multiplier: 0.25, label: "15-min Quick Session", minCredits: 3 },
+  micro_30: { duration: 30, multiplier: 0.50, label: "30-min Session",       minCredits: 5 },
+  doubt:    { duration: 20, multiplier: 0.33, label: "Doubt Solving",        minCredits: 4 },
+  standard: { duration: 60, multiplier: 1.00, label: "1-hour Session",       minCredits: 10 },
+  extended: { duration: 90, multiplier: 1.50, label: "1.5-hour Deep Dive",   minCredits: 15 },
 };
+
+// Calculate credits based on mentor hourly rate
+function calcCredits(sessionType: string, mentorPricePerHour: number): number {
+  const cfg = SESSION_CONFIG[sessionType];
+  if (!cfg) return 10;
+  const rate = Math.max(mentorPricePerHour || 10, 10);
+  const calculated = Math.round(rate * cfg.multiplier);
+  return Math.max(calculated, cfg.minCredits);
+}
 
 const router: IRouter = Router();
 
