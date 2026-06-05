@@ -1,132 +1,94 @@
-"use client";
-import { useState } from "react";
-import { Bell, CheckCheck, Zap, Calendar, Trophy, Flame, MessageSquare, Users, X } from "lucide-react";
+﻿import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Bell, CheckCheck, Zap, Calendar, Trophy, Flame, MessageSquare, Users, X, Settings } from "lucide-react";
 import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
 
-const ICON_MAP: Record<string, React.ReactNode> = {
-  match:   <Users size={14} className="text-violet-400" />,
-  session: <Calendar size={14} className="text-blue-400" />,
-  credit:  <Zap size={14} className="text-yellow-400" />,
-  badge:   <Trophy size={14} className="text-amber-400" />,
-  streak:  <Flame size={14} className="text-orange-400" />,
-  message: <MessageSquare size={14} className="text-emerald-400" />,
-  reminder:<Bell size={14} className="text-pink-400" />,
+const CFGS: Record<string, { color: string; bg: string; icon: any }> = {
+  match:    { icon: Users,         color: "text-violet-500",  bg: "bg-violet-500/10" },
+  session:  { icon: Calendar,      color: "text-blue-500",    bg: "bg-blue-500/10" },
+  credit:   { icon: Zap,           color: "text-yellow-500",  bg: "bg-yellow-500/10" },
+  badge:    { icon: Trophy,        color: "text-orange-500",  bg: "bg-orange-500/10" },
+  streak:   { icon: Flame,         color: "text-red-500",     bg: "bg-red-500/10" },
+  message:  { icon: MessageSquare, color: "text-green-500",   bg: "bg-green-500/10" },
+  reminder: { icon: Bell,          color: "text-pink-500",    bg: "bg-pink-500/10" },
 };
 
-const BG_MAP: Record<string, string> = {
-  match:   "bg-violet-500/10",
-  session: "bg-blue-500/10",
-  credit:  "bg-yellow-500/10",
-  badge:   "bg-amber-500/10",
-  streak:  "bg-orange-500/10",
-  message: "bg-emerald-500/10",
-  reminder:"bg-pink-500/10",
-};
-
-const MOCK_NOTIFS = [
-  { id: 1, type: "match",    title: "🤝 New Match Found!", message: "Rahul Sharma (96% match) wants to exchange React for English. Don't miss it!", time: "2m ago",  unread: true,  actionUrl: "/matches" },
-  { id: 2, type: "streak",   title: "🔥 7-Day Streak!", message: "You've been active for 7 days! +10 bonus credits added to your wallet.", time: "1h ago",  unread: true,  actionUrl: "/wallet" },
-  { id: 3, type: "session",  title: "📅 Session Tomorrow", message: "Your React session with Rahul is tomorrow at 10 AM. Don't forget!", time: "3h ago",  unread: true,  actionUrl: "/sessions" },
-  { id: 4, type: "credit",   title: "⚡ Credits Earned!", message: "You earned 10 credits for teaching TypeScript to Priya. Great job!", time: "5h ago",  unread: false, actionUrl: "/wallet" },
-  { id: 5, type: "badge",    title: "🏆 New Badge Unlocked!", message: "You earned the 'Top Mentor' badge for completing 25+ sessions!", time: "1d ago",  unread: false, actionUrl: "/profile" },
-  { id: 6, type: "reminder", title: "👋 Come back and learn!", message: "You haven't logged in for 2 days. Your match Priya is waiting to exchange UI/UX!", time: "2d ago",  unread: false, actionUrl: "/dashboard" },
-  { id: 7, type: "match",    title: "⚡ Hot Match Alert!", message: "Vikram Singh (78% match) teaches Python. You teach React. Perfect exchange!", time: "2d ago",  unread: false, actionUrl: "/matches" },
-  { id: 8, type: "reminder", title: "📚 Complete your profile", message: "Add 2 more teaching skills to get 3x more matches from our AI engine.", time: "3d ago",  unread: false, actionUrl: "/profile" },
+const INITIAL = [
+  { id: 1, type: "badge",    title: "New Badge Unlocked!", message: "You earned Top Mentor badge for completing 25+ sessions!", time: "1h ago",  unread: true,  actionUrl: "/profile" },
+  { id: 2, type: "session",  title: "Session Accepted",    message: "Priya Patel accepted your Python session for tomorrow at 5 PM.", time: "2h ago",  unread: true,  actionUrl: "/sessions" },
+  { id: 3, type: "credit",   title: "Credits Earned!",     message: "You earned 80 credits for teaching React to Vikram Singh.", time: "3h ago",  unread: true,  actionUrl: "/wallet" },
+  { id: 4, type: "match",    title: "Hot Match Alert!",    message: "Vikram (78% match) teaches Python. You teach React. Perfect exchange!", time: "5h ago",  unread: false, actionUrl: "/explore" },
+  { id: 5, type: "streak",   title: "30-Day Streak! 🔥",   message: "You have been active for 30 days straight. Incredible!", time: "1d ago",  unread: false, actionUrl: "/leaderboard" },
+  { id: 6, type: "reminder", title: "Come back and learn!",message: "You have not logged in for 2 days. Your match Priya is waiting!", time: "2d ago",  unread: false, actionUrl: "/dashboard" },
+  { id: 7, type: "reminder", title: "Complete your profile",message: "Add 2 more teaching skills to get 3x more matches.", time: "3d ago",  unread: false, actionUrl: "/profile" },
 ];
 
-export default function NotificationsPage() {
-  const [notifs, setNotifs] = useState(MOCK_NOTIFS);
+export default function Notifications() {
+  const [notifs, setNotifs] = useState(INITIAL);
   const unread = notifs.filter(n => n.unread).length;
 
-  function markAllRead() {
-    setNotifs(prev => prev.map(n => ({ ...n, unread: false })));
-  }
-
-  function dismiss(id: number) {
-    setNotifs(prev => prev.filter(n => n.id !== id));
-  }
-
-  function markRead(id: number) {
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
-  }
-
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-2xl mx-auto px-4 py-8">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Bell size={22} className="text-violet-400" /> Notifications
-            </h1>
-            {unread > 0 && <p className="text-sm text-gray-400 mt-1">{unread} unread</p>}
-          </div>
-          {unread > 0 && (
-            <button
-              onClick={markAllRead}
-              className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors"
-            >
-              <CheckCheck size={13} /> Mark all read
-            </button>
-          )}
+    <div className="py-6 max-w-2xl mx-auto space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black flex items-center gap-2"><Bell className="w-6 h-6 text-primary" /> Notifications</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">{unread > 0 ? `${unread} unread` : "All caught up!"}</p>
         </div>
-
-        {notifs.length === 0 ? (
-          <div className="text-center py-20">
-            <Bell size={32} className="mx-auto mb-3 text-gray-700" />
-            <p className="text-gray-500 text-sm">All caught up! No notifications.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {notifs.map(notif => (
-              <div
-                key={notif.id}
-                className={`group flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
-                  notif.unread
-                    ? "bg-violet-500/5 border-violet-500/15 hover:border-violet-500/30"
-                    : "bg-gray-900/40 border-white/5 hover:border-white/10"
-                }`}
-                onClick={() => markRead(notif.id)}
-              >
-                {/* Icon */}
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${BG_MAP[notif.type] ?? "bg-white/10"}`}>
-                  {ICON_MAP[notif.type]}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={`text-sm font-medium leading-tight ${notif.unread ? "text-white" : "text-gray-300"}`}>
-                      {notif.title}
-                    </p>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs text-gray-600">{notif.time}</span>
-                      {notif.unread && <div className="w-2 h-2 bg-violet-400 rounded-full" />}
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.message}</p>
-                  {notif.actionUrl && (
-                    <Link href={notif.actionUrl}>
-                      <span className="text-xs text-violet-400 hover:text-violet-300 mt-1.5 inline-block transition-colors">
-                        View →
-                      </span>
-                    </Link>
-                  )}
-                </div>
-
-                {/* Dismiss */}
-                <button
-                  onClick={e => { e.stopPropagation(); dismiss(notif.id); }}
-                  className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-gray-600 hover:text-gray-400 transition-all shrink-0"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
+        {unread > 0 && (
+          <Button variant="outline" size="sm" className="rounded-xl text-xs gap-1.5"
+            onClick={() => setNotifs(p => p.map(n => ({...n, unread: false})))}>
+            <CheckCheck className="w-3.5 h-3.5" /> Mark all read
+          </Button>
         )}
       </div>
+
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/15">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center"><Bell className="w-4 h-4 text-primary" /></div>
+          <div><p className="text-sm font-semibold">Stay notified</p><p className="text-xs text-muted-foreground">Get session reminders and match alerts</p></div>
+        </div>
+        <Button variant="outline" size="sm" className="rounded-xl text-xs gap-1.5"><Settings className="w-3.5 h-3.5" /> Settings</Button>
+      </div>
+
+      {notifs.length === 0 ? (
+        <div className="text-center py-20 rounded-2xl border border-dashed border-border">
+          <Bell className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="font-semibold">All caught up!</p>
+          <p className="text-sm text-muted-foreground mt-1">No notifications right now.</p>
+        </div>
+      ) : (
+        <AnimatePresence mode="popLayout">
+          <div className="space-y-2">
+            {notifs.map(notif => {
+              const cfg = CFGS[notif.type] ?? CFGS.reminder;
+              const Icon = cfg.icon;
+              return (
+                <motion.div key={notif.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 40 }}
+                  className={`group flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${notif.unread ? "bg-primary/5 border-primary/20 hover:border-primary/40" : "bg-background border-border hover:border-primary/20"}`}
+                  onClick={() => setNotifs(p => p.map(n => n.id === notif.id ? {...n, unread: false} : n))}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${cfg.bg}`}><Icon className={`w-4 h-4 ${cfg.color}`} /></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={`text-sm font-semibold leading-tight ${notif.unread ? "" : "text-muted-foreground"}`}>{notif.title}</p>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-xs text-muted-foreground">{notif.time}</span>
+                        {notif.unread && <div className="w-2 h-2 bg-primary rounded-full" />}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{notif.message}</p>
+                    <Link href={notif.actionUrl}><span className="text-xs text-primary hover:underline mt-1.5 inline-block font-medium">View →</span></Link>
+                  </div>
+                  <button onClick={e => { e.stopPropagation(); setNotifs(p => p.filter(n => n.id !== notif.id)); }}
+                    className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-all shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </motion.div>
+              );
+            })}
+          </div>
+        </AnimatePresence>
+      )}
     </div>
   );
 }

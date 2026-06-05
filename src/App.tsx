@@ -1,95 +1,173 @@
-﻿import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Layout } from "@/components/layout";
-import { ErrorBoundary } from "@/components/error-boundary";
-import { useAuthStore } from "@/store/auth";
-import { useState, useEffect } from "react";
-import LoadingScreen from "@/components/loading-screen";
-import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
-import Login from "@/pages/login";
-import Register from "@/pages/register";
-import Dashboard from "@/pages/dashboard";
-import Explore from "@/pages/explore";
-import MentorProfile from "@/pages/mentor-profile";
-import BookSession from "@/pages/book-session";
-import Sessions from "@/pages/sessions";
-import Wallet from "@/pages/wallet";
-import AIChat from "@/pages/ai-chat";
-import AdminPanel from "@/pages/admin";
-import Profile from "@/pages/profile";
-import PrivacyPolicy from "@/pages/privacy-policy";
-import Terms from "@/pages/terms";
-import ForgotPassword from "@/pages/forgot-password";
-import SkillPage from "@/pages/skill-page";
-import Leaderboard from "@/pages/leaderboard";
-import Subscription from "@/pages/subscription";
-import BuyCredits from "@/pages/buy-credits";
+﻿import React, { Suspense, lazy } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Header from "./components/header";
+import Footer from "./components/footer";
+import { AuthProvider } from "./store/AuthProvider";
+import { ToastContainer } from "react-toastify";
+import ForgotPassword from "./components/ForgotPassword";
+import ResetPassword from "./components/ResetPassword";
+import PrivateRoute from "./components/PrivateRoute";
+import AboutPage from "./components/AboutPage";
+import "react-toastify/dist/ReactToastify.css";
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
-});
+// Lazy load pages
+const Splash = lazy(() => import("./pages/Splash"));
+const Home = lazy(() => import("./pages/home"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Login = lazy(() => import("./pages/Login"));
+const Tutors = lazy(() => import("./pages/tutors"));
+const Courses = lazy(() => import("./pages/Courses"));
+const Reviews = lazy(() => import("./pages/StudentReviews"));
+const FAQ = lazy(() => import("./pages/FAQ"));
+const Policies = lazy(() => import("./pages/Policies"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const TutorRegistration = lazy(() => import("./pages/TutorRegistration"));
+const FindTutors = lazy(() => import("./pages/FindTutors"));
+const BecomeATutor = lazy(() => import("./pages/BecomeTutor"));
+const SuccessStories = lazy(() => import("./pages/SuccessStories"));
+const TutorResources = lazy(() => import("./pages/TutorResources"));
+const StudentReviews = lazy(() => import("./pages/StudentReviews"));
+const TutorHome = lazy(() => import("./pages/TutorHome"));
+const StudentHome = lazy(() => import("./pages/StudentHome"));
+const TutorProfile = lazy(() => import("./pages/TutorProfile"));
+const MyBookings = lazy(() => import("./pages/MyBookings"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
+const AddCourse = lazy(() => import("./pages/addCourse"));
+const Unauthorized = lazy(() => import("./pages/Unauthorized"));
+const Booking = lazy(() => import("./pages/Booking"));
+const PaymentPage = lazy(() => import("./pages/Payment"));
+const BookingConfirmation = lazy(() => import("./pages/BookingConfirmation"));
+const KycUpload = lazy(() => import("./pages/KycUpload"));
+const KycStatus = lazy(() => import("./pages/KycStatus"));
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const token = useAuthStore((s) => s.token);
-  if (!token) return <Redirect to="/login" />;
-  return <Component />;
-}
+const Loader = () => (
+  <div className="flex justify-center items-center min-h-[60vh]">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" />
+      <p className="text-slate-400 text-sm font-medium">Loading...</p>
+    </div>
+  </div>
+);
 
-function Router() {
+const NotFound = () => (
+  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+    <div className="text-8xl mb-6">ðŸ”</div>
+    <h1 className="text-4xl font-black text-slate-900 mb-3">404</h1>
+    <p className="text-slate-500 text-lg mb-8">Oops! Page not found.</p>
+    <a href="/" className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-xl hover:opacity-90 transition">
+      Go Home
+    </a>
+  </div>
+);
+
+export default function App() {
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route path="/login" component={Login} />
-        <Route path="/forgot-password" component={ForgotPassword} />
-        <Route path="/register" component={Register} />
-        <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
-        <Route path="/explore" component={Explore} />
-        <Route path="/mentor/:id" component={MentorProfile} />
-        <Route path="/book/:mentorId"><ProtectedRoute component={BookSession} /></Route>
-        <Route path="/sessions"><ProtectedRoute component={Sessions} /></Route>
-        <Route path="/wallet"><ProtectedRoute component={Wallet} /></Route>
-        <Route path="/buy-credits"><ProtectedRoute component={BuyCredits} /></Route>
-        <Route path="/ai"><ProtectedRoute component={AIChat} /></Route>
-        <Route path="/admin" component={AdminPanel} />
-        <Route path="/profile"><ProtectedRoute component={Profile} /></Route>
-        <Route path="/privacy-policy" component={PrivacyPolicy} />
-        <Route path="/privacy" component={PrivacyPolicy} />
-        <Route path="/skills/:skill" component={SkillPage} />
-        <Route path="/leaderboard" component={Leaderboard} />
-        <Route path="/premium" component={Subscription} />
-        <Route path="/terms" component={Terms} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <AuthProvider>
+      <Router>
+        <div className="app-layout bg-slate-50">
+          <Header />
+          <ToastContainer
+            position="top-right"
+            autoClose={4000}
+            hideProgressBar={false}
+            closeOnClick
+            pauseOnHover
+            draggable
+            toastClassName="rounded-xl shadow-lg text-sm font-medium"
+          />
+          <main className="app-main">
+            <Suspense fallback={<Loader />}>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/splash" element={<Splash />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
+                <Route path="/tutor-registration" element={<TutorRegistration />} />
+                <Route path="/tutors" element={<Tutors />} />
+                <Route path="/tutors/:id" element={<TutorProfile />} />
+                <Route path="/courses" element={<Courses />} />
+                <Route path="/reviews" element={<Reviews />} />
+                <Route path="/faq" element={<FAQ />} />
+                <Route path="/policies" element={<Policies />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/find-tutors" element={<FindTutors />} />
+                <Route path="/become-a-tutor" element={<BecomeATutor />} />
+                <Route path="/success-stories" element={<SuccessStories />} />
+                <Route path="/tutor-resources" element={<TutorResources />} />
+                <Route path="/student-reviews" element={<StudentReviews />} />
+                <Route path="/subjects" element={<StudentReviews />} />
+                <Route path="/unauthorized" element={<Unauthorized />} />
+                <Route path="*" element={<NotFound />} />
+
+                {/* Chat */}
+                <Route path="/chat/:studentId/:tutorId" element={
+                  <PrivateRoute allowedRoles={["student", "tutor"]}><ChatPage /></PrivateRoute>
+                } />
+
+                {/* Booking */}
+                <Route path="/booking/:courseId" element={
+                  <PrivateRoute allowedRoles={["student"]}><Booking /></PrivateRoute>
+                } />
+
+                {/* Payment */}
+                <Route path="/payment/:bookingId" element={
+                  <PrivateRoute allowedRoles={["student"]}><PaymentPage bookingId={"bookingId"} /></PrivateRoute>
+                } />
+                <Route path="/booking-confirmation" element={
+                  <PrivateRoute allowedRoles={["student"]}><BookingConfirmation /></PrivateRoute>
+                } />
+
+                {/* Student */}
+                <Route path="/student-home" element={
+                  <PrivateRoute allowedRoles={["student"]}><StudentHome /></PrivateRoute>
+                } />
+
+                {/* Tutor */}
+                <Route path="/tutor-home" element={
+                  <PrivateRoute allowedRoles={["tutor"]}><TutorHome /></PrivateRoute>
+                } />
+                <Route path="/tutor-profile" element={
+                  <PrivateRoute allowedRoles={["tutor"]}><TutorProfile /></PrivateRoute>
+                } />
+                <Route path="/edit-profile" element={
+                  <PrivateRoute allowedRoles={["tutor"]}><EditProfile /></PrivateRoute>
+                } />
+                <Route path="/add-course" element={
+                  <PrivateRoute allowedRoles={["tutor"]}><AddCourse /></PrivateRoute>
+                } />
+
+                {/* Shared */}
+                <Route path="/my-bookings" element={
+                  <PrivateRoute allowedRoles={["student", "tutor"]}><MyBookings /></PrivateRoute>
+                } />
+                <Route path="/dashboard" element={
+                  <PrivateRoute allowedRoles={["student", "tutor"]}><Dashboard /></PrivateRoute>
+                } />
+                <Route path="/profile" element={
+                  <PrivateRoute allowedRoles={["student", "tutor"]}><Profile /></PrivateRoute>
+                } />
+
+                {/* KYC */}
+                <Route path="/kyc/upload" element={
+                  <PrivateRoute allowedRoles={["tutor"]}><KycUpload /></PrivateRoute>
+                } />
+                <Route path="/kyc/status" element={
+                  <PrivateRoute allowedRoles={["tutor"]}><KycStatus /></PrivateRoute>
+                } />
+              </Routes>
+            </Suspense>
+          </main>
+          <Footer />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
-function App() {
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1800);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (loading) return <LoadingScreen />;
-
-  return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <WouterRouter>
-            <Router />
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  );
-}
-
-export default App;

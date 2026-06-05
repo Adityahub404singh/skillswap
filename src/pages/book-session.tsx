@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -12,7 +12,7 @@ const SESSION_TYPES = [
     desc: "Fast concept explanation or code review",
     credits: 3,
     duration: 15,
-    icon: "⚡",
+    icon: "âš¡",
     color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30",
     iconColor: "text-yellow-400",
     badge: "Most Popular",
@@ -23,7 +23,7 @@ const SESSION_TYPES = [
     desc: "Deep-dive on one specific topic",
     credits: 5,
     duration: 30,
-    icon: "🚀",
+    icon: "ðŸš€",
     color: "from-violet-500/20 to-violet-600/10 border-violet-500/30",
     iconColor: "text-violet-400",
     badge: "",
@@ -34,7 +34,7 @@ const SESSION_TYPES = [
     desc: "Stuck on something? Get it cleared instantly",
     credits: 4,
     duration: 20,
-    icon: "💡",
+    icon: "ðŸ’¡",
     color: "from-blue-500/20 to-blue-600/10 border-blue-500/30",
     iconColor: "text-blue-400",
     badge: "New",
@@ -45,7 +45,7 @@ const SESSION_TYPES = [
     desc: "Comprehensive learning with practice",
     credits: 10,
     duration: 60,
-    icon: "📚",
+    icon: "ðŸ“š",
     color: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30",
     iconColor: "text-emerald-400",
     badge: "",
@@ -56,7 +56,7 @@ const SESSION_TYPES = [
     desc: "End-to-end topic mastery session",
     credits: 15,
     duration: 90,
-    icon: "🎓",
+    icon: "ðŸŽ“",
     color: "from-pink-500/20 to-pink-600/10 border-pink-500/30",
     iconColor: "text-pink-400",
     badge: "Best Value",
@@ -96,12 +96,12 @@ export default function BookMicroSession() {
           <div className="w-20 h-20 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-6">
             <CheckCircle size={36} className="text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Session Booked! 🎉</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Session Booked! ðŸŽ‰</h2>
           <p className="text-gray-400 text-sm mb-2">
             Your <span className="text-violet-300 font-medium">{selected.label}</span> is confirmed.
           </p>
           <p className="text-gray-500 text-xs mb-8">
-            {date} at {time} · {selected.credits} credits deducted
+            {date} at {time} Â· {selected.credits} credits deducted
           </p>
           <div className="flex gap-3 justify-center">
             <Link href="/sessions">
@@ -122,12 +122,12 @@ export default function BookMicroSession() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2 mb-1">
             <Zap size={22} className="text-violet-400" /> Book a Session
           </h1>
-          <p className="text-gray-400 text-sm">Choose your session type — from quick 15-min doubts to full 90-min sessions</p>
+          <p className="text-gray-400 text-sm">Choose your session type â€” from quick 15-min doubts to full 90-min sessions</p>
         </div>
 
-        {/* Step 1 — Session Type */}
+        {/* Step 1 â€” Session Type */}
         <div className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">Step 1 — Session Type</h2>
+          <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">Step 1 â€” Session Type</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {SESSION_TYPES.map(type => (
               <motion.button
@@ -162,9 +162,9 @@ export default function BookMicroSession() {
           </div>
         </div>
 
-        {/* Step 2 — Pick Mentor */}
+        {/* Step 2 â€” Pick Mentor */}
         <div className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">Step 2 — Pick Mentor</h2>
+          <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">Step 2 â€” Pick Mentor</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {MENTORS.map(mentor => (
               <button
@@ -194,7 +194,7 @@ export default function BookMicroSession() {
                       <Star size={10} fill="currentColor" /> {mentor.rating}
                     </span>
                     <span className="text-xs text-gray-600">{mentor.sessions} sessions</span>
-                    <span className="text-xs text-orange-400">🔥 {mentor.streak}d</span>
+                    <span className="text-xs text-orange-400">ðŸ”¥ {mentor.streak}d</span>
                   </div>
                 </div>
                 {selectedMentor === mentor.id && (
@@ -205,9 +205,9 @@ export default function BookMicroSession() {
           </div>
         </div>
 
-        {/* Step 3 — Details */}
+        {/* Step 3 â€” Details */}
         <div className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">Step 3 — Details</h2>
+          <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">Step 3 â€” Details</h2>
           <div className="bg-gray-900/60 border border-white/8 rounded-2xl p-5 space-y-4">
             <div>
               <label className="text-xs text-gray-400 mb-1.5 block">Skill / Topic</label>
@@ -266,3 +266,4 @@ export default function BookMicroSession() {
     </div>
   );
 }
+
