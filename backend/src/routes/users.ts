@@ -5,10 +5,9 @@ import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
 import {
   pgTable, serial, integer, text, timestamp,
-  real, varchar, boolean, jsonb
+  real, varchar, boolean, jsonb, json
 } from "drizzle-orm/pg-core";
 
-// Exact DB column names from check-schema output
 const usersTable = pgTable("users", {
   id:                  serial("id").primaryKey(),
   name:                text("name").notNull(),
@@ -16,8 +15,9 @@ const usersTable = pgTable("users", {
   passwordHash:        text("password_hash").notNull(),
   bio:                 text("bio"),
   avatar:              text("avatar"),
-  skillsTeach:         text("skills_teach"),
-  skillsLearn:         text("skills_learn"),
+  // BUG FIX 1: Changed from text() to json() to natively support arrays
+  skillsTeach:         json("skills_teach").$type<string[]>(),
+  skillsLearn:         json("skills_learn").$type<string[]>(),
   credits:             integer("credits").notNull().default(50),
   trustScore:          integer("trust_score").notNull().default(0),
   sessionsCompleted:   integer("sessions_completed").notNull().default(0),
@@ -86,7 +86,6 @@ function formatUser(user: any) {
 
 const router: IRouter = Router();
 
-// GET /api/users/me
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const rows = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
@@ -98,7 +97,6 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// GET /api/users/:id
 router.get("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -112,7 +110,6 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// GET /api/users/portfolio/:slug
 router.get("/portfolio/:slug", async (req, res) => {
   try {
     const all = await db.select().from(usersTable);
@@ -125,7 +122,6 @@ router.get("/portfolio/:slug", async (req, res) => {
   }
 });
 
-// GET /api/users
 router.get("/", async (_req, res) => {
   try {
     const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted));
@@ -136,7 +132,6 @@ router.get("/", async (_req, res) => {
   }
 });
 
-// PATCH /api/users/me
 const UpdateSchema = z.object({
   name:            z.string().min(2).max(100).optional(),
   bio:             z.string().max(500).optional(),
@@ -152,8 +147,8 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const data = UpdateSchema.parse(req.body);
     const updateData: any = { ...data };
-    if (data.skillsTeach) updateData.skillsTeach = JSON.stringify(data.skillsTeach);
-    if (data.skillsLearn) updateData.skillsLearn = JSON.stringify(data.skillsLearn);
+    
+    // BUG FIX 2: Removed JSON.stringify() because Drizzle natively maps z.array() to json() columns
 
     const updated = await db.update(usersTable)
       .set(updateData)
@@ -166,7 +161,6 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// POST /api/users/streak
 router.post("/streak", requireAuth, async (req: AuthRequest, res) => {
   try {
     const rows = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
@@ -189,10 +183,9 @@ router.post("/streak", requireAuth, async (req: AuthRequest, res) => {
       currentStreak:  newStreak,
       longestStreak:  newLongest,
       lastActiveDate: today,
-      credits:        user.credits + bonus,
+      credits:        (user.credits || 0) + bonus,
     }).where(eq(usersTable.id, req.userId!));
 
-    // Log bonus if any
     if (bonus > 0) {
       await db.insert(transactionsTable).values({
         userId:      req.userId!,
@@ -203,10 +196,10 @@ router.post("/streak", requireAuth, async (req: AuthRequest, res) => {
     }
 
     res.json({
-      streak:       newStreak,
+      streak:        newStreak,
       longestStreak: newLongest,
-      bonusCredits: bonus,
-      message:      bonus > 0 ? `${newStreak}-day streak! +${bonus} bonus credits!` : "Streak updated!",
+      bonusCredits:  bonus,
+      message:       bonus > 0 ? `${newStreak}-day streak! +${bonus} bonus credits!` : "Streak updated!",
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

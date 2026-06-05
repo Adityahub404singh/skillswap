@@ -35,11 +35,11 @@ export default function Sessions() {
     queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
   };
 
-  const acceptMut = useAcceptSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "âœ… Session Accepted!" }); } } });
-  const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "ðŸŽ‰ Session Completed!", description: "Credits transferred!" }); } } });
+  const acceptMut = useAcceptSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "? Session Accepted!" }); } } });
+  const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "?? Session Completed!", description: "Credits transferred!" }); } } });
   const cancelMut = useCancelSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Cancelled" }); } } });
   const rateMut = useCreateRating({ ...options, mutation: {
-    onSuccess: () => { invalidate(); setRatingSessionId(null); setReviewText(""); toast({ title: "â­ Review Submitted!" }); }
+    onSuccess: () => { invalidate(); setRatingSessionId(null); setReviewText(""); toast({ title: "? Review Submitted!" }); }
   }});
 
   const handleRate = () => {
@@ -55,7 +55,7 @@ export default function Sessions() {
         body: JSON.stringify({ ...groupForm, creditsAmount: parseInt(groupForm.creditsAmount), maxStudents: parseInt(groupForm.maxStudents) }),
       });
       if (res.ok) {
-        toast({ title: "ðŸŽ‰ Group Session Created!" });
+        toast({ title: "?? Group Session Created!" });
         setGroupModal(false);
         invalidate();
       } else {
@@ -75,7 +75,7 @@ export default function Sessions() {
         body: JSON.stringify({ proposedPrice: parseInt(proposedPrice) }),
       });
       if (res.ok) {
-        toast({ title: `âœ… Price negotiated to ${proposedPrice} credits!` });
+        toast({ title: `? Price negotiated to ${proposedPrice} credits!` });
         setNegotiateModal(null);
         setProposedPrice("");
         invalidate();
@@ -131,10 +131,10 @@ export default function Sessions() {
       {/* Status guide */}
       <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 text-xs flex flex-wrap gap-x-5 gap-y-2 items-center">
         <span className="font-bold text-foreground text-xs uppercase tracking-wide">Status:</span>
-        <span className="flex items-center gap-1.5 text-yellow-600"><Clock className="w-3 h-3" /> <strong>Requested</strong> â€” Waiting for mentor</span>
-        <span className="flex items-center gap-1.5 text-blue-600"><CalendarDays className="w-3 h-3" /> <strong>Upcoming</strong> â€” Accepted, join when ready</span>
-        <span className="flex items-center gap-1.5 text-purple-600"><Video className="w-3 h-3" /> <strong>Live</strong> â€” In progress</span>
-        <span className="flex items-center gap-1.5 text-green-600"><CheckCircle2 className="w-3 h-3" /> <strong>Completed</strong> â€” Rate your mentor</span>
+        <span className="flex items-center gap-1.5 text-yellow-600"><Clock className="w-3 h-3" /> <strong>Requested</strong> — Waiting for mentor</span>
+        <span className="flex items-center gap-1.5 text-blue-600"><CalendarDays className="w-3 h-3" /> <strong>Upcoming</strong> — Accepted, join when ready</span>
+        <span className="flex items-center gap-1.5 text-purple-600"><Video className="w-3 h-3" /> <strong>Live</strong> — In progress</span>
+        <span className="flex items-center gap-1.5 text-green-600"><CheckCircle2 className="w-3 h-3" /> <strong>Completed</strong> — Rate your mentor</span>
       </div>
 
       {/* Sessions list */}
@@ -181,7 +181,7 @@ export default function Sessions() {
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-medium bg-muted border border-border px-3 py-1.5 rounded-lg">
-                        {format(new Date(session.scheduledDate), "EEE, MMM d Â· h:mm a")}
+                        {format(new Date(session.scheduledDate), "EEE, MMM d · h:mm a")}
                       </span>
                       <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-1">
                         <Coins className="w-3 h-3" />{session.creditsAmount} cr
@@ -200,13 +200,13 @@ export default function Sessions() {
                     {session.status === "completed" && session.actualDuration != null && session.actualDuration > 0 && (
                       <p className="text-xs text-muted-foreground mt-2">
                         Duration: {Math.min(session.actualDuration, 480)} min
-                        {session.actualDuration < 10 ? " Â· Full refund issued" : session.actualDuration < 30 ? " Â· Partial refund issued" : " Â· Full payment"}
+                        {session.actualDuration < 10 ? " · Full refund issued" : session.actualDuration < 30 ? " · Partial refund issued" : " · Full payment"}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* Actions */}
+                {/* BUG FIX: Button Render Logic */}
                 <div className="flex flex-wrap items-center gap-2 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0 border-border/50 shrink-0">
                   {tab === "teaching" && session.status === "requested" && (
                     <>
@@ -217,14 +217,14 @@ export default function Sessions() {
                         Decline
                       </Button>
                       <Button size="sm" className="text-xs rounded-xl" onClick={() => acceptMut.mutate({ sessionId: session.id })}>
-                        Accept âœ“
+                        Accept ?
                       </Button>
                     </>
                   )}
                   {tab === "teaching" && (session.status === "accepted" || session.status === "in_progress") && (
                     <>
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel</Button>
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs rounded-xl" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Done âœ“</Button>
+                      {/* Removed mentor's ability to release funds */}
                     </>
                   )}
                   {tab === "learning" && session.status === "requested" && (
@@ -236,10 +236,13 @@ export default function Sessions() {
                     </>
                   )}
                   {tab === "learning" && session.status === "accepted" && (
-                    <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel</Button>
+                    <>
+                      <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel</Button>
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs rounded-xl" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Done (Release Funds)</Button>
+                    </>
                   )}
                   {tab === "learning" && session.status === "in_progress" && (
-                    <Button size="sm" className="text-xs rounded-xl" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Done</Button>
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs rounded-xl" onClick={() => completeMut.mutate({ sessionId: session.id })}>Mark Done (Release Funds)</Button>
                   )}
                   {tab === "learning" && session.status === "completed" && !session.rating && (
                     <Button variant="outline" size="sm" className="border-orange-300 text-orange-600 text-xs rounded-xl" onClick={() => setRatingSessionId(session.id)}>
@@ -289,7 +292,7 @@ export default function Sessions() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Negotiate Price</DialogTitle>
-            <DialogDescription>Propose a new price (10â€“250 credits)</DialogDescription>
+            <DialogDescription>Propose a new price (10–250 credits)</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="bg-muted/50 p-3 rounded-xl text-sm">Current: <strong>{negotiateModal?.creditsAmount} credits</strong></div>
@@ -298,9 +301,9 @@ export default function Sessions() {
               <Input type="number" min={10} max={250} value={proposedPrice} onChange={e => setProposedPrice(e.target.value)} placeholder="e.g. 50" />
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs text-center text-muted-foreground">
-              <div className="bg-green-500/5 border border-green-500/10 p-2 rounded-xl">Basic<br /><strong>10â€“40 cr</strong></div>
-              <div className="bg-blue-500/5 border border-blue-500/10 p-2 rounded-xl">Medium<br /><strong>40â€“100 cr</strong></div>
-              <div className="bg-purple-500/5 border border-purple-500/10 p-2 rounded-xl">Advanced<br /><strong>100â€“250 cr</strong></div>
+              <div className="bg-green-500/5 border border-green-500/10 p-2 rounded-xl">Basic<br /><strong>10–40 cr</strong></div>
+              <div className="bg-blue-500/5 border border-blue-500/10 p-2 rounded-xl">Medium<br /><strong>40–100 cr</strong></div>
+              <div className="bg-purple-500/5 border border-purple-500/10 p-2 rounded-xl">Advanced<br /><strong>100–250 cr</strong></div>
             </div>
           </div>
           <DialogFooter>
@@ -338,9 +341,9 @@ export default function Sessions() {
             </div>
             <div className="bg-muted/50 p-3 rounded-xl text-xs space-y-1 text-muted-foreground">
               <p className="font-bold text-foreground">Platform Commission:</p>
-              <p>1â€“2 students â†’ 10% fee</p>
-              <p>3â€“5 students â†’ 15% fee</p>
-              <p>6+ students â†’ 20% fee</p>
+              <p>1–2 students ? 10% fee</p>
+              <p>3–5 students ? 15% fee</p>
+              <p>6+ students ? 20% fee</p>
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Message (optional)</label>

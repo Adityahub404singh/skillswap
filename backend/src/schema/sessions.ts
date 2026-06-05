@@ -1,4 +1,4 @@
-﻿import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { z } from "zod";
 export const sessionsTable = pgTable("sessions", {
   id: serial("id").primaryKey(),
@@ -23,7 +23,7 @@ export const insertSessionSchema = z.object({
   mentorId: z.number().int(),
   studentId: z.number().int(),
   skill: z.string().min(1),
-  scheduledDate: z.date(),
+  scheduledDate: z.coerce.date(),
   duration: z.number().int().default(60),
   message: z.string().optional(),
   creditsAmount: z.number().int().default(10),
