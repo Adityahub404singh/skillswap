@@ -1,4 +1,12 @@
-﻿import { Router, type IRouter } from "express";
+# Fix matching.ts completely + rebuild + test
+# cd C:\Users\alc\skillswap\backend  then  .\fix-matching.ps1
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+$matchingPath = "src\routes\matching.ts"
+
+# Write complete fixed matching.ts
+$content = @'
+import { Router, type IRouter } from "express";
 import { db, usersTable } from "../db.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 
@@ -88,3 +96,24 @@ router.get("/:skill", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+'@
+
+[System.IO.File]::WriteAllText("$pwd\$matchingPath", $content, [System.Text.Encoding]::UTF8)
+Write-Host "matching.ts rewritten" -ForegroundColor Green
+
+# Build
+Write-Host "Building..." -ForegroundColor Cyan
+$build = npm run build 2>&1
+$errors = $build | Select-String "error"
+if ($errors) {
+  Write-Host "Build errors:" -ForegroundColor Red
+  $errors | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+} else {
+  Write-Host "Build PASSED!" -ForegroundColor Green
+  $build | Select-String "built in" | ForEach-Object { Write-Host "  $_" -ForegroundColor Cyan }
+}
+
+Write-Host ""
+Write-Host "Ab yeh karo:" -ForegroundColor Yellow
+Write-Host "  1. Backend restart: npm run dev" -ForegroundColor White
+Write-Host "  2. Test: GET http://localhost:5000/api/match/Python" -ForegroundColor White

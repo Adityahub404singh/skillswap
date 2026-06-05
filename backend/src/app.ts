@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
 import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
@@ -6,6 +6,7 @@ import sessionsRouter from "./routes/sessions.js";
 import walletRouter from "./routes/wallet.js";
 import skillsRouter from "./routes/skills.js";
 import notificationsRouter from "./routes/notifications.js";
+import matchingRouter from "./routes/matching.js";
 import ratingsRouter from "./routes/ratings.js";
 
 const app = express();
@@ -26,6 +27,7 @@ app.use("/api/sessions",      sessionsRouter);
 app.use("/api/wallet",        walletRouter);
 app.use("/api/skills",        skillsRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/match",         matchingRouter);
 app.use("/api/ratings",       ratingsRouter);
 
 // 404 handler

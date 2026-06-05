@@ -1,213 +1,240 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Zap, Clock, CheckCircle, ArrowRight, Star, MapPin } from "lucide-react";
+import { Zap, Clock, CheckCircle, ArrowRight, Star, ShieldCheck, Loader2, User, Calendar, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useGetMatchedMentors, useGetMe, useBookSession } from "@/lib/api";
+import { useApiOptions } from "@/lib/api-utils";
+import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/store/auth";
 
 const SESSION_TYPES = [
   { id: "micro_15", label: "15-min Quick Session", desc: "Fast concept explanation or code review", credits: 3, duration: 15, badge: "Most Popular", color: "border-yellow-500/40 bg-yellow-500/5" },
-  { id: "micro_30", label: "30-min Session",       desc: "Deep-dive on one specific topic",       credits: 5, duration: 30, badge: "", color: "border-violet-500/40 bg-violet-500/5" },
-  { id: "doubt",    label: "Doubt Solving",         desc: "Stuck on something? Get it cleared",   credits: 4, duration: 20, badge: "New", color: "border-blue-500/40 bg-blue-500/5" },
-  { id: "standard", label: "1-hour Full Session",   desc: "Comprehensive learning with practice", credits: 10, duration: 60, badge: "", color: "border-emerald-500/40 bg-emerald-500/5" },
-  { id: "extended", label: "1.5-hour Deep Dive",    desc: "End-to-end topic mastery session",     credits: 15, duration: 90, badge: "Best Value", color: "border-pink-500/40 bg-pink-500/5" },
+  { id: "micro_30", label: "30-min Session", desc: "Deep-dive on one specific topic", credits: 5, duration: 30, badge: "", color: "border-violet-500/40 bg-violet-500/5" },
+  { id: "doubt", label: "Doubt Solving", desc: "Stuck on something? Get it cleared", credits: 4, duration: 20, badge: "New", color: "border-blue-500/40 bg-blue-500/5" },
+  { id: "standard", label: "1-hour Full Session", desc: "Comprehensive learning with practice", credits: 10, duration: 60, badge: "", color: "border-emerald-500/40 bg-emerald-500/5" },
+  { id: "extended", label: "1.5-hour Deep Dive", desc: "End-to-end topic mastery session", credits: 15, duration: 90, badge: "Best Value", color: "border-pink-500/40 bg-pink-500/5" },
 ];
 
-const MENTORS = [
-  { id: 1, name: "Rahul Sharma",  skills: ["English", "Public Speaking"], rating: 4.8, sessions: 42, streak: 15, verified: true },
-  { id: 2, name: "Priya Patel",   skills: ["UI/UX", "Figma", "Design"],   rating: 4.7, sessions: 19, streak: 7,  verified: true },
-  { id: 3, name: "Vikram Singh",  skills: ["Python", "AI/ML", "SQL"],     rating: 4.9, sessions: 55, streak: 45, verified: false },
-  { id: 4, name: "Arjun Mehta",   skills: ["DevOps", "Docker", "AWS"],    rating: 4.5, sessions: 22, streak: 12, verified: true },
-];
+export default function BookSession() {
+  const [, params] = useRoute("/book/:mentorId");
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const token = useAuthStore(s => s.token);
+  const options = useApiOptions();
 
-export default function BookMicroSession() {
-  const [selectedType,   setSelectedType]   = useState("micro_15");
-  const [selectedMentor, setSelectedMentor] = useState<number | null>(null);
-  const [skill,  setSkill]  = useState("");
-  const [date,   setDate]   = useState("");
-  const [time,   setTime]   = useState("");
+  const urlParams = new URLSearchParams(window.location.search);
+  const skillFromUrl = urlParams.get("skill") || "";
+  const mentorIdFromUrl = params?.mentorId ? parseInt(params.mentorId) : null;
+
+  const { data: currentUser } = useGetMe(options);
+  const { data: matchedMentors, isLoading: mentorsLoading } = useGetMatchedMentors(skillFromUrl, {
+    ...options,
+    enabled: !!skillFromUrl,
+  } as any);
+
+  const createSessionMut = useBookSession({
+    ...options,
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Session Booked!", description: "Your session has been confirmed." });
+        setBooked(true);
+      },
+      onError: (e: any) => {
+        toast({ title: "Booking Failed", description: e?.message || "Please try again.", variant: "destructive" });
+      }
+    }
+  });
+
+  const [selectedType, setSelectedType] = useState("standard");
+  const [selectedMentorId, setSelectedMentorId] = useState<number | null>(mentorIdFromUrl);
+  const [skill, setSkill] = useState(skillFromUrl);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [message, setMessage] = useState("");
   const [booked, setBooked] = useState(false);
 
   const selected = SESSION_TYPES.find(s => s.id === selectedType)!;
+  const selectedMentor = matchedMentors?.find((m: any) => m.user.id === selectedMentorId);
+
+  const handleBook = () => {
+    if (!selectedMentorId || !skill || !date || !time) {
+      toast({ title: "Missing info", description: "Please fill all fields.", variant: "destructive" });
+      return;
+    }
+    const scheduledDate = new Date(`${date}T${time}`).toISOString();
+    createSessionMut.mutate({
+      mentorId: selectedMentorId,
+      skillName: skill,
+      scheduledDate,
+      creditsAmount: selected.credits,
+      message: message || `Booking for ${selected.label}`,
+    } as any);
+  };
 
   if (booked) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <div className="w-20 h-20 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle size={36} className="text-green-500" />
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center max-w-md">
+          <div className="w-24 h-24 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle size={40} className="text-green-500" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Session Booked!</h2>
-          <p className="text-muted-foreground text-sm mb-2">
-            Your <span className="text-primary font-medium">{selected.label}</span> is confirmed.
-          </p>
-          <p className="text-muted-foreground text-xs mb-8">
-            {date} at {time} &middot; {selected.credits} credits deducted
-          </p>
+          <h2 className="text-3xl font-extrabold mb-2">Session Booked!</h2>
+          <p className="text-muted-foreground mb-1">Your <span className="text-primary font-medium">{selected.label}</span> is confirmed.</p>
+          <p className="text-sm text-muted-foreground mb-8">{date} at {time} &middot; {selected.credits} credits deducted</p>
           <div className="flex gap-3 justify-center">
-            <Link href="/sessions">
-              <Button>View Sessions</Button>
-            </Link>
-            <Button variant="outline" onClick={() => setBooked(false)}>Book Another</Button>
+            <Link href="/sessions"><Button className="rounded-full">View Sessions</Button></Link>
+            <Button variant="outline" className="rounded-full" onClick={() => setBooked(false)}>Book Another</Button>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2 mb-1">
+          <Zap size={22} className="text-primary" /> Book a Session
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          {skillFromUrl ? `Booking for: ` : "Choose session type and mentor"}
+          {skillFromUrl && <span className="text-primary font-semibold">{skillFromUrl}</span>}
+        </p>
+      </div>
 
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold flex items-center gap-2 mb-1">
-            <Zap size={22} className="text-primary" /> Book a Session
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Choose your session type -- from quick 15-min doubts to full 90-min sessions
-          </p>
+      {/* Step 1: Session Type */}
+      <div>
+        <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Step 1 — Session Type</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {SESSION_TYPES.map(type => (
+            <motion.button key={type.id} onClick={() => setSelectedType(type.id)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              className={`relative text-left p-4 rounded-2xl border-2 transition-all ${
+                selectedType === type.id ? type.color + " ring-1 ring-primary/30" : "border-border bg-card hover:border-primary/30"
+              }`}>
+              {type.badge && (
+                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{type.badge}</span>
+              )}
+              <p className="font-semibold text-sm mb-1 mt-1">{type.label}</p>
+              <p className="text-xs text-muted-foreground mb-3">{type.desc}</p>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1 text-primary font-bold"><Zap size={11} /> {type.credits} credits</span>
+                <span className="flex items-center gap-1 text-muted-foreground"><Clock size={11} /> {type.duration} min</span>
+              </div>
+              {selectedType === type.id && <CheckCircle className="absolute bottom-3 right-3 w-4 h-4 text-primary" />}
+            </motion.button>
+          ))}
         </div>
+      </div>
 
-        {/* Step 1 */}
-        <div className="mb-8">
-          <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-            Step 1 -- Session Type
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {SESSION_TYPES.map(type => (
-              <button
-                key={type.id}
-                onClick={() => setSelectedType(type.id)}
-                className={`relative text-left p-4 rounded-2xl border-2 transition-all ${
-                  selectedType === type.id
-                    ? type.color + " ring-1 ring-primary/30"
-                    : "border-border bg-card hover:border-primary/30"
-                }`}
-              >
-                {type.badge && (
-                  <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                    {type.badge}
-                  </span>
-                )}
-                <p className="font-semibold text-sm mb-1 mt-1">{type.label}</p>
-                <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{type.desc}</p>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1 text-primary">
-                    <Zap size={11} /> {type.credits} credits
-                  </span>
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Clock size={11} /> {type.duration} min
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Step 2 */}
-        <div className="mb-8">
-          <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-            Step 2 -- Pick Mentor
-          </h2>
+      {/* Step 2: Pick Mentor (Real API) */}
+      <div>
+        <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Step 2 — Pick Mentor</h2>
+        {mentorsLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {MENTORS.map(mentor => (
-              <button
-                key={mentor.id}
-                onClick={() => setSelectedMentor(mentor.id)}
+            {[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-muted rounded-2xl animate-pulse" />)}
+          </div>
+        ) : !matchedMentors?.length ? (
+          <div className="text-center py-8 card-premium">
+            <User className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-muted-foreground text-sm">No mentors found for this skill.</p>
+            <Link href="/explore"><Button size="sm" className="mt-3 rounded-full">Browse All Skills</Button></Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {matchedMentors.map((match: any) => (
+              <motion.button key={match.user.id} onClick={() => setSelectedMentorId(match.user.id)}
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 className={`flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
-                  selectedMentor === mentor.id
-                    ? "border-primary/50 bg-primary/5"
-                    : "border-border bg-card hover:border-primary/30"
-                }`}
-              >
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center font-bold text-white text-sm">
-                    {mentor.name.charAt(0)}
+                  selectedMentorId === match.user.id ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : "border-border bg-card hover:border-primary/30"
+                }`}>
+                <div className="relative flex-shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center font-bold text-white overflow-hidden">
+                    {match.user.avatar ? <img src={match.user.avatar} className="w-full h-full object-cover" alt={match.user.name} /> : match.user.name?.charAt(0)}
                   </div>
-                  {mentor.verified && (
+                  {match.isVerified && (
                     <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
                       <CheckCircle size={9} className="text-white" />
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">{mentor.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{mentor.skills.join(", ")}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-semibold truncate">{match.user.name}</p>
+                    {match.isVerified && <ShieldCheck className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{match.user.skillsTeach?.slice(0,3).join(", ")}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="flex items-center gap-0.5 text-yellow-500 text-xs">
-                      <Star size={10} fill="currentColor" /> {mentor.rating}
+                    <span className="flex items-center gap-0.5 text-yellow-500 text-xs font-medium">
+                      <Star size={10} fill="currentColor" /> {match.user.averageRating?.toFixed(1) || "New"}
                     </span>
-                    <span className="text-xs text-muted-foreground">{mentor.sessions} sessions</span>
-                    <span className="text-xs text-orange-500">{mentor.streak}d streak</span>
+                    <span className="text-xs text-muted-foreground">{match.user.sessionsCompleted || 0} sessions</span>
+                    <span className="text-xs font-bold text-primary">{match.pricePerHour} cr/hr</span>
                   </div>
                 </div>
-                {selectedMentor === mentor.id && (
-                  <CheckCircle size={16} className="text-primary shrink-0" />
-                )}
-              </button>
+                {selectedMentorId === match.user.id && <CheckCircle size={16} className="text-primary shrink-0" />}
+              </motion.button>
             ))}
           </div>
-        </div>
-
-        {/* Step 3 */}
-        <div className="mb-8">
-          <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-            Step 3 -- Details
-          </h2>
-          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Skill / Topic</label>
-              <input
-                value={skill}
-                onChange={e => setSkill(e.target.value)}
-                placeholder="e.g. React hooks, English pronunciation..."
-                className="w-full bg-background border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={e => setDate(e.target.value)}
-                  className="w-full bg-background border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Time</label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={e => setTime(e.target.value)}
-                  className="w-full bg-background border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary */}
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold">{selected.label}</p>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Clock size={11} /> {selected.duration} min</span>
-                <span className="flex items-center gap-1 text-primary"><Zap size={11} /> {selected.credits} credits</span>
-                {selectedMentor && <span>{date || "Pick date"} {time || ""}</span>}
-              </div>
-            </div>
-            <Button
-              onClick={() => { if (selectedMentor && skill && date && time) setBooked(true); }}
-              disabled={!selectedMentor || !skill || !date || !time}
-              className="flex items-center gap-2"
-            >
-              Confirm Booking <ArrowRight size={15} />
-            </Button>
-          </div>
-        </div>
-
+        )}
       </div>
+
+      {/* Step 3: Details */}
+      <div>
+        <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Step 3 — Details</h2>
+        <div className="card-premium space-y-4">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Skill / Topic *</label>
+            <input value={skill} onChange={e => setSkill(e.target.value)}
+              placeholder="e.g. React hooks, English pronunciation..."
+              className="w-full bg-background border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Date *</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} min={new Date().toISOString().split("T")[0]}
+                className="w-full bg-background border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Time *</label>
+              <input type="time" value={time} onChange={e => setTime(e.target.value)}
+                className="w-full bg-background border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Message to Mentor (optional)</label>
+            <textarea value={message} onChange={e => setMessage(e.target.value)} rows={2}
+              placeholder="What do you want to learn specifically?"
+              className="w-full bg-background border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* Summary + Book */}
+      <motion.div whileHover={{ scale: 1.01 }}
+        className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-2xl p-5">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <p className="font-bold">{selected.label}</p>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1"><Clock size={11} /> {selected.duration} min</span>
+              <span className="flex items-center gap-1 text-primary font-bold"><Zap size={11} /> {selected.credits} credits</span>
+              {selectedMentor && <span className="text-foreground font-medium">with {selectedMentor.user.name}</span>}
+              {date && time && <span className="flex items-center gap-1"><Calendar size={11} /> {date} {time}</span>}
+            </div>
+            {currentUser && (
+              <p className="text-xs text-muted-foreground">Your balance: <span className="text-primary font-bold">{currentUser.credits} credits</span>
+                {currentUser.credits < selected.credits && <span className="text-destructive ml-2">⚠️ Insufficient credits</span>}
+              </p>
+            )}
+          </div>
+          <Button onClick={handleBook}
+            disabled={!selectedMentorId || !skill || !date || !time || createSessionMut.isPending || (currentUser?.credits || 0) < selected.credits}
+            className="rounded-full px-8 h-11 font-bold bg-gradient-to-r from-primary to-accent border-0">
+            {createSessionMut.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Booking...</> : <>Confirm Booking <ArrowRight size={15} className="ml-2" /></>}
+          </Button>
+        </div>
+      </motion.div>
     </div>
   );
 }
