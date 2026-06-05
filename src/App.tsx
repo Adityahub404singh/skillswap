@@ -1,7 +1,7 @@
 ﻿import React, { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Header from "./components/header";
-import Footer from "./components/footer";
+
+
 import { AuthProvider } from "./store/AuthProvider";
 import { ToastContainer } from "react-toastify";
 import ForgotPassword from "./components/ForgotPassword";
@@ -170,4 +170,5 @@ export default function App() {
     </AuthProvider>
   );
 }
+
 
