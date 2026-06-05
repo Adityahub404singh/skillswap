@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Zap, Clock, CheckCircle, ArrowRight, Star, ShieldCheck, Loader2, Calendar } from "lucide-react";
