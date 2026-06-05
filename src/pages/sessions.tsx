@@ -52,7 +52,7 @@ export default function Sessions() {
       const res = await fetch("/api/sessions/group", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...groupForm, creditsAmount: parseInt(groupForm.creditsAmount), maxStudents: parseInt(groupForm.maxStudents) }),
+        body: JSON.stringify({ skill: groupForm.skill, scheduledDate: new Date(groupForm.scheduledDate).toISOString(), creditsAmount: parseInt(groupForm.creditsAmount), maxStudents: parseInt(groupForm.maxStudents), message: groupForm.message || undefined }),
       });
       if (res.ok) {
         toast({ title: "?? Group Session Created!" });
@@ -131,10 +131,10 @@ export default function Sessions() {
       {/* Status guide */}
       <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 text-xs flex flex-wrap gap-x-5 gap-y-2 items-center">
         <span className="font-bold text-foreground text-xs uppercase tracking-wide">Status:</span>
-        <span className="flex items-center gap-1.5 text-yellow-600"><Clock className="w-3 h-3" /> <strong>Requested</strong> — Waiting for mentor</span>
-        <span className="flex items-center gap-1.5 text-blue-600"><CalendarDays className="w-3 h-3" /> <strong>Upcoming</strong> — Accepted, join when ready</span>
-        <span className="flex items-center gap-1.5 text-purple-600"><Video className="w-3 h-3" /> <strong>Live</strong> — In progress</span>
-        <span className="flex items-center gap-1.5 text-green-600"><CheckCircle2 className="w-3 h-3" /> <strong>Completed</strong> — Rate your mentor</span>
+        <span className="flex items-center gap-1.5 text-yellow-600"><Clock className="w-3 h-3" /> <strong>Requested</strong> ï¿½ Waiting for mentor</span>
+        <span className="flex items-center gap-1.5 text-blue-600"><CalendarDays className="w-3 h-3" /> <strong>Upcoming</strong> ï¿½ Accepted, join when ready</span>
+        <span className="flex items-center gap-1.5 text-purple-600"><Video className="w-3 h-3" /> <strong>Live</strong> ï¿½ In progress</span>
+        <span className="flex items-center gap-1.5 text-green-600"><CheckCircle2 className="w-3 h-3" /> <strong>Completed</strong> ï¿½ Rate your mentor</span>
       </div>
 
       {/* Sessions list */}
@@ -181,7 +181,7 @@ export default function Sessions() {
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-medium bg-muted border border-border px-3 py-1.5 rounded-lg">
-                        {format(new Date(session.scheduledDate), "EEE, MMM d · h:mm a")}
+                        {format(new Date(session.scheduledDate), "EEE, MMM d ï¿½ h:mm a")}
                       </span>
                       <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-1">
                         <Coins className="w-3 h-3" />{session.creditsAmount} cr
@@ -200,7 +200,7 @@ export default function Sessions() {
                     {session.status === "completed" && session.actualDuration != null && session.actualDuration > 0 && (
                       <p className="text-xs text-muted-foreground mt-2">
                         Duration: {Math.min(session.actualDuration, 480)} min
-                        {session.actualDuration < 10 ? " · Full refund issued" : session.actualDuration < 30 ? " · Partial refund issued" : " · Full payment"}
+                        {session.actualDuration < 10 ? " ï¿½ Full refund issued" : session.actualDuration < 30 ? " ï¿½ Partial refund issued" : " ï¿½ Full payment"}
                       </p>
                     )}
                   </div>
@@ -292,7 +292,7 @@ export default function Sessions() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Negotiate Price</DialogTitle>
-            <DialogDescription>Propose a new price (10–250 credits)</DialogDescription>
+            <DialogDescription>Propose a new price (10ï¿½250 credits)</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="bg-muted/50 p-3 rounded-xl text-sm">Current: <strong>{negotiateModal?.creditsAmount} credits</strong></div>
@@ -301,9 +301,9 @@ export default function Sessions() {
               <Input type="number" min={10} max={250} value={proposedPrice} onChange={e => setProposedPrice(e.target.value)} placeholder="e.g. 50" />
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs text-center text-muted-foreground">
-              <div className="bg-green-500/5 border border-green-500/10 p-2 rounded-xl">Basic<br /><strong>10–40 cr</strong></div>
-              <div className="bg-blue-500/5 border border-blue-500/10 p-2 rounded-xl">Medium<br /><strong>40–100 cr</strong></div>
-              <div className="bg-purple-500/5 border border-purple-500/10 p-2 rounded-xl">Advanced<br /><strong>100–250 cr</strong></div>
+              <div className="bg-green-500/5 border border-green-500/10 p-2 rounded-xl">Basic<br /><strong>10ï¿½40 cr</strong></div>
+              <div className="bg-blue-500/5 border border-blue-500/10 p-2 rounded-xl">Medium<br /><strong>40ï¿½100 cr</strong></div>
+              <div className="bg-purple-500/5 border border-purple-500/10 p-2 rounded-xl">Advanced<br /><strong>100ï¿½250 cr</strong></div>
             </div>
           </div>
           <DialogFooter>
@@ -341,8 +341,8 @@ export default function Sessions() {
             </div>
             <div className="bg-muted/50 p-3 rounded-xl text-xs space-y-1 text-muted-foreground">
               <p className="font-bold text-foreground">Platform Commission:</p>
-              <p>1–2 students ? 10% fee</p>
-              <p>3–5 students ? 15% fee</p>
+              <p>1ï¿½2 students ? 10% fee</p>
+              <p>3ï¿½5 students ? 15% fee</p>
               <p>6+ students ? 20% fee</p>
             </div>
             <div>
