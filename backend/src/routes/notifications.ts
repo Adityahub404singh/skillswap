@@ -1,21 +1,34 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable } from "../db.js";
+import { db } from "../db.js";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
+import { pgTable, serial, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
+
+const notificationsTable = pgTable("notifications", {
+  id:        serial("id").primaryKey(),
+  userId:    integer("user_id").notNull(),
+  type:      varchar("type", { length: 30 }).notNull(),
+  title:     varchar("title", { length: 200 }).notNull(),
+  message:   text("message").notNull(),
+  isRead:    boolean("is_read").notNull().default(false),
+  actionUrl: varchar("action_url", { length: 300 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
 const router: IRouter = Router();
 
-// ─── NOTIFICATIONS ─────────────────────────────────────────────────────────
 // GET /api/notifications
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { notificationsTable } = await import("../schema.js");
-    const notifs = await db.select().from(notificationsTable)
+    const notifs = await db
+      .select()
+      .from(notificationsTable)
       .where(eq(notificationsTable.userId, req.userId!))
       .orderBy(desc(notificationsTable.createdAt));
     res.json(notifs);
   } catch (err: any) {
+    console.error("[notifications/]", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -23,8 +36,8 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 // PATCH /api/notifications/read-all
 router.patch("/read-all", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { notificationsTable } = await import("../schema.js");
-    await db.update(notificationsTable)
+    await db
+      .update(notificationsTable)
       .set({ isRead: true })
       .where(eq(notificationsTable.userId, req.userId!));
     res.json({ success: true });
@@ -33,57 +46,38 @@ router.patch("/read-all", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-export const notificationsRouter = router;
-
-// ─── FEED ──────────────────────────────────────────────────────────────────
-const feedRouter: IRouter = Router();
-
-// GET /api/feed
-feedRouter.get("/", requireAuth, async (_req, res) => {
+// PATCH /api/notifications/:id/read
+router.patch("/:id/read", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { feedPostsTable } = await import("../schema.js");
-    const posts = await db.select().from(feedPostsTable).orderBy(desc(feedPostsTable.createdAt));
-    res.json(posts);
+    const id = parseInt(req.params.id);
+    await db
+      .update(notificationsTable)
+      .set({ isRead: true })
+      .where(eq(notificationsTable.id, id));
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/feed
-const PostSchema = z.object({
-  type:    z.enum(["offering", "seeking", "achievement", "completed"]),
-  content: z.string().min(5).max(500),
-  skills:  z.array(z.string()).default([]),
-});
-
-feedRouter.post("/", requireAuth, async (req: AuthRequest, res) => {
+// POST /api/notifications (internal use - create notification)
+router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { feedPostsTable } = await import("../schema.js");
-    const data = PostSchema.parse(req.body);
-    const [post] = await db.insert(feedPostsTable).values({
-      userId:  req.userId!,
-      type:    data.type,
-      content: data.content,
-      skills:  data.skills,
-    } as any).returning();
-    res.status(201).json(post);
+    const { userId, type, title, message, actionUrl } = z.object({
+      userId:    z.number(),
+      type:      z.string(),
+      title:     z.string(),
+      message:   z.string(),
+      actionUrl: z.string().optional(),
+    }).parse(req.body);
+
+    const [notif] = await db.insert(notificationsTable).values({
+      userId, type, title, message, actionUrl: actionUrl ?? null,
+    }).returning();
+    res.status(201).json(notif);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// POST /api/feed/:id/like
-feedRouter.post("/:id/like", requireAuth, async (req, res) => {
-  try {
-    const { feedPostsTable } = await import("../schema.js");
-    const id = parseInt(req.params.id);
-    const [post] = await db.select().from(feedPostsTable).where(eq(feedPostsTable.id, id));
-    if (!post) return res.status(404).json({ error: "Post not found" });
-    await db.update(feedPostsTable).set({ likes: post.likes + 1 } as any).where(eq(feedPostsTable.id, id));
-    res.json({ likes: post.likes + 1 });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-export { feedRouter };
+export default router;

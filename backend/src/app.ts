@@ -1,36 +1,34 @@
-﻿import express, { type Express } from "express";
+import express from "express";
 import cors from "cors";
-import helmet from "helmet";
-import rateLimit from "express-rate-limit";
-import router from "./routes/index.js";
+import authRouter from "./routes/auth.js";
+import usersRouter from "./routes/users.js";
+import sessionsRouter from "./routes/sessions.js";
+import walletRouter from "./routes/wallet.js";
+import skillsRouter from "./routes/skills.js";
+import notificationsRouter from "./routes/notifications.js";
+import ratingsRouter from "./routes/ratings.js";
 
-const app: Express = express();
+const app = express();
 
-app.use(helmet());
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://skillswap-fawn-mu.vercel.app"
-  ],
+  origin: process.env.FRONTEND_URL || "*",
   credentials: true,
 }));
+app.use(express.json());
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { error: "Too many requests, please try again later." },
-});
+// Health check
+app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: "Too many login attempts, please try again later." },
-});
+// Routes
+app.use("/api/auth",          authRouter);
+app.use("/api/users",         usersRouter);
+app.use("/api/sessions",      sessionsRouter);
+app.use("/api/wallet",        walletRouter);
+app.use("/api/skills",        skillsRouter);
+app.use("/api/notifications", notificationsRouter);
+app.use("/api/ratings",       ratingsRouter);
 
-app.use(limiter);
-app.use("/api/auth", authLimiter);
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
-app.use("/api", router);
+// 404 handler
+app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
 
 export default app;

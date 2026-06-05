@@ -1,65 +1,55 @@
-﻿import { Router, type IRouter } from "express";
-import { db, ratingsTable, sessionsTable, usersTable } from "../db.js";
-import { eq } from "drizzle-orm";
+import { Router, type IRouter } from "express";
+import { db } from "../db.js";
+import { eq, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
+import { pgTable, serial, integer, real, text, timestamp } from "drizzle-orm/pg-core";
+
+const ratingsTable = pgTable("ratings", {
+  id:        serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull(),
+  mentorId:  integer("mentor_id").notNull(),
+  rating:    integer("rating").notNull(),
+  review:    text("review"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  raterId:   integer("rater_id"),
+});
 
 const router: IRouter = Router();
 
-const createRatingSchema = z.object({
-  sessionId: z.number().int().positive(),
-  rating: z.number().int().min(1).max(5),
-  review: z.string().optional(),
-});
-
-router.post("/", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const body = createRatingSchema.parse(req.body);
-    const studentId = req.userId!;
-    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, body.sessionId)).limit(1);
-    if (!session) { res.status(404).json({ error: "Session not found" }); return; }
-    if (session.studentId !== studentId) { res.status(403).json({ error: "Only student can rate" }); return; }
-    if (session.status !== "completed") { res.status(400).json({ error: "Session must be completed" }); return; }
-    const existing = await db.select().from(ratingsTable).where(eq(ratingsTable.sessionId, body.sessionId)).limit(1);
-    if (existing.length > 0) { res.status(400).json({ error: "Already rated" }); return; }
-
-    const [rating] = await db.insert(ratingsTable).values({
-      sessionId: body.sessionId,
-      mentorId: session.mentorId,
-      raterId: studentId,
-      rating: body.rating,
-      review: body.review,
-    }).returning();
-
-    const mentorRatings = await db.select().from(ratingsTable).where(eq(ratingsTable.mentorId, session.mentorId));
-    const avgRating = mentorRatings.reduce((sum, r) => sum + r.rating, 0) / mentorRatings.length;
-    const [mentor] = await db.select().from(usersTable).where(eq(usersTable.id, session.mentorId)).limit(1);
-    const trustScore = Math.min(100, avgRating * 10 + (mentor?.sessionsCompleted || 0) * 2);
-    await db.update(usersTable).set({ averageRating: avgRating, trustScore }).where(eq(usersTable.id, session.mentorId));
-
-    const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId)).limit(1);
-    res.status(201).json({ ...rating, studentName: student?.name || "Unknown" });
-  } catch (err) {
-    if (err instanceof z.ZodError) { res.status(400).json({ error: "Bad Request", message: err.message }); return; }
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
+// GET /api/ratings/mentor/:mentorId
 router.get("/mentor/:mentorId", async (req, res) => {
   try {
     const mentorId = parseInt(req.params.mentorId);
-    if (isNaN(mentorId)) { res.status(400).json({ error: "Invalid mentor ID" }); return; }
-    const ratings = await db.select().from(ratingsTable).where(eq(ratingsTable.mentorId, mentorId));
-    ratings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    const withNames = await Promise.all(ratings.map(async (r) => {
-      const [student] = await db.select().from(usersTable).where(eq(usersTable.id, r.raterId)).limit(1);
-      return { ...r, studentName: student?.name || "Unknown" };
-    }));
-    res.json(withNames);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
+    const ratings = await db
+      .select()
+      .from(ratingsTable)
+      .where(eq(ratingsTable.mentorId, mentorId))
+      .orderBy(desc(ratingsTable.createdAt));
+    res.json(ratings);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ratings
+router.post("/", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { sessionId, mentorId, rating, review } = z.object({
+      sessionId: z.number(),
+      mentorId:  z.number(),
+      rating:    z.number().min(1).max(5),
+      review:    z.string().max(500).optional(),
+    }).parse(req.body);
+
+    const [r] = await db.insert(ratingsTable).values({
+      sessionId, mentorId, rating,
+      review: review ?? null,
+      raterId: req.userId!,
+    }).returning();
+    res.status(201).json(r);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
   }
 });
 
