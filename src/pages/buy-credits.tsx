@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +18,7 @@ declare global {
 
 export default function BuyCredits() {
   const token = useAuthStore(s => s.token);
-  const user = useAuthStore(s => s.user);
+  const user = useAuthStore(s => s.user) as any;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
@@ -128,4 +128,5 @@ export default function BuyCredits() {
     </div>
   );
 }
+
 
