@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+﻿import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,7 +18,7 @@ import Dashboard from "@/pages/dashboard";
 import Explore from "@/pages/explore";
 import MentorProfile from "@/pages/mentor-profile";
 import BookSession from "@/pages/book-session";
-import Sessions from "@/pages/sessions";
+import Sessions from "./pages/sessions";
 import Wallet from "@/pages/wallet";
 import AIChat from "@/pages/ai-chat";
 import AdminPanel from "@/pages/admin";

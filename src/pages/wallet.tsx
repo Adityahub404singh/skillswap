@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useGetWallet, useGetTransactions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
@@ -57,7 +57,7 @@ export default function Wallet() {
         body: JSON.stringify({ amount, upiId }),
       });
       if (res.ok) {
-        toast({ title: "🎉 Withdrawal Requested!", description: `₹${amount} will be processed in 24-48 hou₹` });
+        toast({ title: "ðŸŽ‰ Withdrawal Requested!", description: `â‚¹${amount} will be processed in 24-48 houâ‚¹` });
         setShowWithdraw(false);
         setWithdrawAmount("");
         setUpiId("");
@@ -113,7 +113,7 @@ export default function Wallet() {
                 <span className="text-xl font-medium text-white/70">credits</span>
               </div>
             )}
-            <p className="text-white/60 text-sm mb-6">≈ ₹{wallet?.balance ?? 0} withdrawal value · 1 cr = ₹1</p>
+            <p className="text-white/60 text-sm mb-6">â‰ˆ â‚¹{wallet?.balance ?? 0} withdrawal value Â· 1 cr = â‚¹1</p>
             <div className="flex flex-wrap gap-3">
               <Button
                 onClick={() => setShowWithdraw(true)}
@@ -166,7 +166,7 @@ export default function Wallet() {
           {[
             { icon: Gift, color: "text-green-500", bg: "bg-green-500/10 border-green-500/20", title: "Get Free Credits", desc: "200 credits on signup. Earn 50 more per referral. No money needed." },
             { icon: TrendingUp, color: "text-primary", bg: "bg-primary/10 border-primary/20", title: "Earn by Teaching", desc: "Teach any skill and earn credits per session. The more you teach, the more you earn." },
-            { icon: Coins, color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/20", title: "Learn with Credits", desc: "Spend credits to book sessions. 1 credit = ₹1. Withdraw anytime (min 500 cr)." },
+            { icon: Coins, color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/20", title: "Learn with Credits", desc: "Spend credits to book sessions. 1 credit = â‚¹1. Withdraw anytime (min 500 cr)." },
           ].map(c => (
             <div key={c.title} className={`p-4 rounded-xl border ${c.bg}`}>
               <div className={`w-8 h-8 rounded-lg bg-background flex items-center justify-center mb-3`}>
@@ -213,7 +213,7 @@ export default function Wallet() {
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">Share this link — when friends sign up, you both get credits!</p>
+        <p className="text-xs text-muted-foreground mt-2">Share this link â€” when friends sign up, you both get credits!</p>
       </motion.div>
 
       {/* Transactions */}
@@ -240,7 +240,7 @@ export default function Wallet() {
                     </div>
                     <div>
                       <p className="font-semibold text-sm leading-tight">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(tx.createdAt), "MMM d, yyyy · h:mm a")}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(tx.createdAt), "MMM d, yyyy Â· h:mm a")}</p>
                     </div>
                   </div>
                   <span className={`font-black text-sm tabular-nums ${
@@ -273,14 +273,14 @@ export default function Wallet() {
             </div>
             <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 text-sm mb-5">
               Balance: <span className="font-black text-primary">{wallet?.balance} cr</span>
-              <span className="text-muted-foreground"> · Min 500 cr · 1 cr = ₹1</span>
+              <span className="text-muted-foreground"> Â· Min 500 cr Â· 1 cr = â‚¹1</span>
             </div>
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-semibold mb-1.5 block">Amount (credits)</label>
                 <Input type="number" placeholder="e.g. 500" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} min="500" max={wallet?.balance} className="h-12" />
                 {withdrawAmount && parseInt(withdrawAmount) >= 500 && (
-                  <p className="text-xs text-green-600 mt-1">= ₹{withdrawAmount} will be transferred</p>
+                  <p className="text-xs text-green-600 mt-1">= â‚¹{withdrawAmount} will be transferred</p>
                 )}
               </div>
               <div>
@@ -294,7 +294,7 @@ export default function Wallet() {
               >
                 {withdrawLoading
                   ? <Loader2 className="w-5 h-5 animate-spin" />
-                  : `Withdraw ₹${withdrawAmount || 0}`
+                  : `Withdraw â‚¹${withdrawAmount || 0}`
                 }
               </Button>
               <p className="text-xs text-muted-foreground text-center">Processed within 24-48 hours via UPI</p>
