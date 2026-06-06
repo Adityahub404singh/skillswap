@@ -75,7 +75,7 @@ export default function BookSession() {
 
     const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
 
-    bookMut.mutate({ mentorId: selectedMentorId!, skill: skill.trim(), sessionType: selectedType, scheduledAt: new Date(`${date}T${time}:00`).toISOString(), message: message || undefined } as any);
+    bookMut.mutate({ data: { mentorId: selectedMentorId!, skill: skill.trim(), sessionType: selectedType, scheduledAt: new Date(`${date}T${time}:00`).toISOString(), message: message || undefined } } as any);
   }
 
   if (booked) {
