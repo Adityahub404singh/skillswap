@@ -1,8 +1,9 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, or, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
+import { notify } from "../notify.js";
 import {
   pgTable, serial, integer, text, timestamp,
   real, varchar, boolean
@@ -185,6 +186,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       sessionId:   session.id,
     });
 
+    notify.sessionBooked(data.mentorId, learner.name, data.skill);
     res.status(201).json(session);
   } catch (err: any) {
     console.error("[sessions/book]", err.message);
@@ -243,6 +245,8 @@ router.patch("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
       });
     }
 
+    notify.sessionCompleted(session.mentorId, session.skill, session.creditsAmount);
+    notify.sessionCompleted(session.studentId, session.skill, 0);
     res.json({ success: true, message: "Session completed! Credits transferred." });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -350,6 +354,7 @@ router.post("/group", requireAuth, async (req: AuthRequest, res) => {
       sessionType:   "standard",
     }).returning();
 
+    notify.sessionBooked(data.mentorId, learner.name, data.skill);
     res.status(201).json(session);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
