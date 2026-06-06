@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, or, desc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -152,6 +152,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       userId: req.userId!, type: "spent", amount: credits, description: `Booked ${cfg.label} for ${data.skill} with ${mentor.name}`, sessionId: session.id,
     });
 
+    notify.sessionBooked(data.mentorId, learner.name, data.skill);
     res.status(201).json(session);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -167,7 +168,8 @@ router.post("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
     if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can accept" });
 
     await db.update(sessionsTable).set({ status: "accepted" }).where(eq(sessionsTable.id, sessionId));
-    res.json({ success: true, message: "Session accepted!" });
+    notify.sessionAccepted(session.studentId, req.userId!.toString(), session.skill);
+    res.json({ success: true, message: "Session accepted! Learner will be notified." });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -212,7 +214,9 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
       }
     }
 
-    res.json({ success: true, message: "Session completed! Credits transferred." });
+    notify.sessionCompleted(session.mentorId, session.skill, session.creditsAmount);
+    notify.sessionCompleted(session.studentId, session.skill, 0);
+    res.json({ success: true, message: "Session completed! Credits transferred.", completed: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -253,6 +257,7 @@ router.post("/group", requireAuth, async (req: AuthRequest, res) => {
       creditsAmount: creditsAmount || 50, isGroup: 1, maxStudents: maxStudents || 10, message: message || null, sessionType: "standard",
     }).returning();
 
+    notify.sessionBooked(data.mentorId, learner.name, data.skill);
     res.status(201).json(session);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
