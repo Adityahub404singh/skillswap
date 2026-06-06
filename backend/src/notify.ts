@@ -1,4 +1,4 @@
-import { db } from "./db.js";
+﻿import { db } from "./db.js";
 import { pgTable, serial, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
 
 const notificationsTable = pgTable("notifications", {
@@ -12,18 +12,20 @@ const notificationsTable = pgTable("notifications", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export async function createNotification(userId, type, title, message, actionUrl) {
+export async function createNotification(userId: number, type: string, title: string, message: string, actionUrl?: string) {
   try {
     await db.insert(notificationsTable).values({ userId, type, title, message, actionUrl: actionUrl ?? null });
-  } catch (err) { console.error("[notify]", err.message); }
+  } catch (err: any) { 
+    console.error("[notify]", err.message); 
+  }
 }
 
 export const notify = {
-  sessionBooked: (mentorId, learnerName, skill) => createNotification(mentorId, "session", "New Session Booked!", learnerName + " booked " + skill + " session.", "/sessions"),
-  sessionAccepted: (learnerId, mentorName, skill) => createNotification(learnerId, "session", "Session Accepted!", mentorName + " accepted your " + skill + " request.", "/sessions"),
-  sessionCompleted: (userId, skill, credits) => createNotification(userId, "credit", "Session Done!", skill + " session complete! +" + credits + " credits.", "/wallet"),
-  sessionCancelled: (userId, skill, credits) => createNotification(userId, "session", "Session Cancelled", skill + " cancelled. +" + credits + " credits refunded.", "/wallet"),
-  creditsEarned: (userId, amount, reason) => createNotification(userId, "credit", "+" + amount + " Credits!", reason, "/wallet"),
-  streakBonus: (userId, streak, bonus) => createNotification(userId, "streak", streak + "-Day Streak!", "Amazing streak! +" + bonus + " bonus credits.", "/dashboard"),
-  paymentSuccess: (userId, credits, amount) => createNotification(userId, "credit", "Payment Done!", credits + " credits added for Rs." + amount, "/wallet"),
+  sessionBooked: (mentorId: number, learnerName: string, skill: string) => createNotification(mentorId, "session", "New Session Booked!", learnerName + " booked " + skill + " session.", "/sessions"),
+  sessionAccepted: (learnerId: number, mentorName: string, skill: string) => createNotification(learnerId, "session", "Session Accepted!", mentorName + " accepted your " + skill + " request.", "/sessions"),
+  sessionCompleted: (userId: number, skill: string, credits: number) => createNotification(userId, "credit", "Session Done!", skill + " session complete! +" + credits + " credits.", "/wallet"),
+  sessionCancelled: (userId: number, skill: string, credits: number) => createNotification(userId, "session", "Session Cancelled", skill + " cancelled. +" + credits + " credits refunded.", "/wallet"),
+  creditsEarned: (userId: number, amount: number, reason: string) => createNotification(userId, "credit", "+" + amount + " Credits!", reason, "/wallet"),
+  streakBonus: (userId: number, streak: number, bonus: number) => createNotification(userId, "streak", streak + "-Day Streak!", "Amazing streak! +" + bonus + " bonus credits.", "/dashboard"),
+  paymentSuccess: (userId: number, credits: number, amount: number) => createNotification(userId, "credit", "Payment Done!", credits + " credits added for Rs." + amount, "/wallet"),
 };
