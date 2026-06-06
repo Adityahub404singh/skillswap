@@ -9,11 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 
 const BADGES = [
-  { id: "first_session", icon: "ðŸŽ¯", label: "First Session", desc: "Completed your first session", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
-  { id: "streak_7", icon: "ðŸ”¥", label: "7-Day Streak", desc: "Learned 7 days in a row", color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
-  { id: "streak_30", icon: "âš¡", label: "30-Day Legend", desc: "30 days of consistent learning", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
+  { id: "first_session", icon: "🎯", label: "First Session", desc: "Completed your first session", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
+  { id: "streak_7", icon: "🔥", label: "7-Day Streak", desc: "Learned 7 days in a row", color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
+  { id: "streak_30", icon: "⚡", label: "30-Day Legend", desc: "30 days of consistent learning", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
   { id: "top_mentor", icon: "ðŸ†", label: "Top Mentor", desc: "Rated 4.8+ as a teacher", color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
-  { id: "verified", icon: "âœ…", label: "Verified Expert", desc: "Passed skill verification test", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
+  { id: "verified", icon: "✅", label: "Verified Expert", desc: "Passed skill verification test", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
   { id: "community", icon: "ðŸ‘¥", label: "Community Star", desc: "Helped 10+ learners", color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
 ];
 
@@ -42,7 +42,7 @@ function StreakWidget({ streak }: { streak: number }) {
                 isToday ? "bg-orange-500/20 text-orange-500 border border-orange-500/30" :
                 "bg-muted text-muted-foreground"
               }`}>
-                {active ? "ðŸ”¥" : d}
+                {active ? "🔥" : d}
               </div>
               <span className="text-[9px] text-muted-foreground">{d}</span>
             </div>
@@ -50,7 +50,7 @@ function StreakWidget({ streak }: { streak: number }) {
         })}
       </div>
       <div className="text-xs text-muted-foreground text-center">
-        {streak >= 30 ? "ðŸ… 30-Day Legend!" : streak >= 7 ? "âš¡ On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
+        {streak >= 30 ? "ðŸ… 30-Day Legend!" : streak >= 7 ? "⚡ On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
       </div>
     </div>
   );
@@ -109,7 +109,7 @@ export default function Dashboard() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <motion.span animate={{ rotate: [0, 20, -20, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-2xl">ðŸ‘‹</motion.span>
+              <motion.span animate={{ rotate: [0, 20, -20, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-2xl">👋</motion.span>
               <span className="text-white/70 text-sm font-medium">{greeting}</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold mb-2">{firstName}!</h1>
@@ -155,7 +155,7 @@ export default function Dashboard() {
                   <Gift className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-foreground text-lg">Give 50, Get 50 Credits! ðŸŽ</h3>
+                  <h3 className="font-extrabold text-foreground text-lg">Give 50, Get 50 Credits! 🎁</h3>
                   <p className="text-sm text-muted-foreground">Invite a friend to SkillSwap and you both earn 50 credits.</p>
                 </div>
               </div>
