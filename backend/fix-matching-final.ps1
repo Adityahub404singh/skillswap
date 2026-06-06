@@ -1,4 +1,9 @@
-﻿import { Router, type IRouter } from "express";
+# Fix matching.ts - remove passwordHash + fix skillsTeach parsing
+# cd C:\Users\alc\skillswap\backend  then  .\fix-matching-final.ps1
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+$content = @'
+import { Router, type IRouter } from "express";
 import { db, usersTable } from "../db.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 
@@ -99,3 +104,33 @@ router.get("/:skill", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+'@
+
+[System.IO.File]::WriteAllText("$pwd\src\routes\matching.ts", $content, [System.Text.Encoding]::UTF8)
+Write-Host "matching.ts fixed - passwordHash removed, skills parsing fixed" -ForegroundColor Green
+
+# tsx watch auto-reloads - wait 5s then test
+Write-Host "Waiting for tsx reload..." -ForegroundColor Cyan
+Start-Sleep -Seconds 5
+
+$TOKEN = (Invoke-RestMethod -Method POST `
+  -Uri "http://localhost:5000/api/auth/login" `
+  -Headers @{"Content-Type"="application/json"} `
+  -Body '{"email":"singhaditya4560@gmail.com","password":"Admin@123"}').token
+
+Write-Host ""
+Write-Host "Testing /api/match/Python..." -ForegroundColor Cyan
+$result = Invoke-RestMethod -Method GET `
+  -Uri "http://localhost:5000/api/match/Python" `
+  -Headers @{"Authorization"="Bearer $TOKEN"}
+
+Write-Host "Found $($result.Count) Python mentors:" -ForegroundColor Green
+$result | Select-Object -First 5 | ForEach-Object {
+  Write-Host "  $($_.user.name) | skills: $($_.user.skillsTeach -join ', ') | score: $($_.matchScore)" -ForegroundColor White
+}
+
+Write-Host ""
+Write-Host "Commit karo:" -ForegroundColor Yellow
+Write-Host "  cd C:\Users\alc\skillswap" -ForegroundColor White
+Write-Host "  git add . && git commit -m 'fix: matching route added to app.ts, skills parsing fixed, passwordHash removed from response'" -ForegroundColor White
+Write-Host "  git push origin main" -ForegroundColor White
