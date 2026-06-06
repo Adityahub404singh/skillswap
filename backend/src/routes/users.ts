@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -12,7 +12,6 @@ const usersTable = pgTable("users", {
   passwordHash:        text("password_hash").notNull(),
   bio:                 text("bio"),
   avatar:              text("avatar"),
-  // FIX: Reverted to text() to match actual DB schema, will use JSON.stringify safely
   skillsTeach:         text("skills_teach"),
   skillsLearn:         text("skills_learn"),
   credits:             integer("credits").notNull().default(50),
@@ -119,7 +118,8 @@ router.get("/portfolio/:slug", async (req, res) => {
 
 router.get("/", async (_req, res) => {
   try {
-    const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted));
+    // ✅ FIX: Added .limit(50) so Explore page doesn't crash the server memory
+    const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted)).limit(50);
     res.json(rows.map(formatUser));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -142,7 +142,6 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
     const data = UpdateSchema.parse(req.body);
     const updateData: any = { ...data };
     
-    // 🔥 THE FIX: Safely stringify arrays so the Text column accepts them without crashing
     if (updateData.skillsTeach !== undefined) {
       updateData.skillsTeach = JSON.stringify(updateData.skillsTeach);
     }
@@ -162,33 +161,6 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-router.post("/streak", requireAuth, async (req: AuthRequest, res) => {
-  // (Kept as it is, no bugs here)
-  try {
-    const rows = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    const user = rows[0];
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    const today     = new Date().toISOString().split("T")[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-    const last      = user.lastActiveDate;
-
-    if (last === today) return res.json({ streak: user.currentStreak, message: "Already updated today" });
-
-    const newStreak  = last === yesterday ? user.currentStreak + 1 : 1;
-    const newLongest = Math.max(newStreak, user.longestStreak);
-    const bonus      = newStreak === 7 ? 10 : newStreak === 30 ? 30 : newStreak === 100 ? 100 : 0;
-
-    await db.update(usersTable).set({ currentStreak: newStreak, longestStreak: newLongest, lastActiveDate: today, credits: (user.credits || 0) + bonus }).where(eq(usersTable.id, req.userId!));
-
-    if (bonus > 0) {
-      await db.insert(transactionsTable).values({ userId: req.userId!, type: "earned", amount: bonus, description: `${newStreak}-day streak bonus!` });
-    }
-
-    res.json({ streak: newStreak, longestStreak: newLongest, bonusCredits: bonus, message: bonus > 0 ? `${newStreak}-day streak! +${bonus} bonus credits!` : "Streak updated!" });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ✅ FIX: Deleted duplicate POST /streak logic. Everything is routed to gamification.ts
 
 export default router;

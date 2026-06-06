@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "../db.js";
 import { eq, sql } from "drizzle-orm";
@@ -35,7 +35,6 @@ const usersTable = pgTable("users", {
   isPremium:           boolean("is_premium").notNull().default(false),
   premiumExpiresAt:    timestamp("premium_expires_at"),
   notificationLastSent: timestamp("notification_last_sent"),
-  // FIXED: Added referred_by column to securely track referrals
   referredBy:          integer("referred_by")
 });
 
@@ -71,7 +70,7 @@ function parseJsonField(val: any): string[] {
   try { return JSON.parse(val); } catch { return []; }
 }
 
-function formatUser(user: typeof usersTable.$inferSelect) {
+function formatUser(user: any) {
   return {
     id: user.id, name: user.name, email: user.email,
     bio: user.bio, avatar: user.avatar,
@@ -90,7 +89,6 @@ router.post("/register", async (req, res) => {
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
     if (existing.length > 0) return res.status(409).json({ error: "Conflict", message: "Email already in use" });
 
-    // Identify referrer safely
     let referrerId: number | null = null;
     if (body.referralCode) {
       try {
@@ -105,19 +103,15 @@ router.post("/register", async (req, res) => {
       name: body.name, 
       email: body.email, 
       passwordHash,
-      // FIX: Securely store skills as strings during signup
       skillsTeach: JSON.stringify(body.skillsTeach), 
       skillsLearn: JSON.stringify(body.skillsLearn),
-      // Give signup bonus
-      credits: 50,
+      credits: 200, // ✅ FIX: Ab naye user ko strictly 200 credits milenge
       referredBy: referrerId
     }).returning();
 
     await db.insert(transactionsTable).values({
-      userId: user.id, amount: 50, type: "bonus", description: "Welcome bonus - 50 credits to start your journey!",
+      userId: user.id, amount: 200, type: "bonus", description: "Welcome bonus - 200 credits to start your journey!",
     });
-
-    // NOTE: Referrer does NOT get credits here. They get it in sessions.ts when this user completes a session.
 
     const token = signToken({ userId: user.id, email: user.email });
     res.status(201).json({ token, user: formatUser(user) });
@@ -144,12 +138,11 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.get("/referral", requireAuth, async (req: any, res) => {
+router.get("/referral", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
     if (!user) return res.status(404).json({ error: "Not Found" }); 
     
-    // Generate secure friendly code (e.g., aditya12)
     const referralCode = `${user.name.replace(/\s+/g, '').toLowerCase()}${user.id}`;
     const referralLink = (process.env.FRONTEND_URL || "https://skillswap.app") + "/register?ref=" + referralCode;
     res.json({ referralCode, referralLink });
