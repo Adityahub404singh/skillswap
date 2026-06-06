@@ -359,4 +359,27 @@ router.post("/group", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+
+// POST /api/sessions/:id/negotiate
+router.post("/:id/negotiate", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const { proposedPrice } = req.body;
+    if (!proposedPrice || proposedPrice < 5) {
+      return res.status(400).json({ error: "Invalid price" });
+    }
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session) return res.status(404).json({ error: "Not found" });
+    if (session.studentId !== req.userId) {
+      return res.status(403).json({ error: "Only student can negotiate" });
+    }
+    await db.update(sessionsTable)
+      .set({ negotiatedPrice: proposedPrice, status: "requested" })
+      .where(eq(sessionsTable.id, sessionId));
+    notify.creditsEarned(session.mentorId, 0, "Price negotiation request: " + proposedPrice + " credits proposed.");
+    res.json({ success: true, proposedPrice });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 export default router;

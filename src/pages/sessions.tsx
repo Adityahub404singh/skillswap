@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -35,11 +35,11 @@ export default function Sessions() {
     queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
   };
 
-  const acceptMut = useAcceptSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "? Session Accepted!" }); } } });
-  const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "?? Session Completed!", description: "Credits transferred!" }); } } });
+  const acceptMut = useAcceptSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Accepted!" }); } } });
+  const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Completed!", description: "Credits transferred!" }); } } });
   const cancelMut = useCancelSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session Cancelled" }); } } });
   const rateMut = useCreateRating({ ...options, mutation: {
-    onSuccess: () => { invalidate(); setRatingSessionId(null); setReviewText(""); toast({ title: "? Review Submitted!" }); }
+    onSuccess: () => { invalidate(); setRatingSessionId(null); setReviewText(""); toast({ title: "Review Submitted!" }); }
   }});
 
   const handleRate = () => {
@@ -55,7 +55,7 @@ export default function Sessions() {
         body: JSON.stringify({ skill: groupForm.skill, scheduledDate: new Date(groupForm.scheduledDate).toISOString(), creditsAmount: parseInt(groupForm.creditsAmount), maxStudents: parseInt(groupForm.maxStudents), message: groupForm.message || undefined }),
       });
       if (res.ok) {
-        toast({ title: "?? Group Session Created!" });
+        toast({ title: "Group Session Created!" });
         setGroupModal(false);
         invalidate();
       } else {
