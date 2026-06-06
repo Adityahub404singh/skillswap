@@ -65,7 +65,7 @@ export default function Dashboard() {
     ...(((user as any)?.sessionsCompleted ?? 0) > 0 ? [0] : []),
     ...(((user as any)?.currentStreak ?? 0) >= 7 ? [1] : []),
     ...(((user as any)?.currentStreak ?? 0) >= 30 ? [2] : []),
-    ...(((user as any).averageRating ?? 0) >= 4.8 && ((user as any)?.sessionsCompleted ?? 0) >= 10 ? [3] : []),
+    ...(((user as any)?.averageRating ?? 0) >= 4.8 && ((user as any)?.sessionsCompleted ?? 0) >= 10 ? [3] : []),
     ...(((user as any)?.trustScore ?? 0) >= 80 ? [4] : []),
   ];
 
