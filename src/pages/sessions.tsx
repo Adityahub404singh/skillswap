@@ -106,7 +106,7 @@ export default function Sessions() {
     }
   };
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Filter sessions ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  //  Filter sessions 
   const myId = (user as any)?.id;
 
   const sessions = (allSessions || []).filter((s: any) => {
@@ -225,7 +225,7 @@ export default function Sessions() {
         ) : (
           <AnimatePresence>
             {sessions.map((session: any, i: number) => {
-              // Determine "other user" ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â for group sessions in teaching tab, show "Group Session"
+              // Determine "other user"  for group sessions in teaching tab, show "Group Session"
               const isGroupSession = session.isGroup === 1;
               const otherUser = tab === "learning" ? session.mentor : session.student;
               const otherName = isGroupSession && tab === "teaching"
@@ -277,7 +277,7 @@ export default function Sessions() {
                       {/* Meta */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-medium bg-muted border border-border px-3 py-1.5 rounded-lg">
-                          {format(new Date(session.scheduledDate), "EEE, MMM d Ãƒâ€šÃ‚Â· h:mm a")}
+                          {format(new Date(session.scheduledDate), "EEE, MMM d  h:mm a")}
                         </span>
                         <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-1">
                           <Coins className="w-3 h-3" />{session.creditsAmount} cr
@@ -335,7 +335,7 @@ export default function Sessions() {
                       </Button>
                     )}
 
-                    {/* Group session ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â cancel only */}
+                    {/* Group session  cancel only */}
                     {tab === "teaching" && isGroupSession && session.status === "pending" && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
                         onClick={() => cancelMut.mutate({ sessionId: session.id })}>
@@ -390,7 +390,7 @@ export default function Sessions() {
         )}
       </div>
 
-      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Rating Dialog ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+      {/*  Rating Dialog  */}
       <Dialog open={!!ratingId} onOpenChange={o => !o && setRatingId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -417,7 +417,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Negotiate Dialog ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+      {/*  Negotiate Dialog  */}
       <Dialog open={!!negotiateModal} onOpenChange={o => !o && setNegotiateModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -446,7 +446,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Group Session Dialog ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+      {/*  Group Session Dialog  */}
       <Dialog open={groupModal} onOpenChange={setGroupModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
