@@ -1,10 +1,53 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, transactionsTable } from "../db.js";
+import { db } from "../db.js";
 import { eq, sql } from "drizzle-orm";
 import { signToken } from "../utils/jwt.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
+import { pgTable, serial, integer, text, timestamp, real, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
+
+const usersTable = pgTable("users", {
+  id:                  serial("id").primaryKey(),
+  name:                text("name").notNull(),
+  email:               text("email").notNull(),
+  passwordHash:        text("password_hash").notNull(),
+  bio:                 text("bio"),
+  avatar:              text("avatar"),
+  skillsTeach:         text("skills_teach"),
+  skillsLearn:         text("skills_learn"),
+  credits:             integer("credits").notNull().default(50),
+  trustScore:          integer("trust_score").notNull().default(0),
+  sessionsCompleted:   integer("sessions_completed").notNull().default(0),
+  averageRating:       real("average_rating").notNull().default(0),
+  createdAt:           timestamp("created_at").notNull().defaultNow(),
+  pricePerHour:        integer("price_per_hour").notNull().default(0),
+  isAdmin:             integer("is_admin").default(0),
+  currentStreak:       integer("current_streak").notNull().default(0),
+  longestStreak:       integer("longest_streak").notNull().default(0),
+  lastActiveDate:      text("last_active_date"),
+  verifiedSkills:      jsonb("verified_skills"),
+  badges:              jsonb("badges"),
+  location:            varchar("location", { length: 100 }),
+  microSessionsCount:  integer("micro_sessions_count").notNull().default(0),
+  portfolioPublic:     boolean("portfolio_public").notNull().default(true),
+  seoSlug:             varchar("seo_slug", { length: 100 }),
+  isPremium:           boolean("is_premium").notNull().default(false),
+  premiumExpiresAt:    timestamp("premium_expires_at"),
+  notificationLastSent: timestamp("notification_last_sent"),
+  // FIXED: Added referred_by column to securely track referrals
+  referredBy:          integer("referred_by")
+});
+
+const transactionsTable = pgTable("transactions", {
+  id:          serial("id").primaryKey(),
+  userId:      integer("user_id").notNull(),
+  amount:      integer("amount").notNull(),
+  type:        text("type").notNull(),
+  description: text("description").notNull(),
+  sessionId:   integer("session_id"),
+  createdAt:   timestamp("created_at").notNull().defaultNow(),
+});
 
 const router: IRouter = Router();
 
@@ -22,12 +65,18 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
+function parseJsonField(val: any): string[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  try { return JSON.parse(val); } catch { return []; }
+}
+
 function formatUser(user: typeof usersTable.$inferSelect) {
   return {
     id: user.id, name: user.name, email: user.email,
     bio: user.bio, avatar: user.avatar,
-    skillsTeach: user.skillsTeach || [],
-    skillsLearn: user.skillsLearn || [],
+    skillsTeach: parseJsonField(user.skillsTeach),
+    skillsLearn: parseJsonField(user.skillsLearn),
     credits: user.credits, trustScore: user.trustScore,
     sessionsCompleted: user.sessionsCompleted,
     averageRating: user.averageRating,
@@ -39,35 +88,41 @@ router.post("/register", async (req, res) => {
   try {
     const body = registerSchema.parse(req.body);
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
-    if (existing.length > 0) { res.status(409).json({ error: "Conflict", message: "Email already in use" }); return; }
+    if (existing.length > 0) return res.status(409).json({ error: "Conflict", message: "Email already in use" });
+
+    // Identify referrer safely
+    let referrerId: number | null = null;
+    if (body.referralCode) {
+      try {
+        const potentialRefId = parseInt(body.referralCode.replace(/[^0-9]/g, ''));
+        const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, potentialRefId)).limit(1);
+        if (referrer) referrerId = referrer.id;
+      } catch (e) { console.error("Bad referral code", e); }
+    }
 
     const passwordHash = await bcrypt.hash(body.password, 10);
     const [user] = await db.insert(usersTable).values({
-      name: body.name, email: body.email, passwordHash,
-      skillsTeach: body.skillsTeach, skillsLearn: body.skillsLearn,
-      credits: 200,
+      name: body.name, 
+      email: body.email, 
+      passwordHash,
+      // FIX: Securely store skills as strings during signup
+      skillsTeach: JSON.stringify(body.skillsTeach), 
+      skillsLearn: JSON.stringify(body.skillsLearn),
+      // Give signup bonus
+      credits: 50,
+      referredBy: referrerId
     }).returning();
 
     await db.insert(transactionsTable).values({
-      userId: user.id, amount: 200, type: "bonus",
-      description: "Welcome bonus - 200 credits on signup!",
+      userId: user.id, amount: 50, type: "bonus", description: "Welcome bonus - 50 credits to start your journey!",
     });
 
-    if (body.referralCode) {
-      const referralEmail = Buffer.from(body.referralCode, "base64").toString("utf-8");
-      const [referrer] = await db.select().from(usersTable).where(eq(usersTable.email, referralEmail)).limit(1);
-      if (referrer && referrer.id !== user.id) {
-        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 50` }).where(eq(usersTable.id, referrer.id));
-        await db.insert(transactionsTable).values({ userId: referrer.id, amount: 50, type: "referral", description: "Referral bonus - " + user.name + " joined!" });
-        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 25` }).where(eq(usersTable.id, user.id));
-        await db.insert(transactionsTable).values({ userId: user.id, amount: 25, type: "referral", description: "Welcome bonus - referred by " + referrer.name + "!" });
-      }
-    }
+    // NOTE: Referrer does NOT get credits here. They get it in sessions.ts when this user completes a session.
 
     const token = signToken({ userId: user.id, email: user.email });
     res.status(201).json({ token, user: formatUser(user) });
   } catch (err) {
-    if (err instanceof z.ZodError) { res.status(400).json({ error: "Bad Request", message: err.message }); return; }
+    if (err instanceof z.ZodError) return res.status(400).json({ error: "Bad Request", message: err.message });
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Registration failed" });
   }
@@ -77,13 +132,13 @@ router.post("/login", async (req, res) => {
   try {
     const body = loginSchema.parse(req.body);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
-    if (!user) { res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" }); return; }
+    if (!user) return res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" }); 
     const valid = await bcrypt.compare(body.password, user.passwordHash);
-    if (!valid) { res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" }); return; }
+    if (!valid) return res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" }); 
     const token = signToken({ userId: user.id, email: user.email });
     res.json({ token, user: formatUser(user) });
   } catch (err) {
-    if (err instanceof z.ZodError) { res.status(400).json({ error: "Bad Request", message: err.message }); return; }
+    if (err instanceof z.ZodError) return res.status(400).json({ error: "Bad Request", message: err.message }); 
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Login failed" });
   }
@@ -92,9 +147,11 @@ router.post("/login", async (req, res) => {
 router.get("/referral", requireAuth, async (req: any, res) => {
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
-    if (!user) { res.status(404).json({ error: "Not Found" }); return; }
-    const referralCode = Buffer.from(user.email).toString("base64");
-    const referralLink = (process.env.FRONTEND_URL || "https://skillswap-fawn-mu.vercel.app") + "/register?ref=" + referralCode;
+    if (!user) return res.status(404).json({ error: "Not Found" }); 
+    
+    // Generate secure friendly code (e.g., aditya12)
+    const referralCode = `${user.name.replace(/\s+/g, '').toLowerCase()}${user.id}`;
+    const referralLink = (process.env.FRONTEND_URL || "https://skillswap.app") + "/register?ref=" + referralCode;
     res.json({ referralCode, referralLink });
   } catch (err) {
     res.status(401).json({ error: "Unauthorized" });

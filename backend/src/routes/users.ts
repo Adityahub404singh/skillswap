@@ -3,10 +3,7 @@ import { db } from "../db.js";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-import {
-  pgTable, serial, integer, text, timestamp,
-  real, varchar, boolean, jsonb, json
-} from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, real, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
 
 const usersTable = pgTable("users", {
   id:                  serial("id").primaryKey(),
@@ -15,9 +12,9 @@ const usersTable = pgTable("users", {
   passwordHash:        text("password_hash").notNull(),
   bio:                 text("bio"),
   avatar:              text("avatar"),
-  // BUG FIX 1: Changed from text() to json() to natively support arrays
-  skillsTeach:         json("skills_teach").$type<string[]>(),
-  skillsLearn:         json("skills_learn").$type<string[]>(),
+  // FIX: Reverted to text() to match actual DB schema, will use JSON.stringify safely
+  skillsTeach:         text("skills_teach"),
+  skillsLearn:         text("skills_learn"),
   credits:             integer("credits").notNull().default(50),
   trustScore:          integer("trust_score").notNull().default(0),
   sessionsCompleted:   integer("sessions_completed").notNull().default(0),
@@ -92,7 +89,6 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
     if (!rows[0]) return res.status(404).json({ error: "User not found" });
     res.json(formatUser(rows[0]));
   } catch (err: any) {
-    console.error("[users/me]", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -105,7 +101,6 @@ router.get("/:id", async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: "User not found" });
     res.json(formatUser(rows[0]));
   } catch (err: any) {
-    console.error("[users/:id]", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -127,7 +122,6 @@ router.get("/", async (_req, res) => {
     const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted));
     res.json(rows.map(formatUser));
   } catch (err: any) {
-    console.error("[users/]", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -148,12 +142,19 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
     const data = UpdateSchema.parse(req.body);
     const updateData: any = { ...data };
     
-    // BUG FIX 2: Removed JSON.stringify() because Drizzle natively maps z.array() to json() columns
+    // 🔥 THE FIX: Safely stringify arrays so the Text column accepts them without crashing
+    if (updateData.skillsTeach !== undefined) {
+      updateData.skillsTeach = JSON.stringify(updateData.skillsTeach);
+    }
+    if (updateData.skillsLearn !== undefined) {
+      updateData.skillsLearn = JSON.stringify(updateData.skillsLearn);
+    }
 
     const updated = await db.update(usersTable)
       .set(updateData)
       .where(eq(usersTable.id, req.userId!))
       .returning();
+      
     if (!updated[0]) return res.status(404).json({ error: "User not found" });
     res.json(formatUser(updated[0]));
   } catch (err: any) {
@@ -162,6 +163,7 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.post("/streak", requireAuth, async (req: AuthRequest, res) => {
+  // (Kept as it is, no bugs here)
   try {
     const rows = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
     const user = rows[0];
@@ -171,36 +173,19 @@ router.post("/streak", requireAuth, async (req: AuthRequest, res) => {
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
     const last      = user.lastActiveDate;
 
-    if (last === today) {
-      return res.json({ streak: user.currentStreak, message: "Already updated today" });
-    }
+    if (last === today) return res.json({ streak: user.currentStreak, message: "Already updated today" });
 
     const newStreak  = last === yesterday ? user.currentStreak + 1 : 1;
     const newLongest = Math.max(newStreak, user.longestStreak);
     const bonus      = newStreak === 7 ? 10 : newStreak === 30 ? 30 : newStreak === 100 ? 100 : 0;
 
-    await db.update(usersTable).set({
-      currentStreak:  newStreak,
-      longestStreak:  newLongest,
-      lastActiveDate: today,
-      credits:        (user.credits || 0) + bonus,
-    }).where(eq(usersTable.id, req.userId!));
+    await db.update(usersTable).set({ currentStreak: newStreak, longestStreak: newLongest, lastActiveDate: today, credits: (user.credits || 0) + bonus }).where(eq(usersTable.id, req.userId!));
 
     if (bonus > 0) {
-      await db.insert(transactionsTable).values({
-        userId:      req.userId!,
-        type:        "earned",
-        amount:      bonus,
-        description: `${newStreak}-day streak bonus!`,
-      });
+      await db.insert(transactionsTable).values({ userId: req.userId!, type: "earned", amount: bonus, description: `${newStreak}-day streak bonus!` });
     }
 
-    res.json({
-      streak:        newStreak,
-      longestStreak: newLongest,
-      bonusCredits:  bonus,
-      message:       bonus > 0 ? `${newStreak}-day streak! +${bonus} bonus credits!` : "Streak updated!",
-    });
+    res.json({ streak: newStreak, longestStreak: newLongest, bonusCredits: bonus, message: bonus > 0 ? `${newStreak}-day streak! +${bonus} bonus credits!` : "Streak updated!" });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

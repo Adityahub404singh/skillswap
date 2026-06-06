@@ -1,4 +1,4 @@
-﻿import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +23,7 @@ import Wallet from "@/pages/wallet";
 import AIChat from "@/pages/ai-chat";
 import AdminPanel from "@/pages/admin";
 import Profile from "@/pages/profile";
+import Invite from "@/pages/invite";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import ForgotPassword from "@/pages/forgot-password";
@@ -56,6 +57,7 @@ function Router() {
         <Route path="/book/:mentorId"><ProtectedRoute component={BookSession} /></Route>
         <Route path="/sessions"><ProtectedRoute component={Sessions} /></Route>
         <Route path="/wallet"><ProtectedRoute component={Wallet} /></Route>
+        <Route path="/invite"><ProtectedRoute component={Invite} /></Route>
         <Route path="/buy-credits"><ProtectedRoute component={BuyCredits} /></Route>
         <Route path="/ai"><ProtectedRoute component={AIChat} /></Route>
         <Route path="/admin" component={AdminPanel} />

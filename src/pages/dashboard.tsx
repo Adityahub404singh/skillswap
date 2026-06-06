@@ -1,10 +1,10 @@
-﻿import { Link } from "wouter";
+import { Link } from "wouter";
 import { useGetMe, useGetMySessions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { format } from "date-fns";
 import { motion, Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Wallet, Star, CheckCircle, Clock, BookOpen, Compass, ArrowRight, TrendingUp, Zap, User, Trophy, Target, Sparkles, Calendar, Flame, Award, Shield, Code2, Globe, Brain, Palette } from "lucide-react";
+import { Gift, Wallet, Star, CheckCircle, Clock, BookOpen, Compass, ArrowRight, TrendingUp, Zap, User, Trophy, Target, Sparkles, Calendar, Flame, Award, Shield, Code2, Globe, Brain, Palette } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 
@@ -144,6 +144,28 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* NEW: Invite & Earn Banner */}
+      <motion.div variants={item}>
+        <Link href="/invite">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 p-1 cursor-pointer group shadow-lg hover:shadow-xl transition-all">
+            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="bg-background/95 backdrop-blur-md rounded-[22px] px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-inner">
+                  <Gift className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-foreground text-lg">Give 50, Get 50 Credits! 🎁</h3>
+                  <p className="text-sm text-muted-foreground">Invite a friend to SkillSwap and you both earn 50 credits.</p>
+                </div>
+              </div>
+              <Button className="shrink-0 rounded-full font-bold bg-primary hover:bg-primary/90 hidden sm:flex">
+                Invite Now <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </Link>
+      </motion.div>
       {/* Stats grid */}
       <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[

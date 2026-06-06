@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, CheckCircle2, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, BookOpen, GraduationCap, Coins, Filter, Zap } from "lucide-react";
+import { Clock, CheckCircle2, AlertTriangle, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, BookOpen, GraduationCap, Coins, Filter, Zap } from "lucide-react";
 
 type SessionTab    = "learning" | "teaching";
 type StatusFilter  = "all" | "requested" | "accepted" | "completed" | "cancelled";
@@ -106,7 +106,7 @@ export default function Sessions() {
     }
   };
 
-  // â”€â”€ Filter sessions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Filter sessions ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   const myId = (user as any)?.id;
 
   const sessions = (allSessions || []).filter((s: any) => {
@@ -225,7 +225,7 @@ export default function Sessions() {
         ) : (
           <AnimatePresence>
             {sessions.map((session: any, i: number) => {
-              // Determine "other user" â€” for group sessions in teaching tab, show "Group Session"
+              // Determine "other user" ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â for group sessions in teaching tab, show "Group Session"
               const isGroupSession = session.isGroup === 1;
               const otherUser = tab === "learning" ? session.mentor : session.student;
               const otherName = isGroupSession && tab === "teaching"
@@ -277,7 +277,7 @@ export default function Sessions() {
                       {/* Meta */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-medium bg-muted border border-border px-3 py-1.5 rounded-lg">
-                          {format(new Date(session.scheduledDate), "EEE, MMM d Â· h:mm a")}
+                          {format(new Date(session.scheduledDate), "EEE, MMM d Ãƒâ€šÃ‚Â· h:mm a")}
                         </span>
                         <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-1">
                           <Coins className="w-3 h-3" />{session.creditsAmount} cr
@@ -335,7 +335,7 @@ export default function Sessions() {
                       </Button>
                     )}
 
-                    {/* Group session â€” cancel only */}
+                    {/* Group session ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â cancel only */}
                     {tab === "teaching" && isGroupSession && session.status === "pending" && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
                         onClick={() => cancelMut.mutate({ sessionId: session.id })}>
@@ -390,7 +390,7 @@ export default function Sessions() {
         )}
       </div>
 
-      {/* â”€â”€ Rating Dialog â”€â”€ */}
+      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Rating Dialog ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
       <Dialog open={!!ratingId} onOpenChange={o => !o && setRatingId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -417,7 +417,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Negotiate Dialog â”€â”€ */}
+      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Negotiate Dialog ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
       <Dialog open={!!negotiateModal} onOpenChange={o => !o && setNegotiateModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -446,7 +446,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Group Session Dialog â”€â”€ */}
+      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Group Session Dialog ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
       <Dialog open={groupModal} onOpenChange={setGroupModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
