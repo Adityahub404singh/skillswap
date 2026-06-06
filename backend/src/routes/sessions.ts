@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, or, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -186,7 +186,6 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       sessionId:   session.id,
     });
 
-    notify.sessionBooked(data.mentorId, learner.name, data.skill);
     res.status(201).json(session);
   } catch (err: any) {
     console.error("[sessions/book]", err.message);
@@ -195,9 +194,9 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // PATCH /api/sessions/:id/accept
-router.patch("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
+router.post("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const sessionId = parseInt(req.params.id);
+    const sessionId = parseInt(req.params.id as string);
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can accept" });
@@ -213,9 +212,9 @@ router.patch("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // PATCH /api/sessions/:id/complete
-router.patch("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
+router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const sessionId = parseInt(req.params.id);
+    const sessionId = parseInt(req.params.id as string);
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId && session.studentId !== req.userId) {
@@ -254,9 +253,9 @@ router.patch("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // PATCH /api/sessions/:id/cancel
-router.patch("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
+router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const sessionId   = parseInt(req.params.id);
+    const sessionId   = parseInt(req.params.id as string);
     const cancelReason = req.body.reason ?? "Cancelled";
     const [session]   = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
     if (!session) return res.status(404).json({ error: "Not found" });
@@ -292,7 +291,7 @@ router.patch("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
 // POST /api/sessions/:id/rate
 router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const sessionId = parseInt(req.params.id);
+    const sessionId = parseInt(req.params.id as string);
     const { score, rating, review } = z.object({
       score:  z.number().min(1).max(5).optional(),
       rating: z.number().min(1).max(5).optional(),
@@ -354,7 +353,6 @@ router.post("/group", requireAuth, async (req: AuthRequest, res) => {
       sessionType:   "standard",
     }).returning();
 
-    notify.sessionBooked(data.mentorId, learner.name, data.skill);
     res.status(201).json(session);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
