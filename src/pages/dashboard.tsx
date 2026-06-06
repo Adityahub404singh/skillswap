@@ -9,12 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 
 const BADGES = [
-  { id: "first_session", icon: "🎯", label: "First Session", desc: "Completed your first session", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
-  { id: "streak_7", icon: "🔥", label: "7-Day Streak", desc: "Learned 7 days in a row", color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
-  { id: "streak_30", icon: "⚡", label: "30-Day Legend", desc: "30 days of consistent learning", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
-  { id: "top_mentor", icon: "🏆", label: "Top Mentor", desc: "Rated 4.8+ as a teacher", color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
-  { id: "verified", icon: "✅", label: "Verified Expert", desc: "Passed skill verification test", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
-  { id: "community", icon: "👥", label: "Community Star", desc: "Helped 10+ learners", color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
+  { id: "first_session", icon: "ðŸŽ¯", label: "First Session", desc: "Completed your first session", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
+  { id: "streak_7", icon: "ðŸ”¥", label: "7-Day Streak", desc: "Learned 7 days in a row", color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
+  { id: "streak_30", icon: "âš¡", label: "30-Day Legend", desc: "30 days of consistent learning", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
+  { id: "top_mentor", icon: "ðŸ†", label: "Top Mentor", desc: "Rated 4.8+ as a teacher", color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
+  { id: "verified", icon: "âœ…", label: "Verified Expert", desc: "Passed skill verification test", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
+  { id: "community", icon: "ðŸ‘¥", label: "Community Star", desc: "Helped 10+ learners", color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
 ];
 
 function StreakWidget({ streak }: { streak: number }) {
@@ -42,7 +42,7 @@ function StreakWidget({ streak }: { streak: number }) {
                 isToday ? "bg-orange-500/20 text-orange-500 border border-orange-500/30" :
                 "bg-muted text-muted-foreground"
               }`}>
-                {active ? "🔥" : d}
+                {active ? "ðŸ”¥" : d}
               </div>
               <span className="text-[9px] text-muted-foreground">{d}</span>
             </div>
@@ -50,7 +50,7 @@ function StreakWidget({ streak }: { streak: number }) {
         })}
       </div>
       <div className="text-xs text-muted-foreground text-center">
-        {streak >= 30 ? "🏅 30-Day Legend!" : streak >= 7 ? "⚡ On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
+        {streak >= 30 ? "ðŸ… 30-Day Legend!" : streak >= 7 ? "âš¡ On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
       </div>
     </div>
   );
@@ -60,13 +60,13 @@ export default function Dashboard() {
   const options = useApiOptions();
   const { data: user, isLoading: userLoading } = useGetMe(options);
   const { data: sessions, isLoading: sessionsLoading } = useGetMySessions({ status: "accepted" }, options);
-  const streak = (user as any).currentStreak ?? 0;
+  const streak = (user as any)?.currentStreak ?? 0;
   const unlockedBadges: number[] = [
-    ...(((user as any).sessionsCompleted ?? 0) > 0 ? [0] : []),
-    ...(((user as any).currentStreak ?? 0) >= 7 ? [1] : []),
-    ...(((user as any).currentStreak ?? 0) >= 30 ? [2] : []),
-    ...(((user as any).averageRating ?? 0) >= 4.8 && ((user as any).sessionsCompleted ?? 0) >= 10 ? [3] : []),
-    ...(((user as any).trustScore ?? 0) >= 80 ? [4] : []),
+    ...(((user as any)?.sessionsCompleted ?? 0) > 0 ? [0] : []),
+    ...(((user as any)?.currentStreak ?? 0) >= 7 ? [1] : []),
+    ...(((user as any)?.currentStreak ?? 0) >= 30 ? [2] : []),
+    ...(((user as any).averageRating ?? 0) >= 4.8 && ((user as any)?.sessionsCompleted ?? 0) >= 10 ? [3] : []),
+    ...(((user as any)?.trustScore ?? 0) >= 80 ? [4] : []),
   ];
 
   const upcomingSessions = sessions?.filter(s => new Date(s.scheduledDate) > new Date()).slice(0, 3) || [];
@@ -96,8 +96,8 @@ export default function Dashboard() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const firstName = user.name.split(" ")[0];
-  const trustLevel = user.trustScore >= 90 ? "Expert" : user.trustScore >= 70 ? "Advanced" : user.trustScore >= 50 ? "Intermediate" : "Beginner";
-  const trustColor = user.trustScore >= 90 ? "text-purple-500" : user.trustScore >= 70 ? "text-blue-500" : user.trustScore >= 50 ? "text-green-500" : "text-orange-500";
+  const trustLevel = user?.trustScore >= 90 ? "Expert" : user?.trustScore >= 70 ? "Advanced" : user?.trustScore >= 50 ? "Intermediate" : "Beginner";
+  const trustColor = user?.trustScore >= 90 ? "text-purple-500" : user?.trustScore >= 70 ? "text-blue-500" : user?.trustScore >= 50 ? "text-green-500" : "text-orange-500";
 
   return (
     <motion.div initial="hidden" animate="show" variants={container} className="py-6 space-y-6">
@@ -109,18 +109,18 @@ export default function Dashboard() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <motion.span animate={{ rotate: [0, 20, -20, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-2xl">👋</motion.span>
+              <motion.span animate={{ rotate: [0, 20, -20, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-2xl">ðŸ‘‹</motion.span>
               <span className="text-white/70 text-sm font-medium">{greeting}</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold mb-2">{firstName}!</h1>
             <div className="flex flex-wrap gap-3 text-sm">
               <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
                 <Wallet className="w-3.5 h-3.5" />
-                <span className="font-bold">{user.credits} credits</span>
+                <span className="font-bold">{user?.credits} credits</span>
               </div>
               <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
                 <Star className="w-3.5 h-3.5 fill-yellow-300 text-yellow-300" />
-                <span className="font-bold">Trust: {user.trustScore}</span>
+                <span className="font-bold">Trust: {user?.trustScore}</span>
                 <span className={`text-xs font-semibold ${trustColor} bg-white/20 px-1.5 rounded-full`}>{trustLevel}</span>
               </div>
               <div className="flex items-center gap-1.5 bg-orange-500/30 backdrop-blur-sm rounded-full px-3 py-1">
@@ -155,7 +155,7 @@ export default function Dashboard() {
                   <Gift className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-foreground text-lg">Give 50, Get 50 Credits! 🎁</h3>
+                  <h3 className="font-extrabold text-foreground text-lg">Give 50, Get 50 Credits! ðŸŽ</h3>
                   <p className="text-sm text-muted-foreground">Invite a friend to SkillSwap and you both earn 50 credits.</p>
                 </div>
               </div>
@@ -169,8 +169,8 @@ export default function Dashboard() {
       {/* Stats grid */}
       <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: Wallet, label: "Credits", value: user.credits, sub: "available", color: "text-primary", bg: "bg-primary/10" },
-          { icon: Star, label: "Trust Score", value: user.trustScore, sub: trustLevel, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+          { icon: Wallet, label: "Credits", value: user?.credits, sub: "available", color: "text-primary", bg: "bg-primary/10" },
+          { icon: Star, label: "Trust Score", value: user?.trustScore, sub: trustLevel, color: "text-yellow-500", bg: "bg-yellow-500/10" },
           { icon: BookOpen, label: "Sessions", value: sessions?.length || 0, sub: "total", color: "text-blue-500", bg: "bg-blue-500/10" },
           { icon: Flame, label: "Streak", value: `${streak}d`, sub: "keep it up!", color: "text-orange-500", bg: "bg-orange-500/10" },
         ].map((s, i) => (
@@ -290,7 +290,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                <span className="text-sm font-medium">Rating: {user.trustScore >= 80 ? "4.9" : user.trustScore >= 60 ? "4.7" : "4.5"}/5</span>
+                <span className="text-sm font-medium">Rating: {user?.trustScore >= 80 ? "4.9" : user?.trustScore >= 60 ? "4.7" : "4.5"}/5</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-500" />
@@ -340,7 +340,7 @@ export default function Dashboard() {
               {[
                 { action: "Teach a session", credits: "+10", done: (sessions?.length || 0) > 0 },
                 { action: "Complete profile", credits: "+5", done: !!user.bio },
-                { action: "Get 5-star rating", credits: "+15", done: user.trustScore > 80 },
+                { action: "Get 5-star rating", credits: "+15", done: user?.trustScore > 80 },
                 { action: "7-day streak", credits: "+20", done: streak >= 7 },
                 { action: "Refer a friend", credits: "+25", done: false },
               ].map(t => (
@@ -349,7 +349,7 @@ export default function Dashboard() {
                     {t.done ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <Target className="w-3.5 h-3.5 text-muted-foreground" />}
                     <span className="text-muted-foreground">{t.action}</span>
                   </div>
-                  <span className="font-bold text-primary text-xs">{t.credits}</span>
+                  <span className="font-bold text-primary text-xs">{t?.credits}</span>
                 </div>
               ))}
             </div>
