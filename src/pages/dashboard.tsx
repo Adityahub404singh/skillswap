@@ -12,9 +12,9 @@ const BADGES = [
   { id: "first_session", icon: "🎯", label: "First Session", desc: "Completed your first session", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
   { id: "streak_7", icon: "🔥", label: "7-Day Streak", desc: "Learned 7 days in a row", color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
   { id: "streak_30", icon: "⚡", label: "30-Day Legend", desc: "30 days of consistent learning", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
-  { id: "top_mentor", icon: "ðŸ†", label: "Top Mentor", desc: "Rated 4.8+ as a teacher", color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
+  { id: "top_mentor", icon: "🏆", label: "Top Mentor", desc: "Rated 4.8+ as a teacher", color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
   { id: "verified", icon: "✅", label: "Verified Expert", desc: "Passed skill verification test", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
-  { id: "community", icon: "ðŸ‘¥", label: "Community Star", desc: "Helped 10+ learners", color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
+  { id: "community", icon: "👥", label: "Community Star", desc: "Helped 10+ learners", color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
 ];
 
 function StreakWidget({ streak }: { streak: number }) {
