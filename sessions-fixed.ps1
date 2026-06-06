@@ -1,3 +1,8 @@
+# Fix sessions.tsx - group session "with yourself" bug, status filters, clean UI
+# cd C:\Users\alc\skillswap  then  .\sessions-fixed.ps1
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+$sessions = @'
 import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
@@ -106,7 +111,7 @@ export default function Sessions() {
     }
   };
 
-  // â”€â”€ Filter sessions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Filter sessions ───────────────────────────────────────────
   const myId = (user as any)?.id;
 
   const sessions = (allSessions || []).filter((s: any) => {
@@ -225,7 +230,7 @@ export default function Sessions() {
         ) : (
           <AnimatePresence>
             {sessions.map((session: any, i: number) => {
-              // Determine "other user" â€” for group sessions in teaching tab, show "Group Session"
+              // Determine "other user" — for group sessions in teaching tab, show "Group Session"
               const isGroupSession = session.isGroup === 1;
               const otherUser = tab === "learning" ? session.mentor : session.student;
               const otherName = isGroupSession && tab === "teaching"
@@ -277,7 +282,7 @@ export default function Sessions() {
                       {/* Meta */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-medium bg-muted border border-border px-3 py-1.5 rounded-lg">
-                          {format(new Date(session.scheduledDate), "EEE, MMM d Â· h:mm a")}
+                          {format(new Date(session.scheduledDate), "EEE, MMM d · h:mm a")}
                         </span>
                         <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-1">
                           <Coins className="w-3 h-3" />{session.creditsAmount} cr
@@ -335,7 +340,7 @@ export default function Sessions() {
                       </Button>
                     )}
 
-                    {/* Group session â€” cancel only */}
+                    {/* Group session — cancel only */}
                     {tab === "teaching" && isGroupSession && session.status === "pending" && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
                         onClick={() => cancelMut.mutate({ sessionId: session.id })}>
@@ -390,7 +395,7 @@ export default function Sessions() {
         )}
       </div>
 
-      {/* â”€â”€ Rating Dialog â”€â”€ */}
+      {/* ── Rating Dialog ── */}
       <Dialog open={!!ratingId} onOpenChange={o => !o && setRatingId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -417,7 +422,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Negotiate Dialog â”€â”€ */}
+      {/* ── Negotiate Dialog ── */}
       <Dialog open={!!negotiateModal} onOpenChange={o => !o && setNegotiateModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -446,7 +451,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Group Session Dialog â”€â”€ */}
+      {/* ── Group Session Dialog ── */}
       <Dialog open={groupModal} onOpenChange={setGroupModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -499,3 +504,26 @@ export default function Sessions() {
     </div>
   );
 }
+'@
+
+[System.IO.File]::WriteAllText("$pwd\src\pages\sessions.tsx", $sessions, [System.Text.Encoding]::UTF8)
+Write-Host "sessions.tsx fixed!" -ForegroundColor Green
+
+# Build check
+$out = npm run build 2>&1
+$errs = $out | Select-String "error TS"
+if ($errs) {
+  Write-Host "TS errors:" -ForegroundColor Red
+  $errs | Select-Object -First 5 | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+} else {
+  Write-Host "BUILD PASSED!" -ForegroundColor Green
+  $out | Select-String "built in" | ForEach-Object { Write-Host "  $_" }
+}
+
+Write-Host ""
+Write-Host "Changes:" -ForegroundColor Yellow
+Write-Host "  1. Group sessions in Learning tab hidden (mentor=student)" -ForegroundColor White
+Write-Host "  2. Status filter bar added (All/Pending/Upcoming/Completed/Cancelled)" -ForegroundColor White
+Write-Host "  3. Group session shows 'Group Session (10 max)' not own name" -ForegroundColor White
+Write-Host "  4. Empty state has Find a Mentor button" -ForegroundColor White
+Write-Host "  5. AnimatePresence for smooth filter transitions" -ForegroundColor White
