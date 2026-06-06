@@ -9,6 +9,10 @@ import skillsRouter from "./routes/skills.js";
 import notificationsRouter from "./routes/notifications.js";
 import matchingRouter from "./routes/matching.js";
 import ratingsRouter from "./routes/ratings.js";
+import paymentRouter from "./routes/payment.js";
+import adminRouter from "./routes/admin.js";
+import aiRouter from "./routes/ai.js";
+import gamificationRouter from "./routes/gamification.js";
 
 const app = express();
 
@@ -46,6 +50,10 @@ app.use("/api/wallet",        walletRouter);
 app.use("/api/skills",        skillsRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/match",         matchingRouter);
+app.use("/api/payment", paymentRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/ai", aiRouter);
+app.use("/api/gamification", gamificationRouter);
 app.use("/api/ratings",       ratingsRouter);
 
 app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
