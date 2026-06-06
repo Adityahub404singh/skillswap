@@ -88,6 +88,7 @@ export interface MentorMatch {
 
 export interface BookSessionRequest {
   mentorId: number;
+    scheduledAt: string;
   skill: string;
   scheduledDate: string;
   /** Duration in minutes */

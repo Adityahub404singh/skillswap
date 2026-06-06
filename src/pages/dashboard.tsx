@@ -60,8 +60,14 @@ export default function Dashboard() {
   const options = useApiOptions();
   const { data: user, isLoading: userLoading } = useGetMe(options);
   const { data: sessions, isLoading: sessionsLoading } = useGetMySessions({ status: "accepted" }, options);
-  const [streak] = useState(Math.floor(Math.random() * 25) + 3);
-  const [unlockedBadges] = useState([0, 1, 4]);
+  const streak = (user as any).currentStreak ?? 0;
+  const unlockedBadges: number[] = [
+    ...(((user as any).sessionsCompleted ?? 0) > 0 ? [0] : []),
+    ...(((user as any).currentStreak ?? 0) >= 7 ? [1] : []),
+    ...(((user as any).currentStreak ?? 0) >= 30 ? [2] : []),
+    ...(((user as any).averageRating ?? 0) >= 4.8 && ((user as any).sessionsCompleted ?? 0) >= 10 ? [3] : []),
+    ...(((user as any).trustScore ?? 0) >= 80 ? [4] : []),
+  ];
 
   const upcomingSessions = sessions?.filter(s => new Date(s.scheduledDate) > new Date()).slice(0, 3) || [];
 
@@ -331,3 +337,4 @@ export default function Dashboard() {
     </motion.div>
   );
 }
+
