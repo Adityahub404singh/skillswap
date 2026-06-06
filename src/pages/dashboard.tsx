@@ -273,7 +273,7 @@ export default function Dashboard() {
               <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
                 <div className="text-xs text-muted-foreground mb-1">Skills I Teach</div>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {((user as any).skillsOffered?.slice(0,3) || ["Add skills"]).map((s: string, i: number) => (
+                  {((user as any).skillsTeach?.slice(0,3) || ["Add skills"]).map((s: string, i: number) => (
                     <span key={i} className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-700 dark:text-green-400 text-xs font-medium">{s}</span>
                   ))}
                 </div>
@@ -281,7 +281,7 @@ export default function Dashboard() {
               <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
                 <div className="text-xs text-muted-foreground mb-1">Skills I Learn</div>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {((user as any).skillsWanted?.slice(0,3) || ["Add skills"]).map((s: string, i: number) => (
+                  {((user as any).skillsLearn?.slice(0,3) || ["Add skills"]).map((s: string, i: number) => (
                     <span key={i} className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-medium">{s}</span>
                   ))}
                 </div>

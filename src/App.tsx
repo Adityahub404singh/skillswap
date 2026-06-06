@@ -1,10 +1,19 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+﻿import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuthStore } from "@/store/auth";
+// Auto-call streak on app load
+async function updateStreak(token: string) {
+  try {
+    await fetch("/api/gamification/streak", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+  } catch {}
+}
 import { useState, useEffect } from "react";
 import LoadingScreen from "@/components/loading-screen";
 import NotFound from "@/pages/not-found";
