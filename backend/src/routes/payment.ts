@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { db, usersTable, transactionsTable } from "../db.js";
 import { eq, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
+import { notify } from "../notify.js";
 
 const router = Router();
 
@@ -75,6 +76,11 @@ router.post("/verify", requireAuth, async (req: AuthRequest, res) => {
       type: "purchase",
       description: "Credits purchased via Razorpay (Payment ID: " + razorpay_payment_id + ")",
     });
+
+    // Fire email & app notification
+    const pkg = CREDIT_PACKAGES.find(p => p.credits === credits);
+    const amountPaid = pkg ? pkg.price : credits;
+    await notify.paymentSuccess(userId, credits, amountPaid);
 
     res.json({ success: true, credits });
   } catch (err) {
