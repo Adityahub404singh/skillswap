@@ -334,7 +334,7 @@ router.post("/:id/dispute", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// 🔥 NEW FEATURE: GET /api/sessions/flash/board - Get all open Live Doubts
+// ðŸ”¥ NEW FEATURE: GET /api/sessions/flash/board - Get all open Live Doubts
 router.get("/flash/board", requireAuth, async (_req, res) => {
   try {
     const rows = await db.select().from(sessionsTable).where(eq(sessionsTable.status, "open_doubt")).orderBy(desc(sessionsTable.createdAt));
@@ -348,7 +348,7 @@ router.get("/flash/board", requireAuth, async (_req, res) => {
   }
 });
 
-// 🔥 NEW FEATURE: POST /api/sessions/flash/post - Post a Live Doubt (Deducts credits)
+// ðŸ”¥ NEW FEATURE: POST /api/sessions/flash/post - Post a Live Doubt (Deducts credits)
 router.post("/flash/post", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { skill, message, creditsAmount } = req.body;
@@ -371,7 +371,7 @@ router.post("/flash/post", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// 🔥 NEW FEATURE: POST /api/sessions/:id/claim-flash - Mentor claims the doubt
+// ðŸ”¥ NEW FEATURE: POST /api/sessions/:id/claim-flash - Mentor claims the doubt
 router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
@@ -390,7 +390,7 @@ router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// 🔥 NEW FEATURE: POST /api/sessions/:id/start (OTP Verification)
+// ðŸ”¥ NEW FEATURE: POST /api/sessions/:id/start (OTP Verification)
 router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
