@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, CheckCheck, Zap, Calendar, Trophy, Flame, MessageSquare, Users, X, Settings, Loader2 } from "lucide-react";
 import { Link } from "wouter";

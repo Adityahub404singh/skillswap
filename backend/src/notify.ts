@@ -1,5 +1,7 @@
 ﻿import { db } from "./db.js";
 import { pgTable, serial, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { sendEmail } from "./utils/mailer.js";
+import { eq } from "drizzle-orm";
 
 const notificationsTable = pgTable("notifications", {
   id:        serial("id").primaryKey(),
@@ -12,9 +14,26 @@ const notificationsTable = pgTable("notifications", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+const usersForEmail = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+});
+
 export async function createNotification(userId: number, type: string, title: string, message: string, actionUrl?: string) {
   try {
+    // 1. Save to Database
     await db.insert(notificationsTable).values({ userId, type, title, message, actionUrl: actionUrl ?? null });
+
+    // 2. Fetch User Email and Send Email
+    const [user] = await db.select({ email: usersForEmail.email, name: usersForEmail.name })
+                           .from(usersForEmail).where(eq(usersForEmail.id, userId)).limit(1);
+    
+    if (user && user.email) {
+      const appUrl = process.env.FRONTEND_URL || "https://skillswap.app";
+      const emailBody = `Hi ${user.name},\n\n${message}\n\nCheck it out here: ${appUrl}${actionUrl || "/dashboard"}\n\nThanks,\nSkillSwap Team`;
+      await sendEmail(user.email, title, emailBody);
+    }
   } catch (err: any) { 
     console.error("[notify]", err.message); 
   }
