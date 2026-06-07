@@ -25,8 +25,9 @@ export default function Wallet() {
   const [upiId, setUpiId] = useState("");
   const [withdrawLoading, setWithdrawLoading] = useState(false);
 
+  // CRASH FIX: Removed process.env, using a direct safe string
   const referralCode = "SKILL" + (token?.slice(-6) || Math.random().toString(36).slice(2, 8)).toUpperCase();
-  const referralLink = (process.env.FRONTEND_URL || "https://skillswap.app") + `/register?ref=${referralCode}`;
+  const referralLink = `https://skillswap.app/register?ref=${referralCode}`;
 
   const copyReferral = () => {
     navigator.clipboard.writeText(referralLink);
@@ -161,7 +162,6 @@ export default function Wallet() {
         ) : (
           <div className="space-y-1">
             {transactions.map((tx: any) => {
-              // 🔴 THE FIX: Smarter logic to check if credits were spent!
               const isExpense = tx.type === "spent" || tx.type === "withdrawal" || tx.amount < 0 || tx.description.toLowerCase().includes("booked");
               const isPositive = !isExpense;
               const isBonus = tx.type === "bonus" || tx.type === "referral";
