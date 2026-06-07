@@ -9,10 +9,8 @@ const transporter = nodemailer.createTransport({
 });
 
 function generateMeetLink(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz";
-  const part = (len: number) =>
-    Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `https://meet.jit.si/skillswap-${Date.now()}-${Math.random().toString(36).substr(2, 9)}#config.lobby.enabled=false`;
+  const id = Math.random().toString(36).substr(2, 9);
+  return `https://meet.jit.si/skillswap-${Date.now()}-${id}`;
 }
 
 export async function sendBookingConfirmation(
