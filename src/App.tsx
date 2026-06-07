@@ -5,15 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuthStore } from "@/store/auth";
-// Auto-call streak on app load
-async function updateStreak(token: string) {
-  try {
-    await fetch("/api/gamification/streak", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    });
-  } catch {}
-}
 import { useState, useEffect } from "react";
 import LoadingScreen from "@/components/loading-screen";
 import NotFound from "@/pages/not-found";
@@ -40,10 +31,20 @@ import SkillPage from "@/pages/skill-page";
 import Leaderboard from "@/pages/leaderboard";
 import Subscription from "@/pages/subscription";
 import BuyCredits from "@/pages/buy-credits";
+import FlashBoard from "@/pages/flash-board";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
+
+async function updateStreak(token: string) {
+  try {
+    await fetch("/api/gamification/streak", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+  } catch {}
+}
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const token = useAuthStore((s) => s.token);
@@ -62,12 +63,12 @@ function Router() {
         <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
         <Route path="/explore" component={Explore} />
         <Route path="/mentor/:id" component={MentorProfile} />
-
         <Route path="/book/:mentorId"><ProtectedRoute component={BookSession} /></Route>
         <Route path="/sessions"><ProtectedRoute component={Sessions} /></Route>
         <Route path="/wallet"><ProtectedRoute component={Wallet} /></Route>
         <Route path="/invite"><ProtectedRoute component={Invite} /></Route>
         <Route path="/buy-credits"><ProtectedRoute component={BuyCredits} /></Route>
+        <Route path="/flash-board"><ProtectedRoute component={FlashBoard} /></Route>
         <Route path="/ai"><ProtectedRoute component={AIChat} /></Route>
         <Route path="/admin" component={AdminPanel} />
         <Route path="/profile"><ProtectedRoute component={Profile} /></Route>

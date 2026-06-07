@@ -1,10 +1,11 @@
-import Footer from "@/components/footer";
+﻿import Footer from "@/components/footer";
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/store/auth";
 import { useGetMe, useGetWallet } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
-import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X, Star, MessageSquare, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X, Star, MessageSquare, Sparkles, Bell, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,11 +28,24 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: user } = useGetMe({ ...apiOptions, query: { enabled: !!token, queryKey: [] } });
   const { data: wallet } = useGetWallet({ ...apiOptions, query: { enabled: !!token, queryKey: [] } });
 
+  // FETCH NOTIFICATIONS FOR UNREAD BADGE
+  const { data: notifications } = useQuery({
+    queryKey: ["/api/notifications"],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications", { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!token,
+    refetchInterval: 15000, // Refresh every 15s for real-time feel
+  });
+  
+  const unreadCount = notifications?.filter((n: any) => !n.isRead)?.length || 0;
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [aiMessages]);
 
-  // Pulse animation stop after 3s
   useEffect(() => {
     const t = setTimeout(() => setAiPulse(false), 3000);
     return () => clearTimeout(t);
@@ -67,6 +81,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/flash-board", label: "Live Doubts", icon: Zap },
     { href: "/sessions", label: "Sessions", icon: BookOpen },
     { href: "/ai", label: "SkillAI", icon: Bot },
   ];
@@ -97,7 +112,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             {token ? (
-              <nav className="hidden md:flex space-x-8">
+              <nav className="hidden lg:flex space-x-6">
                 {navLinks.map((link) => {
                   const Icon = link.icon;
                   const isActive = location === link.href;
@@ -110,27 +125,40 @@ export function Layout({ children }: { children: ReactNode }) {
                 })}
               </nav>
             ) : null}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               {token && user ? (
                 <>
                   <Link href="/wallet">
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-secondary text-secondary-foreground hover:bg-secondary transition-colors cursor-pointer">
+                    <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-secondary/50 border border-secondary text-secondary-foreground hover:bg-secondary transition-colors cursor-pointer">
                       <Wallet className="w-4 h-4 text-primary" />
-                      <span className="font-bold">{wallet?.balance ?? user.credits} cr</span>
+                      <span className="font-bold text-sm sm:text-base">{wallet?.balance ?? user.credits} cr</span>
                     </div>
                   </Link>
+                  
+                  {/* LIVE NOTIFICATION BELL */}
+                  <Link href="/notifications">
+                    <div className="relative p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-secondary/50 cursor-pointer">
+                      <Bell className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border border-background">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+
                   <div className="h-8 w-px bg-border hidden sm:block" />
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:flex flex-col items-end">
                       <span className="text-sm font-bold leading-none">{user.name}</span>
                       <span className="text-xs text-muted-foreground">Score: {user.trustScore}</span>
                     </div>
-                    <Link href={`/mentor/${user.id}`}>
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 cursor-pointer overflow-hidden">
+                    <Link href={`/profile`}>
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 cursor-pointer overflow-hidden">
                         {user.avatar ? <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-primary" />}
                       </div>
                     </Link>
-                    <button onClick={handleLogout} className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-full hover:bg-destructive/10">
+                    <button onClick={handleLogout} className="p-2 hidden sm:block text-muted-foreground hover:text-destructive transition-colors rounded-full hover:bg-destructive/10">
                       <LogOut className="w-5 h-5" />
                     </button>
                   </div>
@@ -146,7 +174,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 p-4 sm:p-6 lg:p-8 relative z-10 pb-24 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-24 md:pb-8">
         {children}
       </main>
       <Footer />
@@ -154,8 +182,6 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Floating AI + Feedback */}
       {token && (
         <div className="fixed bottom-20 md:bottom-6 right-4 z-50 flex flex-col items-end gap-3">
-
-          {/* Feedback Panel */}
           {feedbackOpen && (
             <div className="w-72 bg-background border border-border rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
               <div className="bg-gradient-to-r from-orange-500 to-pink-500 p-3 flex justify-between items-center">
@@ -208,7 +234,6 @@ export function Layout({ children }: { children: ReactNode }) {
                 </div>
               </div>
 
-              {/* Quick suggestions */}
               <div className="px-3 pt-2 pb-1 flex gap-1 flex-wrap">
                 {["Python path", "Find mentor", "Credits?"].map(s => (
                   <button key={s} onClick={() => { setAiInput(s); }}
@@ -255,15 +280,11 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {/* Floating Buttons */}
           <div className="flex gap-2">
-            {/* Feedback button */}
             <button onClick={() => { setFeedbackOpen(!feedbackOpen); setAiOpen(false); }}
               className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 flex items-center justify-center shadow-lg hover:scale-110 transition-all duration-200">
               <MessageSquare className="w-5 h-5 text-white" />
             </button>
-
-            {/* AI button with pulse */}
             <div className="relative">
               {aiPulse && (
                 <div className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
@@ -278,14 +299,14 @@ export function Layout({ children }: { children: ReactNode }) {
       )}
 
       {token && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border/50 pb-safe">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border/50 pb-safe">
           <nav className="flex items-center justify-around h-16 px-2">
             {[
               { href: "/dashboard", label: "Home", icon: LayoutDashboard },
               { href: "/explore", label: "Explore", icon: Compass },
+              { href: "/flash-board", label: "Doubts", icon: Zap },
               { href: "/sessions", label: "Sessions", icon: BookOpen },
-              { href: "/wallet", label: "Wallet", icon: Wallet },
-              { href: "/ai", label: "SkillAI", icon: Bot },
+              { href: "/profile", label: "Profile", icon: User },
             ].map((link) => {
               const Icon = link.icon;
               const isActive = location === link.href;
