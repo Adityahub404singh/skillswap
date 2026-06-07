@@ -1,93 +1,116 @@
 ﻿import { Router, type IRouter } from "express";
-import { db, usersTable, transactionsTable } from "../db.js";
-import { eq, sql } from "drizzle-orm";
+import { db } from "../db.js";
+import { eq, desc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
-import nodemailer from "nodemailer";
+import { pgTable, serial, integer, text, timestamp, boolean, real } from "drizzle-orm/pg-core";
+
+// --- Schema Definitions ---
+const usersTable = pgTable("users", {
+  id:                 serial("id").primaryKey(),
+  name:               text("name").notNull(),
+  email:              text("email").notNull(),
+  passwordHash:       text("password_hash").notNull(),
+  credits:            integer("credits").notNull().default(50),
+});
+
+const transactionsTable = pgTable("transactions", {
+  id:          serial("id").primaryKey(),
+  userId:      integer("user_id").notNull(),
+  amount:      integer("amount").notNull(),
+  type:        text("type").notNull(),
+  description: text("description").notNull(),
+  sessionId:   integer("session_id"),
+  createdAt:   timestamp("created_at").notNull().defaultNow(),
+});
 
 const router: IRouter = Router();
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-});
-
-async function sendWithdrawalAlert(userName: string, amount: number, userReceives: number, platformFee: number, upiId: string, userId: number) {
-  await transporter.sendMail({
-    from: `"SkillSwap" <${process.env.EMAIL_USER}>`,
-    to: process.env.EMAIL_USER,
-    subject: `Withdrawal Request - Rs.${userReceives} to ${userName}`,
-    html: `
-      <div style="font-family: Arial; padding: 20px; background: #f9f9f9;">
-        <h2 style="color: #7c3aed;">New Withdrawal Request!</h2>
-        <table style="width:100%; border-collapse:collapse; margin: 20px 0;">
-          <tr style="background:#f0f0ff;"><td style="padding:8px;"><strong>User:</strong></td><td style="padding:8px;">${userName} (ID: ${userId})</td></tr>
-          <tr><td style="padding:8px;"><strong>Credits withdrawn:</strong></td><td style="padding:8px;">${amount} cr</td></tr>
-          <tr style="background:#f0f0ff;"><td style="padding:8px;"><strong>Platform fee (5%):</strong></td><td style="padding:8px; color:green;">Rs.${platformFee} (yours!)</td></tr>
-          <tr><td style="padding:8px;"><strong>User receives:</strong></td><td style="padding:8px; color:#e11d48;">Rs.${userReceives}</td></tr>
-          <tr style="background:#f0f0ff;"><td style="padding:8px;"><strong>UPI ID:</strong></td><td style="padding:8px;">${upiId}</td></tr>
-          <tr><td style="padding:8px;"><strong>Time:</strong></td><td style="padding:8px;">${new Date().toLocaleString("en-IN", {timeZone:"Asia/Kolkata"})}</td></tr>
-        </table>
-        <div style="background:#fee2e2; padding:15px; border-radius:8px; margin:20px 0;">
-          <p style="color:red; margin:0;"><strong>Action needed: Transfer Rs.${userReceives} to UPI: ${upiId}</strong></p>
-        </div>
-        <p style="color:#666;">Go to Razorpay Dashboard or any UPI app to complete the transfer.</p>
-      </div>
-    `,
-  });
-}
-
+// GET /api/wallet (Fetch Balance & Stats)
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId!;
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    if (!user) { res.status(404).json({ error: "User not found" }); return; }
-    const transactions = await db.select().from(transactionsTable).where(eq(transactionsTable.userId, userId));
-    const totalEarned = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-    const totalSpent = Math.abs(transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
-    res.json({ balance: user.credits, userId, totalEarned, totalSpent });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const txs = await db.select().from(transactionsTable).where(eq(transactionsTable.userId, req.userId!));
+
+    let totalEarned = 0;
+    let totalSpent = 0;
+    
+    txs.forEach(tx => {
+      // Calculate earnings (teaching, bonus, referral)
+      if (tx.type === "earned" || tx.type === "bonus" || tx.type === "referral") {
+        totalEarned += tx.amount;
+      }
+      // Calculate spendings (booking sessions, withdrawals)
+      if (tx.type === "spent" || tx.type === "withdrawal") {
+        totalSpent += Math.abs(tx.amount);
+      }
+    });
+
+    res.json({
+      balance: user.credits,
+      totalEarned,
+      totalSpent
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
+// GET /api/wallet/transactions (Fetch History)
 router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId!;
-    const transactions = await db.select().from(transactionsTable).where(eq(transactionsTable.userId, userId));
-    transactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    res.json(transactions);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
+    const txs = await db.select()
+      .from(transactionsTable)
+      .where(eq(transactionsTable.userId, req.userId!))
+      .orderBy(desc(transactionsTable.createdAt));
+      
+    res.json(txs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
+// POST /api/wallet/withdraw (Highly Secure Withdrawal Request)
 router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId!;
     const { amount, upiId } = req.body;
-    if (!amount || !upiId) { res.status(400).json({ error: "Amount and UPI ID required" }); return; }
-    if (amount < 500) { res.status(400).json({ error: "Minimum 500 credits required" }); return; }
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    if (!user || user.credits < amount) { res.status(400).json({ error: "Insufficient credits" }); return; }
-    const platformFee = Math.floor(amount * 0.05);
-    const userReceives = amount - platformFee;
-    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${amount}` }).where(eq(usersTable.id, userId));
-    await db.insert(transactionsTable).values({
-      userId, amount: -amount, type: "withdrawal",
-      description: "Withdrawal Rs." + userReceives + " to " + upiId + " (5% fee: Rs." + platformFee + ")"
+    
+    // 1. Basic Validation
+    if (!amount || amount < 500) {
+      return res.status(400).json({ error: "Minimum withdrawal amount is 500 credits." });
+    }
+    if (!upiId || upiId.length < 5 || !upiId.includes("@")) {
+      return res.status(400).json({ error: "Invalid UPI ID provided." });
+    }
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // 2. Strict Balance Check
+    if (user.credits < amount) {
+      return res.status(400).json({ error: "Insufficient balance for this withdrawal." });
+    }
+
+    // 3. Atomic DB Transaction (Deduct balance & Record History)
+    await db.transaction(async (tx) => {
+      // Deduct from wallet
+      await tx.update(usersTable)
+        .set({ credits: sql`${usersTable.credits} - ${amount}` })
+        .where(eq(usersTable.id, req.userId!));
+
+      // Record in transactions (This acts as the Pending Queue for Admin)
+      await tx.insert(transactionsTable).values({
+        userId: req.userId!,
+        type: "withdrawal",
+        amount: -Math.abs(amount), // Save as negative for record keeping
+        description: `Withdrawal Requested (UPI: ${upiId})`
+      });
     });
-    sendWithdrawalAlert(user.name, amount, userReceives, platformFee, upiId, userId).catch(console.error);
-    res.json({
-      success: true,
-      message: "Withdrawal of Rs." + userReceives + " submitted! (5% platform fee applied) Processing in 24-48 hours.",
-      userReceives,
-      platformFee
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
+
+    res.json({ success: true, message: `Withdrawal of ${amount} cr requested successfully!` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
