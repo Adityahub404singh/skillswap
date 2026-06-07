@@ -31,6 +31,7 @@ import SkillPage from "@/pages/skill-page";
 import Leaderboard from "@/pages/leaderboard";
 import Subscription from "@/pages/subscription";
 import BuyCredits from "@/pages/buy-credits";
+import VerifyEmail from "@/pages/verify-email";
 import FlashBoard from "@/pages/flash-board";
 
 const queryClient = new QueryClient({
@@ -53,6 +54,8 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 }
 
 function Router() {
+  const token = useAuthStore((s) => s.token);
+  useEffect(() => { if (token) updateStreak(token); }, [token]);
   return (
     <Layout>
       <Switch>

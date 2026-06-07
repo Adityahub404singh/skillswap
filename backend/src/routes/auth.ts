@@ -1,4 +1,5 @@
-﻿import { Router, type IRouter } from "express";
+﻿import crypto from 'crypto';
+import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "../db.js";
 import { eq, sql } from "drizzle-orm";
@@ -113,8 +114,32 @@ router.post("/register", async (req, res) => {
       userId: user.id, amount: 200, type: "bonus", description: "Welcome bonus - 200 credits to start your journey!",
     });
 
-    const token = signToken({ userId: user.id, email: user.email });
-    res.status(201).json({ token, user: formatUser(user) });
+    // Generate email verification token
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    await db.update(usersTable)
+      .set({ emailVerifyToken: verifyToken })
+      .where(eq(usersTable.id, user.id));
+
+    // Send verification email (non-blocking)
+    try {
+      const nodemailer = await import('nodemailer');
+      const transporter = nodemailer.default.createTransport({
+        service: 'gmail',
+        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+      });
+      const verifyUrl = (process.env.FRONTEND_URL || 'https://skillswap.app') + '/verify-email?token=' + verifyToken + '&email=' + encodeURIComponent(user.email);
+      await transporter.sendMail({
+        from: '"SkillSwap" <' + process.env.EMAIL_USER + '>',
+        to: user.email,
+        subject: 'Verify your SkillSwap account',
+        html: '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px"><div style="background:linear-gradient(135deg,#5B5BF6,#7c3aed);padding:24px;border-radius:16px;text-align:center;margin-bottom:24px"><h1 style="color:white;margin:0;font-size:24px">SkillSwap</h1><p style="color:rgba(255,255,255,0.8);margin:8px 0 0">Exchange Skills, Not Money</p></div><h2 style="color:#1a1a2e">Verify Your Email</h2><p style="color:#64748b">Hi ' + user.name + ', click below to verify your account and unlock all features.</p><a href="' + verifyUrl + '" style="display:inline-block;background:linear-gradient(135deg,#5B5BF6,#7c3aed);color:white;padding:14px 32px;border-radius:50px;text-decoration:none;font-weight:bold;margin:16px 0">Verify Email Address</a><p style="color:#94a3b8;font-size:12px;margin-top:24px">Link expires in 24 hours. If you did not create this account, ignore this email.</p></div>'
+      });
+    } catch (emailErr) {
+      console.error('[register] Email send failed:', emailErr.message);
+    }
+
+    const jwtToken = signToken({ userId: user.id, email: user.email });
+    res.status(201).json({ token: jwtToken, user: formatUser(user), emailSent: true });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: "Bad Request", message: err.message });
     console.error(err);

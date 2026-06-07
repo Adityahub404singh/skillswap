@@ -63,39 +63,7 @@ cron.schedule("*/5 * * * *", async () => {
   }
 });
 
-// 2. Escrow Timeout & No-Show Auto-Cancel (Runs every hour)
-cron.schedule("0 * * * *", async () => {
-  try {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const sessions = await db.select().from(sessionsTable);
-    
-    const staleSessions = sessions.filter(s => 
-      (s.status === "pending" || s.status === "accepted") && 
-      new Date(s.scheduledDate as string).getTime() < yesterday.getTime()
-    );
 
-    for (const session of staleSessions) {
-      await db.transaction(async (tx) => {
-         const [check] = await tx.select().from(sessionsTable).where(eq(sessionsTable.id, session.id));
-         if (check.status !== "pending" && check.status !== "accepted") return;
-
-         await tx.update(sessionsTable)
-           .set({ status: "cancelled", cancelReason: "Auto-cancelled: Escrow Timeout (No-show)" })
-           .where(eq(sessionsTable.id, session.id));
-
-         await tx.update(usersTable)
-           .set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` })
-           .where(eq(usersTable.id, Number(session.studentId)));
-           
-         notify(Number(session.studentId), "Escrow Refunded ??", `Session for ${session.skill} was auto-cancelled. Credits refunded.`, "wallet");
-         notify(Number(session.mentorId), "Session Auto-Cancelled", `The session for ${session.skill} was marked as a no-show.`, "session");
-      });
-      console.log(`[cron] Escrow Refunded: Session ${session.id} auto-cancelled.`);
-    }
-  } catch (err) {
-    console.error("[cron] Escrow timeout error:", err);
-  }
-});
 
 // 3. Smart Streak Loss Warning (Runs Daily at 4 PM)
 cron.schedule("0 16 * * *", async () => {

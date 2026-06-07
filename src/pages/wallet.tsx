@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useGetWallet, useGetTransactions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
@@ -10,11 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Wallet() {
   const options = useApiOptions();
   const token = useAuthStore(s => s.token);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: wallet, isLoading: walletLoading } = useGetWallet(options);
   const { data: transactions, isLoading: txLoading } = useGetTransactions(options);
@@ -61,6 +63,8 @@ export default function Wallet() {
         toast({ title: "Withdrawal Requested!", description: `₹${amount} will be processed in 24-48 hours` });
         setShowWithdraw(false);
         setWithdrawAmount("");
+        queryClient.invalidateQueries({ queryKey: ['/api/wallet/history'] } as any);
+        queryClient.invalidateQueries({ queryKey: ['/api/users/me'] } as any);
         setUpiId("");
       } else {
         toast({ variant: "destructive", title: "Withdrawal failed. Try again." });

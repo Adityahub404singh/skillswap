@@ -328,16 +328,12 @@ router.post("/:id/dispute", requireAuth, async (req: AuthRequest, res) => {
     if (session.studentId !== req.userId) return res.status(403).json({ error: "Only the student can dispute" });
     if (session.status !== "accepted") return res.status(400).json({ error: "Can only dispute active sessions" });
 
-    await db.update(sessionsTable).set({ status: "cancelled", cancelReason: req.body.reason || "Mentor No-Show (Disputed)" }).where(eq(sessionsTable.id, sessionId));
-    await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
-
-    await db.insert(transactionsTable).values({
-      userId: session.studentId, type: "refund", amount: session.creditsAmount,
-      description: `Refund: Mentor No-Show for ${session.skill}`, sessionId: session.id,
-    });
-
-    await db.update(usersTable).set({ trustScore: sql`GREATEST(${usersTable.trustScore} - 10, 0)` }).where(eq(usersTable.id, session.mentorId));
-    res.json({ success: true, message: "Dispute raised. Credits refunded and Mentor penalized." });
+    // ANTI-FRAUD FIX: Mark as disputed instead of auto-refunding and penalizing
+    await db.update(sessionsTable).set({ status: "disputed", cancelReason: req.body.reason || "Disputed by Student" }).where(eq(sessionsTable.id, sessionId));
+    
+    // Notify admin
+    console.log(`[DISPUTE LOGGED] Session ${sessionId} disputed by user ${req.userId}. Needs Admin review.`);
+    res.json({ success: true, message: "Dispute raised. An admin will review the session before processing any refunds." });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
