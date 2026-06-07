@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import { useGetSkills, useGetSkillCategories, useGetMatchedMentors } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const SKILL_ICONS: Record<string, string> = {
-  Technology: "💻", Design: "🎨", Business: "📈", Language: "🌍",
-  Music: "🎵", Sports: "⚽", Arts: "🖼️", Science: "🔬",
+  Technology: "💻", Design: "🎨", Business: "💼", Language: "🌐",
+  Music: "🎵", Sports: "⚽", Arts: "🎭", Science: "🔬", Other: "📚",
 };
 
 export default function Explore() {
@@ -55,7 +55,7 @@ export default function Explore() {
           <Button key={cat} variant={selectedCategory === cat ? "default" : "outline"}
             className={"rounded-full whitespace-nowrap text-sm h-9 " + (selectedCategory === cat ? "bg-primary text-white" : "")}
             onClick={() => { setSelectedCategory(cat); setSelectedSkill(null); }}>
-            {SKILL_ICONS[cat] || "📚"} {cat}
+            {SKILL_ICONS[cat] || "📌"} {cat}
           </Button>
         ))}
       </div>
@@ -66,21 +66,21 @@ export default function Explore() {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {skillsLoading ? (
               [...Array(8)].map((_, i) => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)
-            ) : skills?.filter(s => s.mentorCount > 0).length === 0 ? (
+            ) : skills?.length === 0 ? (
               <div className="col-span-full py-20 text-center">
                 <Compass className="w-14 h-14 text-muted-foreground/30 mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">No skills found</h3>
                 <p className="text-muted-foreground">Try a different search or category.</p>
               </div>
             ) : (
-              skills?.filter(s => s.mentorCount > 0).map(skill => (
+              skills?.map(skill => (
                 <motion.div key={skill.id} variants={item} whileHover={{ y: -4, scale: 1.02 }}
                   className="card-premium cursor-pointer group flex flex-col h-full"
                   onClick={() => setSelectedSkill(skill.name)}>
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-3">
                       <span className="text-xs font-bold uppercase tracking-wider text-primary px-2 py-1 bg-primary/10 rounded-lg">
-                        {SKILL_ICONS[skill.category] || "📚"} {skill.category}
+                        {SKILL_ICONS[skill.category] || "📌"} {skill.category}
                       </span>
                       <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">
                         <Users className="w-3 h-3" /> {skill.mentorCount}

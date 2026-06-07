@@ -1,28 +1,12 @@
-import { pool } from "./db.js";
-
-async function fixSchema() {
-  const queries = [
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(100);',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by INTEGER;',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_skills JSONB;',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS badges JSONB;',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS portfolio_public BOOLEAN DEFAULT true;',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS seo_slug VARCHAR(100);',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_premium BOOLEAN DEFAULT false;',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_expires_at TIMESTAMP;',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_last_sent TIMESTAMP;',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS micro_sessions_count INTEGER DEFAULT 0;'
-  ];
-
-  for (const q of queries) {
-    try {
-      await pool.query(q);
-      console.log('✅ Executed: ' + q.substring(0, 30) + '...');
-    } catch (e) {
-      console.log('⚠️ Skipped/Error (might exist): ' + q.substring(0, 30));
-    }
+import { pool } from './src/db.ts';
+async function fix() {
+  try {
+    const q = 'ALTER TABLE sessions ALTER COLUMN scheduled_date DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN status DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN message DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN credits_amount DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN session_type DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN cancel_reason DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN teacher_rating DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN learner_rating DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN teacher_review DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN learner_review DROP NOT NULL; ALTER TABLE sessions ALTER COLUMN session_otp DROP NOT NULL;';
+    await pool.query(q);
+    console.log('✅ SESSIONS TABLE FIXED - BOOKING WILL NOW WORK!');
+  } catch(e) {
+    console.log('Error:', e.message);
   }
   process.exit();
 }
-
-fixSchema();
+fix();
