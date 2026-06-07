@@ -18,6 +18,7 @@ export const sessionsTable = pgTable("sessions", {
   maxStudents: integer("max_students").default(1),
   negotiatedPrice: integer("negotiated_price"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  sessionOtp: text("session_otp"),
 });
 export const insertSessionSchema = z.object({
   mentorId: z.number().int(),

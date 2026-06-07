@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, CheckCircle2, AlertTriangle, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, BookOpen, GraduationCap, Coins, Filter, Zap } from "lucide-react";
+import { Clock, CheckCircle2, AlertTriangle, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, BookOpen, GraduationCap, Coins, Filter, Zap, Lock, Key } from "lucide-react";
 
 type SessionTab    = "learning" | "teaching";
 type StatusFilter  = "all" | "requested" | "accepted" | "completed" | "cancelled";
@@ -21,7 +21,7 @@ export default function Sessions() {
   const queryClient  = useQueryClient();
   const { toast }    = useToast();
 
-  const [tab,           setTab]           = useState<SessionTab>("learning");
+  const [tab,             setTab]             = useState<SessionTab>("learning");
   const [statusFilter,  setStatusFilter]  = useState<StatusFilter>("all");
   const [ratingId,      setRatingId]      = useState<number | null>(null);
   const [ratingVal,     setRatingVal]     = useState(5);
@@ -29,6 +29,8 @@ export default function Sessions() {
   const [groupModal,    setGroupModal]    = useState(false);
   const [negotiateModal,setNegotiateModal]= useState<any>(null);
   const [proposedPrice, setProposedPrice] = useState("");
+  const [otpModal,      setOtpModal]      = useState<any>(null);
+  const [otpInput,      setOtpInput]      = useState("");
   const [groupForm,     setGroupForm]     = useState({
     skill: "", scheduledDate: "", creditsAmount: "20", maxStudents: "10", message: "",
   });
@@ -54,6 +56,31 @@ export default function Sessions() {
   const handleRate = () => {
     if (!ratingId) return;
     rateMut.mutate({ data: { sessionId: ratingId, rating: ratingVal, review: reviewText } });
+  };
+
+  const startSession = async () => {
+    if (!otpInput || otpInput.length !== 6) {
+      toast({ title: "Enter a valid 6-digit OTP", variant: "destructive" });
+      return;
+    }
+    try {
+      const res = await fetch(`/api/sessions/${otpModal.id}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ otp: otpInput }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "Session Started!", description: "OTP Verified successfully." });
+        setOtpModal(null);
+        setOtpInput("");
+        invalidate();
+      } else {
+        toast({ title: "Verification Failed", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Network error", variant: "destructive" });
+    }
   };
 
   const createGroupSession = async () => {
@@ -106,20 +133,16 @@ export default function Sessions() {
     }
   };
 
-  //  Filter sessions 
   const myId = (user as any)?.id;
 
   const sessions = (allSessions || []).filter((s: any) => {
-    // Hide group sessions where user is both mentor AND student (self-created group = appears in teaching tab)
     if (s.isGroup === 1 && tab === "learning" && s.mentorId === myId) return false;
-    // Status filter
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     return true;
   }).sort((a: any, b: any) =>
     new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()
   );
 
-  // Count by status for badges
   const counts = {
     all:       (allSessions || []).length,
     requested: (allSessions || []).filter((s: any) => s.status === "requested").length,
@@ -157,8 +180,6 @@ export default function Sessions() {
 
   return (
     <div className="py-6 max-w-5xl mx-auto space-y-5 px-4">
-
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black mb-1">My Sessions</h1>
@@ -171,7 +192,6 @@ export default function Sessions() {
         )}
       </div>
 
-      {/* Tab toggle */}
       <div className="flex p-1 bg-muted/40 rounded-2xl w-full sm:w-fit border border-border/50 gap-1">
         <button
           onClick={() => { setTab("learning"); setStatusFilter("all"); }}
@@ -185,7 +205,6 @@ export default function Sessions() {
         </button>
       </div>
 
-      {/* Status filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         {STATUS_FILTERS.map(f => (
@@ -203,7 +222,6 @@ export default function Sessions() {
         ))}
       </div>
 
-      {/* Sessions list */}
       <div className="space-y-3">
         {isLoading ? (
           <div className="flex justify-center py-20">
@@ -225,7 +243,6 @@ export default function Sessions() {
         ) : (
           <AnimatePresence>
             {sessions.map((session: any, i: number) => {
-              // Determine "other user"  for group sessions in teaching tab, show "Group Session"
               const isGroupSession = session.isGroup === 1;
               const otherUser = tab === "learning" ? session.mentor : session.student;
               const otherName = isGroupSession && tab === "teaching"
@@ -240,7 +257,6 @@ export default function Sessions() {
                   className="p-5 rounded-2xl bg-background border border-border hover:border-primary/20 hover:shadow-md transition-all duration-200 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
 
                   <div className="flex items-start gap-4 flex-1 min-w-0">
-                    {/* Avatar */}
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 ${
                       isGroupSession ? "bg-gradient-to-br from-cyan-500 to-blue-600" :
                       tab === "learning" ? "bg-gradient-to-br from-primary to-violet-600" :
@@ -253,7 +269,6 @@ export default function Sessions() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      {/* Title row */}
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-black text-base">{session.skill}</h3>
                         {getStatusBadge(session.status)}
@@ -264,7 +279,6 @@ export default function Sessions() {
                         )}
                       </div>
 
-                      {/* Who */}
                       <p className="text-sm text-muted-foreground mb-2">
                         {isGroupSession && tab === "teaching" ? (
                           <span className="font-semibold text-cyan-600">{otherName}</span>
@@ -274,7 +288,6 @@ export default function Sessions() {
                         )}
                       </p>
 
-                      {/* Meta */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-medium bg-muted border border-border px-3 py-1.5 rounded-lg">
                           {format(new Date(session.scheduledDate), "EEE, MMM d  h:mm a")}
@@ -290,14 +303,12 @@ export default function Sessions() {
                         )}
                       </div>
 
-                      {/* Message */}
                       {session.message && (
                         <p className="text-xs text-muted-foreground mt-2 italic border-l-2 border-border pl-3 line-clamp-2">
                           "{session.message}"
                         </p>
                       )}
 
-                      {/* Meet link */}
                       {session.meetLink && isActive && (
                         <a href={session.meetLink} target="_blank" rel="noopener noreferrer"
                           className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors">
@@ -307,10 +318,9 @@ export default function Sessions() {
                     </div>
                   </div>
 
-                  {/* Action buttons */}
                   <div className="flex flex-wrap items-center gap-2 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0 border-border/50 shrink-0">
 
-                    {/* Teaching actions */}
+                    {/* Mentor View: Requested */}
                     {tab === "teaching" && session.status === "requested" && !isGroupSession && (
                       <>
                         <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 text-xs rounded-xl"
@@ -328,6 +338,14 @@ export default function Sessions() {
                       </>
                     )}
 
+                    {/* Mentor View: Accepted (OTP Start Session) */}
+                    {tab === "teaching" && session.status === "accepted" && (
+                      <Button size="sm" className="bg-primary hover:bg-primary/90 text-white text-xs rounded-xl"
+                        onClick={() => setOtpModal(session)}>
+                        <Lock className="w-3.5 h-3.5 mr-1" /> Start Session
+                      </Button>
+                    )}
+
                     {tab === "teaching" && (session.status === "accepted" || session.status === "in_progress") && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
                         onClick={() => cancelMut.mutate({ sessionId: session.id })}>
@@ -335,7 +353,6 @@ export default function Sessions() {
                       </Button>
                     )}
 
-                    {/* Group session  cancel only */}
                     {tab === "teaching" && isGroupSession && session.status === "pending" && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
                         onClick={() => cancelMut.mutate({ sessionId: session.id })}>
@@ -343,7 +360,7 @@ export default function Sessions() {
                       </Button>
                     )}
 
-                    {/* Learning actions */}
+                    {/* Student View: Requested */}
                     {tab === "learning" && session.status === "requested" && (
                       <>
                         <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 text-xs rounded-xl"
@@ -357,6 +374,16 @@ export default function Sessions() {
                       </>
                     )}
 
+                    {/* Student View: Accepted (Shows OTP) */}
+                    {tab === "learning" && session.status === "accepted" && (
+                      <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                        <Key className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-semibold">Share OTP:</span>
+                        <span className="font-mono font-bold text-primary tracking-widest">{session.sessionOtp || "123456"}</span>
+                      </div>
+                    )}
+
+                    {/* Student View: In Progress (Mark Complete) */}
                     {tab === "learning" && (session.status === "accepted" || session.status === "in_progress") && (
                       <>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
@@ -390,7 +417,34 @@ export default function Sessions() {
         )}
       </div>
 
-      {/*  Rating Dialog  */}
+      {/* OTP Verification Dialog */}
+      <Dialog open={!!otpModal} onOpenChange={o => !o && setOtpModal(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Key className="w-5 h-5 text-primary" /> Start Session</DialogTitle>
+            <DialogDescription>Enter the 6-digit OTP provided by the student to officially start the session. This prevents ghosting and fraud.</DialogDescription>
+          </DialogHeader>
+          <div className="py-6 flex flex-col items-center justify-center space-y-4">
+            <Input 
+              type="text" 
+              maxLength={6} 
+              placeholder="• • • • • •" 
+              value={otpInput}
+              onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
+              className="text-center text-3xl tracking-[0.75em] font-mono h-16 w-3/4 bg-muted/50 border-primary/20 focus-visible:ring-primary"
+            />
+            <p className="text-xs text-muted-foreground text-center">Ask the student for this code.<br/>They can see it in their sessions tab.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOtpModal(null)}>Cancel</Button>
+            <Button onClick={startSession} className="bg-primary text-white" disabled={otpInput.length < 6}>
+              Verify & Start
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rating Dialog */}
       <Dialog open={!!ratingId} onOpenChange={o => !o && setRatingId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -417,7 +471,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/*  Negotiate Dialog  */}
+      {/* Negotiate Dialog */}
       <Dialog open={!!negotiateModal} onOpenChange={o => !o && setNegotiateModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -433,11 +487,6 @@ export default function Sessions() {
               <Input type="number" min={5} max={500} value={proposedPrice}
                 onChange={e => setProposedPrice(e.target.value)} placeholder="e.g. 15" />
             </div>
-            <div className="grid grid-cols-3 gap-2 text-xs text-center text-muted-foreground">
-              <div className="bg-green-500/5 border border-green-500/10 p-2 rounded-xl">Basic<br /><strong>5-20 cr</strong></div>
-              <div className="bg-blue-500/5 border border-blue-500/10 p-2 rounded-xl">Medium<br /><strong>20-50 cr</strong></div>
-              <div className="bg-purple-500/5 border border-purple-500/10 p-2 rounded-xl">Advanced<br /><strong>50-200 cr</strong></div>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNegotiateModal(null)}>Cancel</Button>
@@ -446,7 +495,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/*  Group Session Dialog  */}
+      {/* Group Session Dialog */}
       <Dialog open={groupModal} onOpenChange={setGroupModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

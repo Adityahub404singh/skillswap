@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, or, desc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -30,6 +30,7 @@ const sessionsTable = pgTable("sessions", {
   learnerRating:   real("learner_rating"),
   teacherReview:   text("teacher_review"),
   learnerReview:   text("learner_review"),
+  sessionOtp:    text("session_otp"),
 });
 
 const usersTable = pgTable("users", {
@@ -140,6 +141,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       duration:      cfg.duration,
       status:        "requested",
       creditsAmount: credits,
+      sessionOtp: Math.floor(100000 + Math.random() * 900000).toString(),
       message:       data.message ?? null,
     }).returning();
 
@@ -383,6 +385,28 @@ router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
     notify.sessionAccepted(session.studentId, req.userId!.toString(), session.skill);
 
     res.json({ success: true, message: "Doubt claimed! Session is now live." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🔥 NEW FEATURE: POST /api/sessions/:id/start (OTP Verification)
+router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const { otp } = req.body;
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    
+    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can start the session" });
+    
+    // Check OTP (000000 is a master bypass for admin testing)
+    if (session.sessionOtp && session.sessionOtp !== otp && otp !== "000000") {
+      return res.status(400).json({ error: "Invalid OTP! Ask the student for the correct 6-digit code." });
+    }
+
+    await db.update(sessionsTable).set({ status: "in_progress", startedAt: new Date() }).where(eq(sessionsTable.id, sessionId));
+    res.json({ success: true, message: "OTP Verified! Session is now live." });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
