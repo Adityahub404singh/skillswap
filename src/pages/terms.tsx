@@ -3,7 +3,7 @@ export default function Terms() {
     <div className="max-w-3xl mx-auto py-12 px-4 space-y-8">
       <div>
         <h1 className="text-4xl font-extrabold mb-2">Terms of Service</h1>
-        <p className="text-muted-foreground">Last updated: May 30, 2026</p>
+        <p className="text-muted-foreground">Last updated: June 08, 2026</p>
       </div>
 
       <section className="space-y-3">
@@ -12,62 +12,44 @@ export default function Terms() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-2xl font-bold">2. Use of Service</h2>
-        <p className="text-muted-foreground leading-relaxed">SkillSwap is a peer-to-peer skill exchange platform. You agree to use the platform only for lawful purposes and in a way that does not infringe the rights of others. You are responsible for maintaining the confidentiality of your account credentials.</p>
+        <h2 className="text-2xl font-bold">2. Use of Service & Escrow</h2>
+        <p className="text-muted-foreground leading-relaxed">SkillSwap is a peer-to-peer skill exchange platform. We act as an escrow agent. When a session is booked, credits are locked securely until the session is successfully completed with mutual verification (OTP and Duration rules).</p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-2xl font-bold">3. Credits System</h2>
+        <h2 className="text-2xl font-bold">3. Credits, Earnings & Withdrawals (Financial Policy)</h2>
         <ul className="list-disc list-inside text-muted-foreground space-y-2 leading-relaxed">
-          <li>New users receive 200 credits upon registration</li>
-          <li>Credits can be earned by teaching sessions and referring users</li>
-          <li>Credits can be purchased via Razorpay at 1 credit = Rs. 1</li>
-          <li>Minimum withdrawal amount is 500 credits</li>
-          <li>Platform retains a 10% commission on completed sessions</li>
-          <li>Credits are non-transferable between accounts</li>
+          <li><strong>Valuation:</strong> 1 Credit is equivalent to ₹1 INR for platform usage.</li>
+          <li><strong>Promotional Credits:</strong> New users receive 200 credits upon registration. These credits cannot be withdrawn to a bank account under any circumstances; they are strictly for learning.</li>
+          <li><strong>Withdrawal Rules:</strong> Only credits earned by actively teaching can be withdrawn. The minimum withdrawal amount is 500 earned credits.</li>
+          <li><strong>Platform Commission:</strong> To maintain servers and support, SkillSwap charges a <strong>20% platform fee</strong> on all withdrawals (e.g., Withdrawing 500 credits yields ₹400 INR to your bank account).</li>
+          <li><strong>Security Clearance (7-Day Hold):</strong> For fraud prevention, earned credits must mature for 7 days before they become eligible for withdrawal.</li>
         </ul>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-2xl font-bold">4. Session Policy</h2>
+        <h2 className="text-2xl font-bold">4. Session & Dispute Policy</h2>
         <ul className="list-disc list-inside text-muted-foreground space-y-2 leading-relaxed">
-          <li>Sessions under 10 minutes receive a full refund</li>
-          <li>Sessions between 10-30 minutes receive a 50% refund</li>
-          <li>Sessions over 30 minutes are charged in full</li>
-          <li>Cancellations before session start receive a full refund</li>
+          <li>Mentors must verify the student's OTP to officially start the session timer.</li>
+          <li>Sessions must reach at least 80% of their scheduled duration before they can be marked as complete.</li>
+          <li>If a session is interrupted or fails, users must raise a detailed Dispute. Our admin team will review the claim within 24-48 hours. Fake disputes will result in a permanent ban.</li>
         </ul>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-2xl font-bold">5. User Conduct</h2>
-        <p className="text-muted-foreground leading-relaxed">You agree not to: harass or abuse other users, provide false information, attempt to manipulate the rating system, use the platform for illegal activities, or attempt to circumvent our payment system.</p>
+        <h2 className="text-2xl font-bold">5. User Conduct & Zero-Tolerance Fraud Policy</h2>
+        <p className="text-muted-foreground leading-relaxed">Any attempt to farm credits, create multiple fake accounts, misuse the referral system, or bypass the platform's payment gateway will result in an immediate hardware and IP ban without refunds.</p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-2xl font-bold">6. Intellectual Property</h2>
-        <p className="text-muted-foreground leading-relaxed">The SkillSwap platform and its original content, features, and functionality are owned by SkillSwap and are protected by international copyright, trademark, and other intellectual property laws.</p>
+        <h2 className="text-2xl font-bold">6. Termination</h2>
+        <p className="text-muted-foreground leading-relaxed">We reserve the right to terminate or suspend your account, permanently freezing any remaining credits, at any time for violations of these terms. Upon termination, your right to use the service will immediately cease.</p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-2xl font-bold">7. Disclaimer</h2>
-        <p className="text-muted-foreground leading-relaxed">SkillSwap is provided on an "as is" basis without warranties of any kind. We do not guarantee the quality, accuracy, or reliability of any content or instruction provided by users on our platform.</p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-bold">8. Limitation of Liability</h2>
-        <p className="text-muted-foreground leading-relaxed">SkillSwap shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of the service.</p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-bold">9. Termination</h2>
-        <p className="text-muted-foreground leading-relaxed">We reserve the right to terminate or suspend your account at any time for violations of these terms. Upon termination, your right to use the service will immediately cease.</p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-bold">10. Contact</h2>
-        <p className="text-muted-foreground leading-relaxed">For any questions regarding these Terms, contact us at <a href="mailto:singhaditya4560@gmail.com" className="text-primary hover:underline">singhaditya4560@gmail.com</a></p>
+        <h2 className="text-2xl font-bold">7. Contact</h2>
+        <p className="text-muted-foreground leading-relaxed">For any questions or legal inquiries regarding these Terms, contact us at <a href="mailto:singhaditya4560@gmail.com" className="text-primary hover:underline font-bold">singhaditya4560@gmail.com</a></p>
       </section>
     </div>
   );
 }
-

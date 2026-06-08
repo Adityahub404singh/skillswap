@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/auth";
 import { useGetMe, useGetWallet } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X, Star, MessageSquare, Sparkles, Bell, Zap } from "lucide-react";
+import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X, Star, MessageSquare, Sparkles, Bell, Zap, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +28,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: user } = useGetMe({ ...apiOptions, query: { enabled: !!token, queryKey: [] } });
   const { data: wallet } = useGetWallet({ ...apiOptions, query: { enabled: !!token, queryKey: [] } });
 
-  // FETCH NOTIFICATIONS FOR UNREAD BADGE
   const { data: notifications } = useQuery({
     queryKey: ["/api/notifications"],
     queryFn: async () => {
@@ -37,7 +36,7 @@ export function Layout({ children }: { children: ReactNode }) {
       return res.json();
     },
     enabled: !!token,
-    refetchInterval: 15000, // Refresh every 15s for real-time feel
+    refetchInterval: 15000,
   });
   
   const unreadCount = notifications?.filter((n: any) => !n.isRead)?.length || 0;
@@ -78,11 +77,13 @@ export function Layout({ children }: { children: ReactNode }) {
     setTimeout(() => { setFeedbackOpen(false); setFeedbackSent(false); setFeedbackText(""); setFeedbackRating(5); }, 2000);
   };
 
+  // 🚨 UI FIX: Added Leaderboard (Trophy) to Desktop Nav
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/explore", label: "Explore", icon: Compass },
     { href: "/flash-board", label: "Live Doubts", icon: Zap },
     { href: "/sessions", label: "Sessions", icon: BookOpen },
+    { href: "/leaderboard", label: "Rank", icon: Trophy },
     { href: "/ai", label: "SkillAI", icon: Bot },
   ];
 
@@ -135,7 +136,6 @@ export function Layout({ children }: { children: ReactNode }) {
                     </div>
                   </Link>
                   
-                  {/* LIVE NOTIFICATION BELL */}
                   <Link href="/notifications">
                     <div className="relative p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-secondary/50 cursor-pointer">
                       <Bell className="w-5 h-5" />
@@ -174,14 +174,14 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-24 md:pb-8">
+      {/* 🚨 UI FIX: Added pb-32 to ensure content is NOT hidden behind bottom mobile nav */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-32 md:pb-12">
         {children}
       </main>
       <Footer />
 
-      {/* Floating AI + Feedback */}
       {token && (
-        <div className="fixed bottom-20 md:bottom-6 right-4 z-50 flex flex-col items-end gap-3">
+        <div className="fixed bottom-24 md:bottom-6 right-4 z-50 flex flex-col items-end gap-3">
           {feedbackOpen && (
             <div className="w-72 bg-background border border-border rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
               <div className="bg-gradient-to-r from-orange-500 to-pink-500 p-3 flex justify-between items-center">
@@ -213,7 +213,6 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {/* AI Chat Panel */}
           {aiOpen && (
             <div className="w-80 bg-background border border-border rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
               <div className="bg-gradient-to-r from-primary to-accent p-3 flex justify-between items-center">
@@ -300,10 +299,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {token && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border/50 pb-safe">
-          <nav className="flex items-center justify-around h-16 px-2">
+          <nav className="flex items-center justify-around h-16 px-1">
+            {/* 🚨 UI FIX: Added Leaderboard to Bottom Mobile Nav */}
             {[
               { href: "/dashboard", label: "Home", icon: LayoutDashboard },
               { href: "/explore", label: "Explore", icon: Compass },
+              { href: "/leaderboard", label: "Rank", icon: Trophy },
               { href: "/flash-board", label: "Doubts", icon: Zap },
               { href: "/sessions", label: "Sessions", icon: BookOpen },
               { href: "/profile", label: "Profile", icon: User },
@@ -311,10 +312,9 @@ export function Layout({ children }: { children: ReactNode }) {
               const Icon = link.icon;
               const isActive = location === link.href;
               return (
-                <Link key={link.href} href={link.href}
-                  className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                <Link key={link.href} href={link.href} className={`flex flex-col items-center justify-center w-full h-full ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                   <Icon className={`w-5 h-5 ${isActive ? "text-primary" : ""}`} />
-                  <span className="text-[10px] font-medium">{link.label}</span>
+                  <span className="text-[10px] font-medium mt-1">{link.label}</span>
                 </Link>
               );
             })}
