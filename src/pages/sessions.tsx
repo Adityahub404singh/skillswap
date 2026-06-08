@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -55,7 +55,7 @@ export default function Sessions() {
 
   const handleRate = () => {
     if (!ratingId) return;
-    rateMut.mutate({ data: { sessionId: ratingId, rating: ratingVal, review: reviewText } });
+    rateMut.mutate({ id: ratingId, data: { rating: ratingVal, review: reviewText } });
   };
 
   const startSession = async () => {
@@ -328,11 +328,11 @@ export default function Sessions() {
                           Negotiate
                         </Button>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                          onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                          onClick={() => cancelMut.mutate({ id: session.id })}>
                           Decline
                         </Button>
                         <Button size="sm" className="text-xs rounded-xl bg-green-600 hover:bg-green-700 text-white"
-                          onClick={() => acceptMut.mutate({ sessionId: session.id })}>
+                          onClick={() => acceptMut.mutate({ id: session.id })}>
                           Accept
                         </Button>
                       </>
@@ -348,14 +348,14 @@ export default function Sessions() {
 
                     {tab === "teaching" && (session.status === "accepted" || session.status === "in_progress") && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                        onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                        onClick={() => cancelMut.mutate({ id: session.id })}>
                         Cancel
                       </Button>
                     )}
 
                     {tab === "teaching" && isGroupSession && session.status === "pending" && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                        onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                        onClick={() => cancelMut.mutate({ id: session.id })}>
                         Cancel Group Session
                       </Button>
                     )}
@@ -368,7 +368,7 @@ export default function Sessions() {
                           Negotiate
                         </Button>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                          onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                          onClick={() => cancelMut.mutate({ id: session.id })}>
                           Cancel
                         </Button>
                       </>
@@ -387,11 +387,11 @@ export default function Sessions() {
                     {tab === "learning" && (session.status === "accepted" || session.status === "in_progress") && (
                       <>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                          onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                          onClick={() => cancelMut.mutate({ id: session.id })}>
                           Cancel
                         </Button>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs rounded-xl"
-                          onClick={() => completeMut.mutate({ sessionId: session.id })}>
+                          onClick={() => completeMut.mutate({ id: session.id })}>
                           Mark Done
                         </Button>
                       </>
