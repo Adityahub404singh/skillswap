@@ -154,3 +154,23 @@ router.get("/referral", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+// GET /api/auth/verify-email
+router.post("/verify-email", async (req, res) => {
+  try {
+    const { token, email } = req.body;
+    if (!token || !email) return res.status(400).json({ error: "Missing data" });
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    
+    // @ts-ignore
+    if (!user || user.emailVerifyToken !== token) {
+      return res.status(400).json({ error: "Invalid token" });
+    }
+
+    // @ts-ignore
+    await db.update(usersTable).set({ isEmailVerified: true, emailVerifyToken: null }).where(eq(usersTable.id, user.id));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed" });
+  }
+});

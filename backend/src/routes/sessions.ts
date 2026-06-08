@@ -13,7 +13,7 @@ const sessionsTable = pgTable("sessions", {
   skill:           text("skill").notNull(),
   scheduledDate:   timestamp("scheduled_date").notNull(),
   duration:        integer("duration").notNull().default(60),
-  status:          text("status").notNull().default("pending"),
+  status:          text("status").notNull().default("requested"),
   message:         text("message"),
   creditsAmount:   integer("credits_amount").notNull().default(10),
   createdAt:       timestamp("created_at").notNull().defaultNow(),
@@ -30,7 +30,7 @@ const sessionsTable = pgTable("sessions", {
   learnerRating:   real("learner_rating"),
   teacherReview:   text("teacher_review"),
   learnerReview:   text("learner_review"),
-  sessionOtp:    text("session_otp"),
+  sessionOtp:      text("session_otp"),
 });
 
 const usersTable = pgTable("users", {
@@ -73,15 +73,12 @@ const SESSION_CONFIG: Record<string, { duration: number; multiplier: number; lab
 
 const router: IRouter = Router();
 
-// GET /api/sessions/types
 router.get("/types", (_req, res) => res.json(SESSION_CONFIG));
 
-// GET /api/sessions
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const role = req.query.role as string;
     let rows;
-
     if (role === "mentor") {
       rows = await db.select().from(sessionsTable).where(eq(sessionsTable.mentorId, req.userId!)).orderBy(desc(sessionsTable.scheduledDate));
     } else if (role === "student") {
@@ -95,11 +92,8 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       const [student] = await db.select({ id: usersTable.id, name: usersTable.name, avatar: usersTable.avatar }).from(usersTable).where(eq(usersTable.id, session.studentId));
       return { ...session, mentor: mentor || null, student: student || null };
     }));
-
     res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 const BookSchema = z.object({
@@ -119,13 +113,13 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     if (data.mentorId === req.userId) return res.status(400).json({ error: "Cannot book session with yourself" });
 
     const [learner] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    const [mentor] = await db.select().from(usersTable).where(eq(usersTable.id, data.mentorId));
-    
+    const [mentor]  = await db.select().from(usersTable).where(eq(usersTable.id, data.mentorId));
+
     if (!learner) return res.status(404).json({ error: "User not found" });
-    if (!mentor) return res.status(404).json({ error: "Mentor not found" });
+    if (!mentor)  return res.status(404).json({ error: "Mentor not found" });
 
     const baseRate = Math.max(mentor.pricePerHour, 10);
-    const credits = Math.max(Math.round(baseRate * cfg.multiplier), 3);
+    const credits  = Math.max(Math.round(baseRate * cfg.multiplier), 3);
 
     if (learner.credits < credits) return res.status(400).json({ error: `Need ${credits} credits, you have ${learner.credits}` });
 
@@ -141,21 +135,21 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       duration:      cfg.duration,
       status:        "requested",
       creditsAmount: credits,
-      sessionOtp: Math.floor(100000 + Math.random() * 900000).toString(),
+      sessionOtp:    Math.floor(100000 + Math.random() * 900000).toString(),
       message:       data.message ?? null,
     }).returning();
 
     await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${credits}` }).where(eq(usersTable.id, req.userId!));
 
     await db.insert(transactionsTable).values({
-      userId: req.userId!, type: "spent", amount: credits, description: `Booked ${cfg.label} for ${data.skill} with ${mentor.name}`, sessionId: session.id,
+      userId: req.userId!, type: "spent", amount: credits,
+      description: `Booked ${cfg.label} for ${data.skill} with ${mentor.name}`,
+      sessionId: session.id,
     });
 
     notify.sessionBooked(data.mentorId, learner.name, data.skill);
     res.status(201).json(session);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(400).json({ error: err.message }); }
 });
 
 router.post("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
@@ -165,12 +159,27 @@ router.post("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can accept" });
 
-    await db.update(sessionsTable).set({ status: "accepted" }).where(eq(sessionsTable.id, sessionId));
+    const meetLink = `https://meet.jit.si/SkillSwap_${sessionId}_${Date.now()}`;
+    await db.update(sessionsTable).set({ status: "accepted", meetLink }).where(eq(sessionsTable.id, sessionId));
     notify.sessionAccepted(session.studentId, req.userId!.toString(), session.skill);
     res.json({ success: true, message: "Session accepted! Learner will be notified." });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const { otp } = req.body;
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    
+    if (!session) return res.status(404).json({ error: "Not found" });
+    if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can start" });
+    if (session.status !== "accepted") return res.status(400).json({ error: "Session must be accepted first" });
+    if (session.sessionOtp !== otp) return res.status(400).json({ error: "Invalid OTP! Ask student for correct code." });
+
+    await db.update(sessionsTable).set({ status: "in_progress", startedAt: new Date() }).where(eq(sessionsTable.id, sessionId));
+    res.json({ success: true, message: "Session officially started!" });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
@@ -180,236 +189,144 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.studentId !== req.userId) return res.status(403).json({ error: "Only the student can release funds" });
 
-    await db.update(sessionsTable).set({ status: "completed", completedAt: new Date() }).where(eq(sessionsTable.id, sessionId));
+    if (session.status !== "in_progress" || !session.startedAt) {
+      return res.status(400).json({ error: "Fraud Alert: Session must be started with OTP by the mentor first!" });
+    }
+
+    const requiredMins = session.duration * 0.8;
+    const elapsedMins = (new Date().getTime() - new Date(session.startedAt).getTime()) / 60000;
+    
+    if (elapsedMins < requiredMins) {
+      return res.status(400).json({ 
+        error: `Wait! Only ${Math.round(elapsedMins)} mins passed. You must complete at least ${Math.round(requiredMins)} mins before marking as done.` 
+      });
+    }
+
+    await db.update(sessionsTable).set({ status: "completed", completedAt: new Date(), actualDuration: Math.round(elapsedMins) }).where(eq(sessionsTable.id, sessionId));
 
     const isMicro = session.sessionType !== "standard" && session.sessionType !== "extended";
     await db.update(usersTable).set({
-      credits: sql`${usersTable.credits} + ${session.creditsAmount}`,
-      sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1`,
+      credits:            sql`${usersTable.credits} + ${session.creditsAmount}`,
+      sessionsCompleted:  sql`${usersTable.sessionsCompleted} + 1`,
       microSessionsCount: isMicro ? sql`${usersTable.microSessionsCount} + 1` : sql`${usersTable.microSessionsCount}`,
     }).where(eq(usersTable.id, session.mentorId));
 
     await db.insert(transactionsTable).values({
-      userId: session.mentorId, type: "earned", amount: session.creditsAmount, description: `Taught ${session.skill}`, sessionId: session.id,
+      userId: session.mentorId, type: "earned", amount: session.creditsAmount,
+      description: `Taught ${session.skill}`, sessionId: session.id,
     });
 
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId));
-    if (student) {
+    if (student && student.sessionsCompleted === 0 && student.referredBy && session.duration >= 60 && elapsedMins >= 45) {
       await db.update(usersTable).set({ sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1` }).where(eq(usersTable.id, student.id));
-      if (student.sessionsCompleted === 0 && student.referredBy) {
-        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 50` }).where(eq(usersTable.id, student.referredBy));
-        await db.insert(transactionsTable).values({
-          userId: student.referredBy, type: "referral", amount: 50, description: `Referral bonus from ${student.name}`, sessionId: session.id,
-        });
-      }
+      await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 50` }).where(eq(usersTable.id, student.referredBy));
+      await db.insert(transactionsTable).values({
+        userId: student.referredBy, type: "referral", amount: 50,
+        description: `Referral bonus from ${student.name}`, sessionId: session.id,
+      });
+    } else if (student) {
+      await db.update(usersTable).set({ sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1` }).where(eq(usersTable.id, student.id));
     }
 
     notify.sessionCompleted(session.mentorId, session.skill, session.creditsAmount);
     notify.sessionCompleted(session.studentId, session.skill, 0);
     res.json({ success: true, message: "Session completed! Credits transferred." });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const sessionId = parseInt(req.params.id as string);
+    const sessionId   = parseInt(req.params.id as string);
     const cancelReason = req.body.reason ?? "Cancelled";
-    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    const [session]   = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId && session.studentId !== req.userId) return res.status(403).json({ error: "Not your session" });
+    if (session.status === "cancelled") return res.status(400).json({ error: "Already cancelled" });
 
     await db.update(sessionsTable).set({ status: "cancelled", cancelReason }).where(eq(sessionsTable.id, sessionId));
-
-    await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
     
-    await db.insert(transactionsTable).values({
-      userId: session.studentId, type: "earned", amount: session.creditsAmount, description: `Refund - cancelled ${session.skill}`, sessionId: session.id,
-    });
-
+    if (session.status === "in_progress" && req.userId === session.studentId) {
+       // Just cancel, no refund issued
+    } else {
+       await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
+       await db.insert(transactionsTable).values({
+         userId: session.studentId, type: "refund", amount: session.creditsAmount,
+         description: `Refund - cancelled ${session.skill}`, sessionId: session.id,
+       });
+    }
     res.json({ success: true, message: "Cancelled and refunded." });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /api/sessions/group - FIXED BUG
-router.post("/group", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const { skill, scheduledDate, creditsAmount, maxStudents, message } = req.body;
-    if (!skill || !scheduledDate) return res.status(400).json({ error: "skill and scheduledDate required" });
-
-    const [session] = await db.insert(sessionsTable).values({
-      mentorId: req.userId!, studentId: req.userId!, skill, scheduledDate: new Date(scheduledDate), duration: 60, status: "accepted",
-      creditsAmount: creditsAmount || 50, isGroup: 1, maxStudents: maxStudents || 10, message: message || null, sessionType: "standard",
-    }).returning();
-
-    // Removed buggy notify line that was causing crashes here
-    res.status(201).json(session);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-router.post("/:id/join", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const sessionId = parseInt(req.params.id as string);
-    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    
-    if (!session) return res.status(404).json({ error: "Session not found" });
-    if (session.isGroup !== 1) return res.status(400).json({ error: "Not a group session" });
-    if (session.mentorId === req.userId) return res.status(400).json({ error: "You are the host" });
-
-    const [learner] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    if (learner.credits < session.creditsAmount) return res.status(400).json({ error: "Insufficient credits" });
-
-    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${session.creditsAmount}` }).where(eq(usersTable.id, req.userId!));
-    
-    const [newEnrolment] = await db.insert(sessionsTable).values({
-      mentorId: session.mentorId, studentId: req.userId!, skill: session.skill, scheduledDate: session.scheduledDate, 
-      duration: session.duration, status: "accepted", creditsAmount: session.creditsAmount, isGroup: 1, 
-      maxStudents: session.maxStudents, meetLink: session.meetLink,
-    }).returning();
-
-    await db.insert(transactionsTable).values({
-      userId: req.userId!, type: "spent", amount: session.creditsAmount, description: `Joined group class: ${session.skill}`, sessionId: newEnrolment.id,
-    });
-
-    res.status(201).json({ success: true, message: "Successfully joined group session!" });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const sessionId = parseInt(req.params.id as string);
-    const { rating, review } = req.body;
-    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    if (!session) return res.status(404).json({ error: "Not found" });
-
-    await db.update(sessionsTable).set({ teacherRating: rating ?? 5, teacherReview: review ?? null }).where(eq(sessionsTable.id, sessionId));
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-router.post("/:id/negotiate", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const sessionId = parseInt(req.params.id as string);
-    const { proposedPrice } = req.body;
-    if (!proposedPrice || proposedPrice < 5) return res.status(400).json({ error: "Invalid price" });
-    
-    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only student can negotiate" });
-
-    await db.update(sessionsTable).set({ negotiatedPrice: proposedPrice, status: "requested" }).where(eq(sessionsTable.id, sessionId));
-    res.json({ success: true, proposedPrice });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
+// 🚨 FRAUD FIX: STRICT DISPUTE ROUTE (Requires Evidence/Reason)
 router.post("/:id/dispute", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
+    const reason = req.body.reason?.trim();
+
+    // Check for minimum 20 characters
+    if (!reason || reason.length < 20) {
+        return res.status(400).json({ 
+            error: "Dispute rejected. Please provide a detailed reason (at least 20 characters) explaining what went wrong." 
+        });
+    }
+
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    if (!session) return res.status(404).json({ error: "Session not found" });
-    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only the student can dispute" });
-    if (session.status !== "accepted") return res.status(400).json({ error: "Can only dispute active sessions" });
-
-    await db.update(sessionsTable).set({ status: "cancelled", cancelReason: req.body.reason || "Mentor No-Show (Disputed)" }).where(eq(sessionsTable.id, sessionId));
-    await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
     
-    await db.insert(transactionsTable).values({
-      userId: session.studentId, type: "earned", amount: session.creditsAmount, description: `Refund: Mentor No-Show for ${session.skill}`, sessionId: session.id,
-    });
+    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only student can dispute" });   
+    if (session.status !== "in_progress" && session.status !== "accepted") {
+        return res.status(400).json({ error: "Cannot dispute this session" });
+    }
 
-    await db.update(usersTable).set({ trustScore: sql`GREATEST(${usersTable.trustScore} - 10, 0)` }).where(eq(usersTable.id, session.mentorId));
-    res.json({ success: true, message: "Dispute raised. Credits refunded and Mentor penalized." });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    await db.update(sessionsTable).set({ 
+        status: "disputed", 
+        cancelReason: reason 
+    }).where(eq(sessionsTable.id, sessionId));
+
+    res.json({ success: true, message: "Dispute raised! Admin will review within 24 hours." });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ├░┼╕ΓÇ¥┬Ñ NEW FEATURE: GET /api/sessions/flash/board - Get all open Live Doubts
-router.get("/flash/board", requireAuth, async (_req, res) => {
-  try {
-    const rows = await db.select().from(sessionsTable).where(eq(sessionsTable.status, "open_doubt")).orderBy(desc(sessionsTable.createdAt));
-    const enriched = await Promise.all(rows.map(async (session) => {
-      const [student] = await db.select({ id: usersTable.id, name: usersTable.name, avatar: usersTable.avatar }).from(usersTable).where(eq(usersTable.id, session.studentId));
-      return { ...session, student: student || null };
-    }));
-    res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ├░┼╕ΓÇ¥┬Ñ NEW FEATURE: POST /api/sessions/flash/post - Post a Live Doubt (Deducts credits)
 router.post("/flash/post", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { skill, message, creditsAmount } = req.body;
-    if (!skill) return res.status(400).json({ error: "Skill is required" });
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    if (user.credits < creditsAmount) return res.status(400).json({ error: "Insufficient credits" });
 
-    const amount = creditsAmount || 10;
-    const [learner] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    if (learner.credits < amount) return res.status(400).json({ error: "Insufficient credits" });
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${creditsAmount}` }).where(eq(usersTable.id, req.userId!));
 
-    // Temporary logic: Set mentorId to self until someone claims it
-    const [session] = await db.insert(sessionsTable).values({
-      mentorId: req.userId!, studentId: req.userId!, skill, scheduledDate: new Date(),
-      duration: 15, status: "open_doubt", creditsAmount: amount, message: message || "I need quick help with this!", sessionType: "micro_15",
+    const [doubt] = await db.insert(sessionsTable).values({
+      studentId: req.userId!, mentorId: 0, skill, message, duration: 15, creditsAmount,
+      sessionType: "doubt", status: "pending", scheduledDate: new Date()
     }).returning();
-
-    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${amount}` }).where(eq(usersTable.id, req.userId!));
-    res.status(201).json({ success: true, message: "Live Doubt posted!", session });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    res.json(doubt);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ├░┼╕ΓÇ¥┬Ñ NEW FEATURE: POST /api/sessions/:id/claim-flash - Mentor claims the doubt
+router.get("/flash/board", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const doubts = await db.select().from(sessionsTable).where(eq(sessionsTable.status, "pending")).orderBy(desc(sessionsTable.createdAt));
+    const enriched = await Promise.all(doubts.filter(d => d.sessionType === "doubt" && d.mentorId === 0).map(async (d) => {
+      const [student] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, d.studentId));
+      return { ...d, student };
+    }));
+    res.json(enriched);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    
-    if (!session || session.status !== "open_doubt") return res.status(404).json({ error: "Doubt not available" });
-    if (session.studentId === req.userId) return res.status(400).json({ error: "You cannot claim your own doubt" });
+    if (!session || session.mentorId !== 0) return res.status(400).json({ error: "Already claimed" });
+    if (session.studentId === req.userId) return res.status(400).json({ error: "Cannot claim own doubt" });
 
-    // Assign the mentor and activate the session
-    await db.update(sessionsTable).set({ mentorId: req.userId!, status: "accepted", startedAt: new Date() }).where(eq(sessionsTable.id, sessionId));
-    notify.sessionAccepted(session.studentId, req.userId!.toString(), session.skill);
-
-    res.json({ success: true, message: "Doubt claimed! Session is now live." });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ├░┼╕ΓÇ¥┬Ñ NEW FEATURE: POST /api/sessions/:id/start (OTP Verification)
-router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const sessionId = parseInt(req.params.id as string);
-    const { otp } = req.body;
-    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    
-    if (!session) return res.status(404).json({ error: "Session not found" });
-    if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can start the session" });
-    
-    // Check OTP (000000 is a master bypass for admin testing)
-    if (session.sessionOtp && session.sessionOtp !== otp && otp !== "000000") {
-      return res.status(400).json({ error: "Invalid OTP! Ask the student for the correct 6-digit code." });
-    }
-
-    await db.update(sessionsTable).set({ status: "in_progress", startedAt: new Date() }).where(eq(sessionsTable.id, sessionId));
-    res.json({ success: true, message: "OTP Verified! Session is now live." });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const meetLink = `https://meet.jit.si/SkillSwapFlash_${sessionId}_${Date.now()}`;
+    await db.update(sessionsTable).set({ mentorId: req.userId!, status: "accepted", meetLink }).where(eq(sessionsTable.id, sessionId));
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;

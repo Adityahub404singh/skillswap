@@ -1,11 +1,11 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useGetWallet, useGetTransactions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
-import { Wallet as WalletIcon, ArrowUpRight, ArrowDownRight, Gift, Loader2, Copy, Check, Users, CreditCard, Send, X, Coins, TrendingUp, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Wallet as WalletIcon, ArrowUpRight, ArrowDownRight, Gift, Loader2, Copy, Check, Users, Send, X, Coins, TrendingUp, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,6 @@ export default function Wallet() {
   const [upiId, setUpiId] = useState("");
   const [withdrawLoading, setWithdrawLoading] = useState(false);
 
-  // CRASH FIX: Removed process.env, using a direct safe string
   const referralCode = "SKILL" + (token?.slice(-6) || Math.random().toString(36).slice(2, 8)).toUpperCase();
   const referralLink = `https://skillswap.app/register?ref=${referralCode}`;
 
@@ -59,15 +58,18 @@ export default function Wallet() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ amount, upiId }),
       });
+      
+      const data = await res.json();
+      
       if (res.ok) {
-        toast({ title: "Withdrawal Requested!", description: `₹${amount} will be processed in 24-48 hours` });
+        toast({ title: "Withdrawal Requested!", description: "Admin will review and transfer via UPI in 24 hrs." });
         setShowWithdraw(false);
         setWithdrawAmount("");
+        setUpiId("");
         queryClient.invalidateQueries({ queryKey: ['/api/wallet/history'] } as any);
         queryClient.invalidateQueries({ queryKey: ['/api/users/me'] } as any);
-        setUpiId("");
       } else {
-        toast({ variant: "destructive", title: "Withdrawal failed. Try again." });
+        toast({ variant: "destructive", title: "Failed", description: data.error || "Cannot withdraw promotional credits." });
       }
     } catch {
       toast({ variant: "destructive", title: "Something went wrong" });
@@ -80,6 +82,36 @@ export default function Wallet() {
 
   return (
     <motion.div initial="hidden" animate="show" variants={container} className="py-6 max-w-4xl mx-auto space-y-6">
+      
+      {/* --- Withdraw Modal (UI FIX) --- */}
+      <AnimatePresence>
+        {showWithdraw && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-background border border-border rounded-3xl p-6 max-w-md w-full shadow-2xl relative">
+              <button onClick={() => setShowWithdraw(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+              <h2 className="text-xl font-black mb-1 flex items-center gap-2"><Send className="w-5 h-5 text-primary"/> Withdraw Credits</h2>
+              <p className="text-sm text-muted-foreground mb-6">Withdraw earned credits to your bank account via UPI. (Min 500 cr)</p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Amount (Credits)</label>
+                  <Input type="number" placeholder="e.g. 500" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="mt-1 font-black text-lg" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide">UPI ID</label>
+                  <Input type="text" placeholder="yourname@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} className="mt-1" />
+                </div>
+                <Button onClick={handleWithdraw} disabled={withdrawLoading} className="w-full h-12 text-lg font-bold rounded-xl mt-2">
+                  {withdrawLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Request Withdrawal"}
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <motion.div variants={item}>
         <h1 className="text-3xl font-black mb-1 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -166,7 +198,7 @@ export default function Wallet() {
         ) : (
           <div className="space-y-1">
             {transactions.map((tx: any) => {
-              const isExpense = tx.type === "spent" || tx.type === "withdrawal" || tx.amount < 0 || tx.description.toLowerCase().includes("booked");
+              const isExpense = tx.type === "spent" || tx.type === "withdrawal_pending" || tx.amount < 0 || tx.description.toLowerCase().includes("booked");
               const isPositive = !isExpense;
               const isBonus = tx.type === "bonus" || tx.type === "referral";
               const Icon = isBonus ? Gift : (isPositive ? ArrowUpRight : ArrowDownRight);

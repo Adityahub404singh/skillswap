@@ -1,106 +1,94 @@
-import { Router } from 'express';
-import { db } from '../db.js';
-import { eq, desc, sql } from 'drizzle-orm';
-import { requireAuth, type AuthRequest } from '../middlewares/auth.js';
-import { pgTable, serial, integer, text, timestamp, real, boolean } from 'drizzle-orm/pg-core';
+import { Router, type IRouter } from "express";
+import { db } from "../db.js";
+import { eq, sql, desc } from "drizzle-orm";
+import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
+import { transactionsTable, usersTable } from "../schema/index.js"; 
 
-const transactionsTable = pgTable('transactions', {
-  id:          serial('id').primaryKey(),
-  userId:      integer('user_id').notNull(),
-  amount:      integer('amount').notNull(),
-  type:        text('type').notNull(),
-  description: text('description').notNull(),
-  sessionId:   integer('session_id'),
-  createdAt:   timestamp('created_at').notNull().defaultNow(),
+const router: IRouter = Router();
+
+// 1. FETCH WALLET STATS
+router.get("/", requireAuth, async (req: AuthRequest, res) => {
+    try {
+        const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const transactions = await db.select().from(transactionsTable).where(eq(transactionsTable.userId, req.userId!));
+
+        const totalEarned = transactions
+            .filter(tx => tx.type === "earned")
+            .reduce((sum, tx) => sum + tx.amount, 0);
+
+        const totalSpent = transactions
+            .filter(tx => tx.type === "spent" || tx.type === "withdrawal_pending" || tx.amount < 0)
+            .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+
+        res.json({
+            balance: user.credits,
+            totalEarned,
+            totalSpent
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: "Server error" });
+    }
 });
 
-const usersTable = pgTable('users', {
-  id:      serial('id').primaryKey(),
-  name:    text('name').notNull(),
-  email:   text('email').notNull(),
-  credits: integer('credits').notNull().default(0),
+// 2. FETCH TRANSACTION HISTORY
+router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
+    try {
+        const history = await db.select()
+            .from(transactionsTable)
+            .where(eq(transactionsTable.userId, req.userId!))
+            .orderBy(desc(transactionsTable.createdAt));
+        res.json(history);
+    } catch (err: any) {
+        res.status(500).json({ error: "Server error" });
+    }
 });
 
-const router = Router();
+// 3. SECURE WITHDRAWAL LOGIC (With 7-Day Maturity Hold)
+router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
+    try {
+        const { amount, upiId } = req.body;
+        
+        if (!amount || amount < 500) return res.status(400).json({ error: "Minimum withdrawal is 500 credits." });
+        if (!upiId) return res.status(400).json({ error: "UPI ID is required." });
 
-// GET /api/wallet — balance + stats (used by useGetWallet)
-router.get('/', requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    if (!user) return res.status(404).json({ error: 'User not found' });
+        const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+        if (user.credits < amount) return res.status(400).json({ error: "Insufficient balance." });
 
-    const txs = await db.select().from(transactionsTable)
-      .where(eq(transactionsTable.userId, req.userId!));
+        // 🚨 FRAUD FIX: Fetch only "Earned" credits
+        const earnedTx = await db.select().from(transactionsTable)
+            .where(sql`${transactionsTable.userId} = ${req.userId} AND ${transactionsTable.type} = 'earned'`);
+        
+        // 🚨 FRAUD FIX 2: 7-Day Maturity Lock added here
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
 
-    const totalEarned = txs
-      .filter(t => ['earned', 'bonus', 'referral', 'refund'].includes(t.type) && t.amount > 0)
-      .reduce((sum, t) => sum + t.amount, 0);
+        const maturedEarned = earnedTx
+            .filter(tx => (now - new Date(tx.createdAt).getTime()) >= SEVEN_DAYS_MS)
+            .reduce((sum, tx) => sum + tx.amount, 0);
+        
+        if (maturedEarned < amount) {
+            return res.status(403).json({ 
+                error: `Credits take 7 days to clear. Your matured withdrawable balance is only ${maturedEarned} cr.` 
+            });
+        }
 
-    const totalSpent = txs
-      .filter(t => ['spent', 'withdrawal'].includes(t.type) || t.amount < 0)
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        // Deduct from user wallet
+        await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${amount}` }).where(eq(usersTable.id, req.userId!));
+        
+        // Save UPI ID in description so Admin knows where to send money
+        await db.insert(transactionsTable).values({
+            userId: req.userId!, 
+            type: "withdrawal_pending", 
+            amount: -amount,
+            description: `Withdrawal pending to UPI: ${upiId}`,
+        });
 
-    res.json({
-      balance:     user.credits,
-      userId:      user.id,
-      totalEarned,
-      totalSpent,
-    });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/wallet/transactions — transaction list (used by useGetTransactions)
-router.get('/transactions', requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const txs = await db.select().from(transactionsTable)
-      .where(eq(transactionsTable.userId, req.userId!))
-      .orderBy(desc(transactionsTable.createdAt));
-    res.json(txs);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/wallet/history — same but wrapped (legacy)
-router.get('/history', requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const history = await db.select().from(transactionsTable)
-      .where(eq(transactionsTable.userId, req.userId!))
-      .orderBy(desc(transactionsTable.createdAt));
-    res.json({ success: true, transactions: history });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// POST /api/wallet/withdraw
-router.post('/withdraw', requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const { amount, upiId } = req.body;
-    if (!amount || !upiId) return res.status(400).json({ error: 'amount and upiId required' });
-    if (amount < 500) return res.status(400).json({ error: 'Minimum 500 credits required' });
-
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.credits < amount) return res.status(400).json({ error: 'Insufficient credits' });
-
-    await db.update(usersTable)
-      .set({ credits: sql`${usersTable.credits} - ${amount}` })
-      .where(eq(usersTable.id, req.userId!));
-
-    await db.insert(transactionsTable).values({
-      userId:      req.userId!,
-      type:        'withdrawal',
-      amount:      -amount,
-      description: `Withdrawal to UPI: ${upiId}`,
-    });
-
-    res.json({ success: true, message: `₹${amount} withdrawal requested. Processing in 24-48 hours.` });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+        res.json({ success: true, message: "Withdrawal requested successfully!" });
+    } catch (err: any) {
+        res.status(500).json({ error: "Server error. Please try again." });
+    }
 });
 
 export default router;

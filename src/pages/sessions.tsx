@@ -328,7 +328,7 @@ export default function Sessions() {
                           Negotiate
                         </Button>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                          onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                          onClick={() => cancelMut.mutate({ sessionId: session.id })} disabled={cancelMut.isPending}>
                           Decline
                         </Button>
                         <Button size="sm" className="text-xs rounded-xl bg-green-600 hover:bg-green-700 text-white"
@@ -348,14 +348,14 @@ export default function Sessions() {
 
                     {tab === "teaching" && (session.status === "accepted" || session.status === "in_progress") && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                        onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                        onClick={() => cancelMut.mutate({ sessionId: session.id })} disabled={cancelMut.isPending}>
                         Cancel
                       </Button>
                     )}
 
                     {tab === "teaching" && isGroupSession && (session.status === "accepted" || session.status === "requested" || session.status === "pending") && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                        onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                        onClick={() => cancelMut.mutate({ sessionId: session.id })} disabled={cancelMut.isPending}>
                         Cancel Group Session
                       </Button>
                     )}
@@ -368,7 +368,7 @@ export default function Sessions() {
                           Negotiate
                         </Button>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                          onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                          onClick={() => cancelMut.mutate({ sessionId: session.id })} disabled={cancelMut.isPending}>
                           Cancel
                         </Button>
                       </>
@@ -387,7 +387,7 @@ export default function Sessions() {
                     {tab === "learning" && (session.status === "accepted" || session.status === "in_progress") && (
                       <>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
-                          onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                          onClick={() => cancelMut.mutate({ sessionId: session.id })} disabled={cancelMut.isPending}>
                           Cancel
                         </Button>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs rounded-xl"
