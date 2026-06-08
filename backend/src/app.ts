@@ -1,4 +1,4 @@
-import { startStaleSessionCleanup } from './utils/cronJobs.js';
+import { startStaleSessionCleanup } from "./utils/cronJobs.js";
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
@@ -17,49 +17,29 @@ import gamificationRouter from "./routes/gamification.js";
 
 const app = express();
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "*",
-  credentials: true,
-}));
+app.use(cors({ origin: process.env.FRONTEND_URL || "*", credentials: true }));
 app.use(express.json());
 
-// Global limit: 100 requests per 15 minutes per IP
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 500,
-  message: { error: "Too many requests from this IP, please try again after 15 minutes." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Strict limit for sensitive actions
-const strictLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 15,
-  message: { error: "Too many sensitive actions detected, please slow down." },
-});
+const globalLimiter = rateLimit({ windowMs: 15*60*1000, max: 500, standardHeaders: true, legacyHeaders: false });
+const strictLimiter = rateLimit({ windowMs: 15*60*1000, max: 15 });
 
 app.use(globalLimiter);
-
 app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
 
-// ROUTES (Auth and Users restored!)
-app.use("/api/auth", strictLimiter, authRouter);
+app.use("/api/auth",          strictLimiter, authRouter);
 app.use("/api/users",         usersRouter);
-app.use("/api/sessions", sessionsRouter);
+app.use("/api/sessions",      sessionsRouter);
 app.use("/api/wallet",        walletRouter);
 app.use("/api/skills",        skillsRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/match",         matchingRouter);
-app.use("/api/payment", paymentRouter);
-app.use("/api/admin", adminRouter);
-app.use("/api/ai", aiRouter);
-app.use("/api/gamification", gamificationRouter);
+app.use("/api/payment",       paymentRouter);
+app.use("/api/admin",         adminRouter);
+app.use("/api/ai",            aiRouter);
+app.use("/api/gamification",  gamificationRouter);
 app.use("/api/ratings",       ratingsRouter);
 
 app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
 
-export default app;
-
 startStaleSessionCleanup();
-
+export default app;
