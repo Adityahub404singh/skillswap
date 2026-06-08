@@ -353,7 +353,7 @@ export default function Sessions() {
                       </Button>
                     )}
 
-                    {tab === "teaching" && isGroupSession && session.status === "pending" && (
+                    {tab === "teaching" && isGroupSession && (session.status === "accepted" || session.status === "requested" || session.status === "pending") && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 text-xs rounded-xl"
                         onClick={() => cancelMut.mutate({ sessionId: session.id })}>
                         Cancel Group Session
