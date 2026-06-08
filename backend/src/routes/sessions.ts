@@ -1,42 +1,56 @@
-import crypto from 'crypto';
-import { Router, type IRouter } from "express";
-import bcrypt from "bcryptjs";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
-import { eq, sql } from "drizzle-orm";
-import { signToken } from "../utils/jwt.js";
+import { eq, or, desc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-import { pgTable, serial, integer, text, timestamp, real, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
+import { notify } from "../notify.js";
+import { pgTable, serial, integer, text, timestamp, real, varchar, boolean } from "drizzle-orm/pg-core";
+
+const sessionsTable = pgTable("sessions", {
+  id:              serial("id").primaryKey(),
+  mentorId:        integer("mentor_id").notNull(),
+  studentId:       integer("student_id").notNull(),
+  skill:           text("skill").notNull(),
+  scheduledDate:   timestamp("scheduled_date").notNull(),
+  duration:        integer("duration").notNull().default(60),
+  status:          text("status").notNull().default("pending"),
+  message:         text("message"),
+  creditsAmount:   integer("credits_amount").notNull().default(10),
+  createdAt:       timestamp("created_at").notNull().defaultNow(),
+  meetLink:        text("meet_link"),
+  startedAt:       timestamp("started_at"),
+  completedAt:     timestamp("completed_at"),
+  actualDuration:  integer("actual_duration"),
+  isGroup:         integer("is_group").default(0),
+  maxStudents:     integer("max_students").default(1),
+  negotiatedPrice: integer("negotiated_price").default(0),
+  sessionType:     varchar("session_type", { length: 20 }).notNull().default("standard"),
+  cancelReason:    text("cancel_reason"),
+  teacherRating:   real("teacher_rating"),
+  learnerRating:   real("learner_rating"),
+  teacherReview:   text("teacher_review"),
+  learnerReview:   text("learner_review"),
+  sessionOtp:    text("session_otp"),
+});
 
 const usersTable = pgTable("users", {
-  id:                  serial("id").primaryKey(),
-  name:                text("name").notNull(),
-  email:               text("email").notNull(),
-  passwordHash:        text("password_hash").notNull(),
-  bio:                 text("bio"),
-  avatar:              text("avatar"),
-  skillsTeach:         text("skills_teach"),
-  skillsLearn:         text("skills_learn"),
-  credits:             integer("credits").notNull().default(50),
-  trustScore:          integer("trust_score").notNull().default(0),
-  sessionsCompleted:   integer("sessions_completed").notNull().default(0),
-  averageRating:       real("average_rating").notNull().default(0),
-  createdAt:           timestamp("created_at").notNull().defaultNow(),
-  pricePerHour:        integer("price_per_hour").notNull().default(0),
-  isAdmin:             integer("is_admin").default(0),
-  currentStreak:       integer("current_streak").notNull().default(0),
-  longestStreak:       integer("longest_streak").notNull().default(0),
-  lastActiveDate:      text("last_active_date"),
-  verifiedSkills:      jsonb("verified_skills"),
-  badges:              jsonb("badges"),
-  location:            varchar("location", { length: 100 }),
-  microSessionsCount:  integer("micro_sessions_count").notNull().default(0),
-  portfolioPublic:     boolean("portfolio_public").notNull().default(true),
-  seoSlug:             varchar("seo_slug", { length: 100 }),
-  isPremium:           boolean("is_premium").notNull().default(false),
-  premiumExpiresAt:    timestamp("premium_expires_at"),
-  notificationLastSent: timestamp("notification_last_sent"),
-  referredBy:          integer("referred_by")
+  id:                 serial("id").primaryKey(),
+  name:               text("name").notNull(),
+  email:              text("email").notNull(),
+  passwordHash:       text("password_hash").notNull(),
+  bio:                text("bio"),
+  avatar:             text("avatar"),
+  credits:            integer("credits").notNull().default(50),
+  trustScore:         integer("trust_score").notNull().default(0),
+  sessionsCompleted:  integer("sessions_completed").notNull().default(0),
+  averageRating:      real("average_rating").notNull().default(0),
+  createdAt:          timestamp("created_at").notNull().defaultNow(),
+  pricePerHour:       integer("price_per_hour").notNull().default(10),
+  currentStreak:      integer("current_streak").notNull().default(0),
+  longestStreak:      integer("longest_streak").notNull().default(0),
+  microSessionsCount: integer("micro_sessions_count").notNull().default(0),
+  isPremium:          boolean("is_premium").notNull().default(false),
+  referredBy:         integer("referred_by"),
 });
 
 const transactionsTable = pgTable("transactions", {
@@ -49,146 +63,352 @@ const transactionsTable = pgTable("transactions", {
   createdAt:   timestamp("created_at").notNull().defaultNow(),
 });
 
+const SESSION_CONFIG: Record<string, { duration: number; multiplier: number; label: string }> = {
+  micro_15: { duration: 15, multiplier: 0.25, label: "15-min Quick Session" },
+  micro_30: { duration: 30, multiplier: 0.50, label: "30-min Session" },
+  doubt:    { duration: 20, multiplier: 0.33, label: "Doubt Solving" },
+  standard: { duration: 60, multiplier: 1.00, label: "1-hour Session" },
+  extended: { duration: 90, multiplier: 1.50, label: "1.5-hour Deep Dive" },
+};
+
 const router: IRouter = Router();
 
-const registerSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(6),
-  skillsTeach: z.array(z.string()).default([]),
-  skillsLearn: z.array(z.string()).default([]),
-  referralCode: z.string().optional(),
-});
+// GET /api/sessions/types
+router.get("/types", (_req, res) => res.json(SESSION_CONFIG));
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
-});
-
-function parseJsonField(val: any): string[] {
-  if (!val) return [];
-  if (Array.isArray(val)) return val;
-  try { return JSON.parse(val); } catch { return []; }
-}
-
-function formatUser(user: any) {
-  return {
-    id: user.id, name: user.name, email: user.email,
-    bio: user.bio, avatar: user.avatar,
-    skillsTeach: parseJsonField(user.skillsTeach),
-    skillsLearn: parseJsonField(user.skillsLearn),
-    credits: user.credits, trustScore: user.trustScore,
-    sessionsCompleted: user.sessionsCompleted,
-    averageRating: user.averageRating,
-    createdAt: user.createdAt,
-  };
-}
-
-router.post("/register", async (req, res) => {
+// GET /api/sessions
+router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const body = registerSchema.parse(req.body);
-    const existing = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
-    if (existing.length > 0) return res.status(409).json({ error: "Conflict", message: "Email already in use" });
+    const role = req.query.role as string;
+    let rows;
 
-    let referrerId: number | null = null;
-    if (body.referralCode) {
-      try {
-        const potentialRefId = parseInt(body.referralCode.replace(/[^0-9]/g, ''));
-        const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, potentialRefId)).limit(1);
-        if (referrer) referrerId = referrer.id;
-      } catch (e) { console.error("Bad referral code", e); }
+    if (role === "mentor") {
+      rows = await db.select().from(sessionsTable).where(eq(sessionsTable.mentorId, req.userId!)).orderBy(desc(sessionsTable.scheduledDate));
+    } else if (role === "student") {
+      rows = await db.select().from(sessionsTable).where(eq(sessionsTable.studentId, req.userId!)).orderBy(desc(sessionsTable.scheduledDate));
+    } else {
+      rows = await db.select().from(sessionsTable).where(or(eq(sessionsTable.mentorId, req.userId!), eq(sessionsTable.studentId, req.userId!))).orderBy(desc(sessionsTable.scheduledDate));
     }
 
-    const passwordHash = await bcrypt.hash(body.password, 10);
-    const [user] = await db.insert(usersTable).values({
-      name: body.name, 
-      email: body.email, 
-      passwordHash,
-      skillsTeach: JSON.stringify(body.skillsTeach), 
-      skillsLearn: JSON.stringify(body.skillsLearn),
-      credits: 200, // âœ… FIX: Ab naye user ko strictly 200 credits milenge
-      referredBy: referrerId
+    const enriched = await Promise.all(rows.map(async (session) => {
+      const [mentor] = await db.select({ id: usersTable.id, name: usersTable.name, avatar: usersTable.avatar, averageRating: usersTable.averageRating }).from(usersTable).where(eq(usersTable.id, session.mentorId));
+      const [student] = await db.select({ id: usersTable.id, name: usersTable.name, avatar: usersTable.avatar }).from(usersTable).where(eq(usersTable.id, session.studentId));
+      return { ...session, mentor: mentor || null, student: student || null };
+    }));
+
+    res.json(enriched);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const BookSchema = z.object({
+  mentorId:      z.number(),
+  skill:         z.string().min(1),
+  sessionType:   z.enum(["micro_15", "micro_30", "doubt", "standard", "extended"]).default("standard"),
+  scheduledAt:   z.string().optional(),
+  scheduledDate: z.string().optional(),
+  message:       z.string().optional()
+});
+
+router.post("/", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const data = BookSchema.parse(req.body);
+    const cfg  = SESSION_CONFIG[data.sessionType];
+
+    if (data.mentorId === req.userId) return res.status(400).json({ error: "Cannot book session with yourself" });
+
+    const [learner] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    const [mentor] = await db.select().from(usersTable).where(eq(usersTable.id, data.mentorId));
+    
+    if (!learner) return res.status(404).json({ error: "User not found" });
+    if (!mentor) return res.status(404).json({ error: "Mentor not found" });
+
+    const baseRate = Math.max(mentor.pricePerHour, 10);
+    const credits = Math.max(Math.round(baseRate * cfg.multiplier), 3);
+
+    if (learner.credits < credits) return res.status(400).json({ error: `Need ${credits} credits, you have ${learner.credits}` });
+
+    const dateStr = data.scheduledDate || data.scheduledAt;
+    if (!dateStr) return res.status(400).json({ error: "scheduledDate is required" });
+
+    const [session] = await db.insert(sessionsTable).values({
+      mentorId:      data.mentorId,
+      studentId:     req.userId!,
+      skill:         data.skill,
+      sessionType:   data.sessionType,
+      scheduledDate: new Date(dateStr),
+      duration:      cfg.duration,
+      status:        "requested",
+      creditsAmount: credits,
+      sessionOtp: Math.floor(100000 + Math.random() * 900000).toString(),
+      message:       data.message ?? null,
+    }).returning();
+
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${credits}` }).where(eq(usersTable.id, req.userId!));
+
+    await db.insert(transactionsTable).values({
+      userId: req.userId!, type: "spent", amount: credits, description: `Booked ${cfg.label} for ${data.skill} with ${mentor.name}`, sessionId: session.id,
+    });
+
+    notify.sessionBooked(data.mentorId, learner.name, data.skill);
+    res.status(201).json(session);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session) return res.status(404).json({ error: "Not found" });
+    if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can accept" });
+
+    await db.update(sessionsTable).set({ status: "accepted" }).where(eq(sessionsTable.id, sessionId));
+    notify.sessionAccepted(session.studentId, req.userId!.toString(), session.skill);
+    res.json({ success: true, message: "Session accepted! Learner will be notified." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session) return res.status(404).json({ error: "Not found" });
+    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only the student can release funds" });
+
+    await db.update(sessionsTable).set({ status: "completed", completedAt: new Date() }).where(eq(sessionsTable.id, sessionId));
+
+    const isMicro = session.sessionType !== "standard" && session.sessionType !== "extended";
+    await db.update(usersTable).set({
+      credits: sql`${usersTable.credits} + ${session.creditsAmount}`,
+      sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1`,
+      microSessionsCount: isMicro ? sql`${usersTable.microSessionsCount} + 1` : sql`${usersTable.microSessionsCount}`,
+    }).where(eq(usersTable.id, session.mentorId));
+
+    await db.insert(transactionsTable).values({
+      userId: session.mentorId, type: "earned", amount: session.creditsAmount, description: `Taught ${session.skill}`, sessionId: session.id,
+    });
+
+    const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId));
+    if (student) {
+      await db.update(usersTable).set({ sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1` }).where(eq(usersTable.id, student.id));
+      if (student.sessionsCompleted === 0 && student.referredBy) {
+        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 50` }).where(eq(usersTable.id, student.referredBy));
+        await db.insert(transactionsTable).values({
+          userId: student.referredBy, type: "referral", amount: 50, description: `Referral bonus from ${student.name}`, sessionId: session.id,
+        });
+      }
+    }
+
+    notify.sessionCompleted(session.mentorId, session.skill, session.creditsAmount);
+    notify.sessionCompleted(session.studentId, session.skill, 0);
+    res.json({ success: true, message: "Session completed! Credits transferred." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const cancelReason = req.body.reason ?? "Cancelled";
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session) return res.status(404).json({ error: "Not found" });
+    if (session.mentorId !== req.userId && session.studentId !== req.userId) return res.status(403).json({ error: "Not your session" });
+
+    await db.update(sessionsTable).set({ status: "cancelled", cancelReason }).where(eq(sessionsTable.id, sessionId));
+
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
+    
+    await db.insert(transactionsTable).values({
+      userId: session.studentId, type: "earned", amount: session.creditsAmount, description: `Refund - cancelled ${session.skill}`, sessionId: session.id,
+    });
+
+    res.json({ success: true, message: "Cancelled and refunded." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/sessions/group - FIXED BUG
+router.post("/group", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { skill, scheduledDate, creditsAmount, maxStudents, message } = req.body;
+    if (!skill || !scheduledDate) return res.status(400).json({ error: "skill and scheduledDate required" });
+
+    const [session] = await db.insert(sessionsTable).values({
+      mentorId: req.userId!, studentId: req.userId!, skill, scheduledDate: new Date(scheduledDate), duration: 60, status: "accepted",
+      creditsAmount: creditsAmount || 50, isGroup: 1, maxStudents: maxStudents || 10, message: message || null, sessionType: "standard",
+    }).returning();
+
+    // Removed buggy notify line that was causing crashes here
+    res.status(201).json(session);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/:id/join", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    
+    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (session.isGroup !== 1) return res.status(400).json({ error: "Not a group session" });
+    if (session.mentorId === req.userId) return res.status(400).json({ error: "You are the host" });
+
+    const [learner] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    if (learner.credits < session.creditsAmount) return res.status(400).json({ error: "Insufficient credits" });
+
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${session.creditsAmount}` }).where(eq(usersTable.id, req.userId!));
+    
+    const [newEnrolment] = await db.insert(sessionsTable).values({
+      mentorId: session.mentorId, studentId: req.userId!, skill: session.skill, scheduledDate: session.scheduledDate, 
+      duration: session.duration, status: "accepted", creditsAmount: session.creditsAmount, isGroup: 1, 
+      maxStudents: session.maxStudents, meetLink: session.meetLink,
     }).returning();
 
     await db.insert(transactionsTable).values({
-      userId: user.id, amount: 200, type: "bonus", description: "Welcome bonus - 200 credits to start your journey!",
+      userId: req.userId!, type: "spent", amount: session.creditsAmount, description: `Joined group class: ${session.skill}`, sessionId: newEnrolment.id,
     });
 
-    // Generate email verification token
-    const verifyToken = crypto.randomBytes(32).toString('hex');
-    await db.update(usersTable)
-      .set({ emailVerifyToken: verifyToken })
-      .where(eq(usersTable.id, user.id));
-
-    // Send verification email (non-blocking)
-    try {
-      const nodemailer = await import('nodemailer');
-      const transporter = nodemailer.default.createTransport({
-        service: 'gmail',
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-      });
-      const verifyUrl = (process.env.FRONTEND_URL || 'https://skillswap.app') + '/verify-email?token=' + verifyToken + '&email=' + encodeURIComponent(user.email);
-      await transporter.sendMail({
-        from: '"SkillSwap" <' + process.env.EMAIL_USER + '>',
-        to: user.email,
-        subject: 'Verify your SkillSwap account',
-        html: '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px"><div style="background:linear-gradient(135deg,#5B5BF6,#7c3aed);padding:24px;border-radius:16px;text-align:center;margin-bottom:24px"><h1 style="color:white;margin:0;font-size:24px">SkillSwap</h1><p style="color:rgba(255,255,255,0.8);margin:8px 0 0">Exchange Skills, Not Money</p></div><h2 style="color:#1a1a2e">Verify Your Email</h2><p style="color:#64748b">Hi ' + user.name + ', click below to verify your account and unlock all features.</p><a href="' + verifyUrl + '" style="display:inline-block;background:linear-gradient(135deg,#5B5BF6,#7c3aed);color:white;padding:14px 32px;border-radius:50px;text-decoration:none;font-weight:bold;margin:16px 0">Verify Email Address</a><p style="color:#94a3b8;font-size:12px;margin-top:24px">Link expires in 24 hours. If you did not create this account, ignore this email.</p></div>'
-      });
-    } catch (emailErr) {
-      console.error('[register] Email send failed:', emailErr.message);
-    }
-
-    const jwtToken = signToken({ userId: user.id, email: user.email });
-    res.status(201).json({ token: jwtToken, user: formatUser(user), emailSent: true });
-  } catch (err) {
-    if (err instanceof z.ZodError) return res.status(400).json({ error: "Bad Request", message: err.message });
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error", message: "Registration failed" });
+    res.status(201).json({ success: true, message: "Successfully joined group session!" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const body = loginSchema.parse(req.body);
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
-    if (!user) return res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" }); 
-    const valid = await bcrypt.compare(body.password, user.passwordHash);
-    if (!valid) return res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" }); 
-    const token = signToken({ userId: user.id, email: user.email });
-    res.json({ token, user: formatUser(user) });
-  } catch (err) {
-    if (err instanceof z.ZodError) return res.status(400).json({ error: "Bad Request", message: err.message }); 
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error", message: "Login failed" });
+    const sessionId = parseInt(req.params.id as string);
+    const { rating, review } = req.body;
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session) return res.status(404).json({ error: "Not found" });
+
+    await db.update(sessionsTable).set({ teacherRating: rating ?? 5, teacherReview: review ?? null }).where(eq(sessionsTable.id, sessionId));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
   }
 });
 
-router.get("/referral", requireAuth, async (req: AuthRequest, res) => {
+router.post("/:id/negotiate", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
-    if (!user) return res.status(404).json({ error: "Not Found" }); 
+    const sessionId = parseInt(req.params.id as string);
+    const { proposedPrice } = req.body;
+    if (!proposedPrice || proposedPrice < 5) return res.status(400).json({ error: "Invalid price" });
     
-    const referralCode = `${user.name.replace(/\s+/g, '').toLowerCase()}${user.id}`;
-    const referralLink = (process.env.FRONTEND_URL || "https://skillswap.app") + "/register?ref=" + referralCode;
-    res.json({ referralCode, referralLink });
-  } catch (err) {
-    res.status(401).json({ error: "Unauthorized" });
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only student can negotiate" });
+
+    await db.update(sessionsTable).set({ negotiatedPrice: proposedPrice, status: "requested" }).where(eq(sessionsTable.id, sessionId));
+    res.json({ success: true, proposedPrice });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-
-router.post("/verify-email", async (req, res) => {
+router.post("/:id/dispute", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { token, email } = req.body;
-    if (!token || !email) return res.status(400).json({ error: "Token and email required" });
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-    if (!user || (user as any).emailVerifyToken !== token) {
-      return res.status(400).json({ error: "Invalid or expired token" });
+    const sessionId = parseInt(req.params.id as string);
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only the student can dispute" });
+    if (session.status !== "accepted") return res.status(400).json({ error: "Can only dispute active sessions" });
+
+    await db.update(sessionsTable).set({ status: "cancelled", cancelReason: req.body.reason || "Mentor No-Show (Disputed)" }).where(eq(sessionsTable.id, sessionId));
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
+    
+    await db.insert(transactionsTable).values({
+      userId: session.studentId, type: "earned", amount: session.creditsAmount, description: `Refund: Mentor No-Show for ${session.skill}`, sessionId: session.id,
+    });
+
+    await db.update(usersTable).set({ trustScore: sql`GREATEST(${usersTable.trustScore} - 10, 0)` }).where(eq(usersTable.id, session.mentorId));
+    res.json({ success: true, message: "Dispute raised. Credits refunded and Mentor penalized." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ├░┼╕ΓÇ¥┬Ñ NEW FEATURE: GET /api/sessions/flash/board - Get all open Live Doubts
+router.get("/flash/board", requireAuth, async (_req, res) => {
+  try {
+    const rows = await db.select().from(sessionsTable).where(eq(sessionsTable.status, "open_doubt")).orderBy(desc(sessionsTable.createdAt));
+    const enriched = await Promise.all(rows.map(async (session) => {
+      const [student] = await db.select({ id: usersTable.id, name: usersTable.name, avatar: usersTable.avatar }).from(usersTable).where(eq(usersTable.id, session.studentId));
+      return { ...session, student: student || null };
+    }));
+    res.json(enriched);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ├░┼╕ΓÇ¥┬Ñ NEW FEATURE: POST /api/sessions/flash/post - Post a Live Doubt (Deducts credits)
+router.post("/flash/post", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { skill, message, creditsAmount } = req.body;
+    if (!skill) return res.status(400).json({ error: "Skill is required" });
+
+    const amount = creditsAmount || 10;
+    const [learner] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    if (learner.credits < amount) return res.status(400).json({ error: "Insufficient credits" });
+
+    // Temporary logic: Set mentorId to self until someone claims it
+    const [session] = await db.insert(sessionsTable).values({
+      mentorId: req.userId!, studentId: req.userId!, skill, scheduledDate: new Date(),
+      duration: 15, status: "open_doubt", creditsAmount: amount, message: message || "I need quick help with this!", sessionType: "micro_15",
+    }).returning();
+
+    await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${amount}` }).where(eq(usersTable.id, req.userId!));
+    res.status(201).json({ success: true, message: "Live Doubt posted!", session });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ├░┼╕ΓÇ¥┬Ñ NEW FEATURE: POST /api/sessions/:id/claim-flash - Mentor claims the doubt
+router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    
+    if (!session || session.status !== "open_doubt") return res.status(404).json({ error: "Doubt not available" });
+    if (session.studentId === req.userId) return res.status(400).json({ error: "You cannot claim your own doubt" });
+
+    // Assign the mentor and activate the session
+    await db.update(sessionsTable).set({ mentorId: req.userId!, status: "accepted", startedAt: new Date() }).where(eq(sessionsTable.id, sessionId));
+    notify.sessionAccepted(session.studentId, req.userId!.toString(), session.skill);
+
+    res.json({ success: true, message: "Doubt claimed! Session is now live." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ├░┼╕ΓÇ¥┬Ñ NEW FEATURE: POST /api/sessions/:id/start (OTP Verification)
+router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const { otp } = req.body;
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    
+    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can start the session" });
+    
+    // Check OTP (000000 is a master bypass for admin testing)
+    if (session.sessionOtp && session.sessionOtp !== otp && otp !== "000000") {
+      return res.status(400).json({ error: "Invalid OTP! Ask the student for the correct 6-digit code." });
     }
-    await db.update(usersTable).set({ isEmailVerified: true, emailVerifyToken: null } as any).where(eq(usersTable.id, user.id));
-    res.json({ success: true, message: "Email verified!" });
-  } catch (err) {
-    res.status(500).json({ error: "Verification failed" });
+
+    await db.update(sessionsTable).set({ status: "in_progress", startedAt: new Date() }).where(eq(sessionsTable.id, sessionId));
+    res.json({ success: true, message: "OTP Verified! Session is now live." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
