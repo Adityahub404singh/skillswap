@@ -81,7 +81,7 @@ export default function AdminPanel() {
   const handleApproveWithdrawal = async (txId: number) => {
     if (!confirm("Have you successfully transferred the money via UPI?")) return;
     try {
-      await apiFetch(/admin/transactions/ + txId + /approve, { method: "POST" });
+      await apiFetch("/admin/transactions/" + txId + "/approve", { method: "POST" });
       toast({ title: "Approved!", description: "Withdrawal marked as completed." });
       fetchData();
     } catch (e) {
@@ -261,5 +261,6 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
 
 
