@@ -1,1 +1,1 @@
-{"rewrites":[{"source":"/api/(.*)","destination":"https://skillswap-b59w.onrender.com/api/$1"},{"source":"/((?!assets/).*)","destination":"/index.html"}]}
+{"rewrites":[{"source":"/api/(.*)","destination":"https://skillswap-b59w.onrender.com/api/$1"},{"source":"/((?!assets/|sitemap.xml|robots.txt|favicon.svg|logo.svg|opengraph.jpg|ads.txt|google876107b7140265e0.html).*)","destination":"/index.html"}]}
