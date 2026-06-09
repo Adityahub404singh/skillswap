@@ -205,7 +205,7 @@ export default function AdminPanel() {
                         <td className="py-3 px-4 font-black text-red-500">{Math.abs(t.amount)} cr</td>
                         <td className="py-3 px-4 font-mono text-xs">{t.description}</td>
                         <td className="py-3 px-4">
-                          <span className={px-2 py-1 rounded-full text-[10px] font-bold }>
+                          <span className={"px-2 py-1 rounded-full text-[10px] font-bold " + (t.type === "withdrawal_pending" ? "bg-orange-500/10 text-orange-500" : "bg-green-500/10 text-green-500")}>
                             {t.type === 'withdrawal_pending' ? 'Pending' : 'Paid'}
                           </span>
                         </td>
@@ -261,6 +261,7 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
 
 
 
