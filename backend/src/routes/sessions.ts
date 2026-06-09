@@ -334,5 +334,53 @@ router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// ⭐ RATE MENTOR ROUTE
+router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const { rating, review } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Rating must be between 1 and 5" });
+    }
+
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only the student can rate the mentor" });
+    if (session.status !== "completed") return res.status(400).json({ error: "Can only rate completed sessions" });
+    if (session.teacherRating) return res.status(400).json({ error: "You have already rated this session" });
+
+    // 1. Save the rating & review in the sessions table
+    await db.update(sessionsTable)
+      .set({ teacherRating: rating, teacherReview: review })
+      .where(eq(sessionsTable.id, sessionId));
+
+    // 2. Recalculate the Mentor's Average Rating
+    const allMentorSessions = await db.select({ rating: sessionsTable.teacherRating })
+      .from(sessionsTable)
+      .where(eq(sessionsTable.mentorId, session.mentorId));
+
+    // Filter out sessions that haven't been rated yet
+    const ratedSessions = allMentorSessions.filter(s => s.rating !== null && s.rating > 0);
+    
+    let newAvgRating = rating;
+    if (ratedSessions.length > 0) {
+      const sum = ratedSessions.reduce((acc, curr) => acc + (curr.rating || 0), 0);
+      // Ensure we round to 1 decimal place (e.g., 4.8)
+      newAvgRating = Math.round((sum / ratedSessions.length) * 10) / 10;
+    }
+
+    // 3. Update the Mentor's profile
+    await db.update(usersTable)
+      .set({ averageRating: newAvgRating })
+      .where(eq(usersTable.id, session.mentorId));
+
+    res.json({ success: true, message: "Review saved successfully!" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
+
 
