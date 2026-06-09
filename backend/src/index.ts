@@ -1,4 +1,4 @@
-import app from "./app.js";
+﻿import app from "./app.js";
 import cron from "node-cron";
 import { db, sessionsTable, usersTable } from "./db.js";
 import { eq, sql } from "drizzle-orm";
@@ -86,3 +86,4 @@ app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   console.log(`[cron] Background Jobs Started (Reminders, Escrow, Engagement)`);
 });
+
