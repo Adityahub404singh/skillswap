@@ -78,6 +78,17 @@ export default function AdminPanel() {
     }
   };
 
+  const handleApproveWithdrawal = async (txId: number) => {
+    if (!confirm("Have you successfully transferred the money via UPI?")) return;
+    try {
+      await apiFetch(/admin/transactions/ + txId + /approve, { method: "POST" });
+      toast({ title: "Approved!", description: "Withdrawal marked as completed." });
+      fetchData();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Could not approve transaction." });
+    }
+  };
+
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "users", label: "Users & Teachers", icon: Users },
@@ -175,6 +186,47 @@ export default function AdminPanel() {
           )}
 
           {/* Legacy Tabs Below (Users, Transactions, Dashboard, Sessions) kept same as your previous code */}
+          {tab === "transactions" && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <h2 className="text-2xl font-extrabold flex items-center gap-2">Withdrawal Requests</h2>
+              <div className="card-premium overflow-auto bg-white">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-border/50 bg-muted/20">
+                    <th className="text-left py-3 px-4">User ID</th>
+                    <th className="text-left py-3 px-4">Amount</th>
+                    <th className="text-left py-3 px-4">UPI / Details</th>
+                    <th className="text-left py-3 px-4">Status</th>
+                    <th className="text-right py-3 px-4">Action</th>
+                  </tr></thead>
+                  <tbody>
+                    {transactions.filter(t => t.type.includes("withdrawal")).map((t: any) => (
+                      <tr key={t.id} className="border-b border-border/20 hover:bg-muted/10">
+                        <td className="py-3 px-4 font-bold text-primary">#{t.userId}</td>
+                        <td className="py-3 px-4 font-black text-red-500">{Math.abs(t.amount)} cr</td>
+                        <td className="py-3 px-4 font-mono text-xs">{t.description}</td>
+                        <td className="py-3 px-4">
+                          <span className={px-2 py-1 rounded-full text-[10px] font-bold }>
+                            {t.type === 'withdrawal_pending' ? 'Pending' : 'Paid'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {t.type === "withdrawal_pending" && (
+                            <Button size="sm" onClick={() => handleApproveWithdrawal(t.id)} className="bg-green-500 hover:bg-green-600 text-white text-xs h-8">
+                              Mark as Paid
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {transactions.filter(t => t.type.includes("withdrawal")).length === 0 && (
+                      <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No pending withdrawal requests.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Dashboard View */}
           {tab === "dashboard" && (
             <div className="space-y-6 animate-in fade-in duration-300">
@@ -209,4 +261,5 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
 

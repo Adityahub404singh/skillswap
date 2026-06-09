@@ -128,4 +128,26 @@ router.patch("/users/:id/verify", requireAuth, requireAdmin, async (req, res) =>
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// ✅ APPROVE WITHDRAWAL ROUTE
+router.post("/transactions/:id/approve", requireAuth, async (req: AuthRequest, res) => {
+    try {
+        const txId = parseInt(req.params.id as string);
+        const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId));
+        
+        if (!tx || tx.type !== "withdrawal_pending") {
+            return res.status(400).json({ error: "Invalid or already processed transaction" });
+        }
+
+        // Update status to completed
+        await db.update(transactionsTable)
+            .set({ type: "withdrawal_completed", description: tx.description + " (Approved)" })
+            .where(eq(transactionsTable.id, txId));
+
+        res.json({ success: true, message: "Withdrawal approved" });
+    } catch (err: any) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
 export default router;
+
