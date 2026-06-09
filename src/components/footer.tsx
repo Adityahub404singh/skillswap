@@ -1,10 +1,12 @@
 ﻿import { Link } from "wouter";
 import { useState } from "react";
-import { Github, Twitter, Linkedin, Mail, MapPin, ArrowRight, Users, BookOpen, Star, Zap, Instagram } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Github, Twitter, Linkedin, Mail, MapPin, ArrowRight, Users, BookOpen, Star, Zap, ShieldCheck, Globe, Trophy, Code2, Brain, Palette, CheckCircle } from "lucide-react";
 
 export default function Footer() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [hoveredLink, setHoveredLink] = useState<string | null>(null);
 
   const handleNewsletter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -12,184 +14,179 @@ export default function Footer() {
   };
 
   const stats = [
-    { icon: Users, value: "10,000+", label: "Active Learners" },
-    { icon: BookOpen, value: "500+", label: "Skills Available" },
-    { icon: Star, value: "4.9/5", label: "Average Rating" },
-    { icon: Zap, value: "Free", label: "Always Free" },
+    { icon: Users, value: "10,000+", label: "Active Learners", color: "text-blue-500", bg: "bg-blue-500/10" },
+    { icon: BookOpen, value: "500+", label: "Skills Available", color: "text-purple-500", bg: "bg-purple-500/10" },
+    { icon: Star, value: "4.9/5", label: "Average Rating", color: "text-yellow-500", bg: "bg-yellow-500/10" },
+    { icon: Zap, value: "₹0 Cost", label: "Always Free", color: "text-green-500", bg: "bg-green-500/10" },
   ];
 
   const socials = [
-    { icon: Twitter, href: "https://x.com/Aaadityapsingh", label: "Twitter/X" },
-    { icon: Linkedin, href: "https://linkedin.com/in/aditya-pratap-singh00", label: "LinkedIn" },
-    { icon: Github, href: "https://github.com/Adityahub404singh", label: "GitHub" },
-    { icon: Mail, href: "mailto:singhaditya4560@gmail.com", label: "Email" },
+    { icon: Twitter, href: "https://x.com/Aaadityapsingh", label: "Twitter/X", hoverBg: "hover:bg-[#1DA1F2]/10 hover:text-[#1DA1F2] hover:border-[#1DA1F2]/50" },
+    { icon: Linkedin, href: "https://linkedin.com/in/aditya-pratap-singh00", label: "LinkedIn", hoverBg: "hover:bg-[#0077b5]/10 hover:text-[#0077b5] hover:border-[#0077b5]/50" },
+    { icon: Github, href: "https://github.com/Adityahub404singh", label: "GitHub", hoverBg: "hover:bg-foreground/10 hover:text-foreground hover:border-foreground/50" },
+  ];
+
+  const linkGroups = [
+    {
+      title: "Platform",
+      links: [
+        { href: "/explore", label: "Explore Mentors" },
+        { href: "/flash-board", label: "Live Doubts" },
+        { href: "/wallet", label: "Credit Economy" },
+        { href: "/ai", label: "SkillAI Assistant" },
+      ]
+    },
+    {
+      title: "Top Skills",
+      links: [
+        { href: "/explore", label: "Learn Python", icon: Code2 },
+        { href: "/explore", label: "Web Development", icon: Globe },
+        { href: "/explore", label: "DSA & Algorithms", icon: Brain },
+        { href: "/explore", label: "Graphic Design", icon: Palette },
+      ]
+    },
+    {
+      title: "Company",
+      links: [
+        { href: "/terms", label: "Terms of Service" },
+        { href: "/privacy-policy", label: "Privacy Policy" },
+        { href: "/leaderboard", label: "Global Leaderboard" },
+      ]
+    }
   ];
 
   return (
-    <footer className="border-t border-border/50 bg-background relative overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-
-      <div className="border-b border-border/30 bg-muted/20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {stats.map((s) => (
-              <div key={s.label} className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <s.icon className="w-5 h-5 text-primary" />
+    <footer className="relative bg-[#050505] text-white overflow-hidden border-t border-white/5 pt-20">
+      
+      {/* 🌌 Animated Background Glows */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+      
+      {/* 📊 Top Stats Banner */}
+      <div className="border-b border-white/10 relative z-10 bg-white/[0.02] backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((s, i) => (
+              <motion.div 
+                key={s.label} 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left group"
+              >
+                <div className={`w-14 h-14 rounded-2xl ${s.bg} flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+                  <s.icon className={`w-7 h-7 ${s.color}`} />
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-foreground">{s.value}</div>
-                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                  <div className="text-2xl font-black text-white tracking-tight">{s.value}</div>
+                  <div className="text-sm text-gray-400 font-medium">{s.label}</div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-6">
+      {/* 🧩 Main Footer Content */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 relative z-10">
+        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-12">
 
-          <div className="lg:col-span-2 space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-violet-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-primary/25">S</div>
+          {/* 🌟 Brand & Newsletter Section (Spans 4 cols) */}
+          <div className="lg:col-span-4 space-y-8">
+            <Link href="/" className="flex items-center gap-3 group inline-flex">
+              <motion.div whileHover={{ rotate: 180 }} transition={{ duration: 0.5 }} className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <span className="text-white font-black text-2xl">S</span>
+              </motion.div>
               <div>
-                <span className="text-xl font-black text-foreground">Skill<span className="text-primary">Swap</span></span>
-                <div className="text-[10px] text-muted-foreground font-medium tracking-widest uppercase">Learn. Teach. Grow.</div>
+                <span className="text-2xl font-black text-white tracking-tight">Skill<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Swap</span></span>
+                <div className="text-[11px] text-gray-400 font-bold tracking-[0.2em] uppercase">Learn. Teach. Grow.</div>
               </div>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              The world's first peer-to-peer skill exchange economy. Teach what you know, learn what you need — completely free.
+            </Link>
+            
+            <p className="text-gray-400 leading-relaxed text-sm pr-4">
+              Join the revolution of peer-to-peer education. We've replaced money with skills. Teach what you know, earn credits, and master anything.
             </p>
 
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground">Get learning tips weekly</p>
-              {subscribed ? (
-                <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
-                  You are subscribed! Check your inbox.
-                </div>
-              ) : (
-                <form onSubmit={handleNewsletter} className="flex gap-2">
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com"
-                    className="flex-1 h-9 px-3 text-sm rounded-lg border border-border bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" required />
-                  <button type="submit" className="h-9 px-3 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors flex items-center gap-1 text-sm font-medium">
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </form>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              {socials.map((s) => (
-                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}
-                  className="w-9 h-9 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all duration-200">
-                  <s.icon className="w-4 h-4" />
-                </a>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">Platform</h3>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              {[
-                { href: "/explore", label: "Explore Skills" },
-                { href: "/sessions", label: "My Sessions" },
-                { href: "/wallet", label: "Wallet & Credits" },
-                { href: "/dashboard", label: "Dashboard" },
-                { href: "/ai", label: "SkillAI Assistant" },
-                { href: "/register", label: "Get Started Free" },
-              ].map(l => (
-                <li key={l.href}>
-                  <Link href={l.href} className="hover:text-primary transition-colors duration-150 flex items-center gap-1.5 group">
-                    <span className="w-1 h-1 rounded-full bg-primary/30 group-hover:bg-primary transition-colors" />
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">Learn Free</h3>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              {[
-                { href: "/explore", label: "Learn Python" },
-                { href: "/explore", label: "Learn JavaScript" },
-                { href: "/explore", label: "Web Development" },
-                { href: "/explore", label: "Learn English" },
-                { href: "/explore", label: "DSA & Algorithms" },
-                { href: "/explore", label: "Graphic Design" },
-              ].map(l => (
-                <li key={l.label}>
-                  <Link href={l.href} className="hover:text-primary transition-colors duration-150 flex items-center gap-1.5 group">
-                    <span className="w-1 h-1 rounded-full bg-primary/30 group-hover:bg-primary transition-colors" />
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">Company</h3>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              {[
-                { href: "/terms", label: "Terms of Service" },
-                { href: "/privacy-policy", label: "Privacy Policy" },
-              ].map(l => (
-                <li key={l.href}>
-                  <Link href={l.href} className="hover:text-primary transition-colors duration-150 flex items-center gap-1.5 group">
-                    <span className="w-1 h-1 rounded-full bg-primary/30 group-hover:bg-primary transition-colors" />
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">Contact</h3>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li>
-                <a href="mailto:singhaditya4560@gmail.com" className="hover:text-primary transition-colors flex items-center gap-2">
-                  <Mail className="w-4 h-4 flex-shrink-0" /> singhaditya4560@gmail.com
-                </a>
-              </li>
-              <li className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>Lucknow, India</span>
-              </li>
-            </ul>
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="text-green-500">&#x1F512;</span> SSL Secured
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>&#x2764;</span> Made with love in India
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>&#x26A1;</span> 99.9% Uptime SLA
-              </div>
+            {/* Newsletter */}
+            <div className="space-y-3 p-1">
+              <p className="text-sm font-bold text-white">Join 10k+ learners receiving weekly tips</p>
+              <AnimatePresence mode="wait">
+                {subscribed ? (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-bold">
+                    <CheckCircle className="w-5 h-5" /> Welcome to the club!
+                  </motion.div>
+                ) : (
+                  <motion.form exit={{ opacity: 0 }} onSubmit={handleNewsletter} className="relative group">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-purple-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                    <div className="relative flex items-center bg-gray-900 border border-white/10 rounded-xl p-1 focus-within:border-primary/50 transition-colors">
+                      <Mail className="w-5 h-5 text-gray-500 ml-3 mr-1" />
+                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email..."
+                        className="flex-1 bg-transparent border-none text-white text-sm focus:ring-0 placeholder:text-gray-600 h-10 px-2" required />
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" 
+                        className="h-10 px-5 rounded-lg bg-white text-black font-bold text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors">
+                        Subscribe
+                      </motion.button>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
             </div>
           </div>
+
+          {/* 🔗 Links Columns (Spans 8 cols) */}
+          <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-3 gap-8 pt-4">
+            {linkGroups.map((group, groupIdx) => (
+              <div key={group.title} className="space-y-6">
+                <h3 className="text-sm font-black uppercase tracking-widest text-white">{group.title}</h3>
+                <ul className="space-y-4">
+                  {group.links.map((l, i) => (
+                    <motion.li key={l.label} 
+                      initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} 
+                      viewport={{ once: true }} transition={{ delay: (groupIdx * 0.1) + (i * 0.05) }}
+                      onHoverStart={() => setHoveredLink(l.label)} onHoverEnd={() => setHoveredLink(null)}
+                    >
+                      <Link href={l.href} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group/link w-fit">
+                        <ArrowRight className={`w-3 h-3 transition-all duration-300 ${hoveredLink === l.label ? "opacity-100 text-primary translate-x-0" : "opacity-0 -translate-x-4 w-0"}`} />
+                        <span className="text-sm font-medium">{l.label}</span>
+                      </Link>
+                    </motion.li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
         </div>
+      </div>
 
-        <div className="mt-10 pt-6 border-t border-border/40">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-[10px]">S</div>
-              <span>2026 SkillSwap. All rights reserved.</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <Link href="/terms" className="hover:text-primary transition-colors">Terms</Link>
-              <Link href="/privacy-policy" className="hover:text-primary transition-colors">Privacy</Link>
-              <span>Available Worldwide</span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" /> All systems operational
-              </span>
-            </div>
+      {/* 🌍 Bottom Bar */}
+      <div className="border-t border-white/10 relative z-10 bg-[#020202]">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          
+          <div className="flex items-center gap-3 text-sm text-gray-500 font-medium">
+            <span>© 2026 SkillSwap Inc.</span>
+            <span className="w-1 h-1 rounded-full bg-gray-600" />
+            <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> India</span>
           </div>
+
+          {/* Socials */}
+          <div className="flex gap-3">
+            {socials.map((s) => (
+              <motion.a key={s.label} whileHover={{ y: -3 }} href={s.href} target="_blank" rel="noopener noreferrer" 
+                className={`w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 transition-all duration-300 ${s.hoverBg}`}>
+                <s.icon className="w-4 h-4" />
+              </motion.a>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-4 text-xs font-bold text-gray-500">
+            <span className="flex items-center gap-1.5 text-green-400 bg-green-400/10 px-3 py-1.5 rounded-full border border-green-400/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" /> Systems Operational
+            </span>
+            <span className="flex items-center gap-1"><ShieldCheck className="w-4 h-4"/> SSL Secured</span>
+          </div>
+
         </div>
       </div>
     </footer>

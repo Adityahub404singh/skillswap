@@ -1,6 +1,6 @@
-import { Link } from "wouter";
+﻿import { Link } from "wouter";
 import { motion, useScroll, useTransform, useMotionValue, useSpring, AnimatePresence } from "framer-motion";
-import { ArrowRight, BookOpen, Users, Star, ShieldCheck, Zap, TrendingUp, Sparkles, Globe, Heart, Play, CheckCircle, Code2, Palette, Languages, Brain, Trophy, MessageSquare, Flame, Target, Award } from "lucide-react";
+import { ArrowRight, BookOpen, Users, Star, ShieldCheck, Zap, TrendingUp, Sparkles, Globe, Heart, Play, CheckCircle, Code2, Palette, Languages, Brain, Trophy, MessageSquare, Flame, Target, Award, Wallet, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, useEffect, useState } from "react";
 
@@ -82,7 +82,7 @@ const SKILLS = [
 
 const FEATURES = [
   { icon: Zap, emoji: "⚡", title: "Credit Economy", desc: "Teach 1 hour = Earn 10 credits. Use credits to learn ANY skill. No money needed — perfect for students.", tag: "Most Popular", color: "from-indigo-500/15 to-indigo-600/5 border-indigo-500/20", iconColor: "text-indigo-500" },
-  { icon: Brain, emoji: "🤖", title: "AI Skill Matching", desc: "Our AI matches you with the perfect learning partner. \"Aditya teaches React, Priya teaches English\" — Instant match!", tag: "AI-Powered", color: "from-purple-500/15 to-purple-600/5 border-purple-500/20", iconColor: "text-purple-500" },
+  { icon: Brain, emoji: "🤖", title: "AI Skill Matching", desc: "Our AI matches you with the perfect learning partner. 'Aditya teaches React, Priya teaches English' — Instant match!", tag: "AI-Powered", color: "from-purple-500/15 to-purple-600/5 border-purple-500/20", iconColor: "text-purple-500" },
   { icon: Award, emoji: "🏆", title: "Verified Badges", desc: "Take skill tests and earn verified badges. Verified Python Dev, Verified Designer — build credibility fast.", tag: "Trust Builder", color: "from-yellow-500/15 to-yellow-600/5 border-yellow-500/20", iconColor: "text-yellow-500" },
   { icon: Flame, emoji: "🔥", title: "Learning Streaks", desc: "7-day streak, 30-day streak, 90-day legend! Gamified learning keeps you consistent and motivated daily.", tag: "Gamified", color: "from-orange-500/15 to-orange-600/5 border-orange-500/20", iconColor: "text-orange-500" },
   { icon: Target, emoji: "🎯", title: "Real Project Exchange", desc: "Not just learning — exchange real work! I'll design your logo, you build my portfolio. Real value.", tag: "Unique", color: "from-green-500/15 to-green-600/5 border-green-500/20", iconColor: "text-green-500" },
@@ -108,7 +108,6 @@ export default function Landing() {
 
       {/* ══════════ HERO ══════════ */}
       <section className="relative min-h-[calc(100vh-80px)] flex flex-col px-4 sm:px-6 lg:px-8 overflow-hidden">
-
         {/* Particles */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
           {PARTICLES.map((p, i) => (
@@ -202,7 +201,7 @@ export default function Landing() {
                     <motion.div className="absolute inset-0 bg-white/15 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 skew-x-12" />
                     Start Free — Get 200 Credits 🎁
                     <motion.span animate={{ x: [0, 5, 0] }} transition={{ duration: 1.2, repeat: Infinity }}>
-                      <ArrowRight className="ml-2 w-5 h-5" />
+                      <ArrowRight className="ml-2 w-5 h-5 text-white" />
                     </motion.span>
                   </Button>
                 </motion.div>
@@ -285,8 +284,47 @@ export default function Landing() {
         </motion.div>
       </section>
 
+      {/* ══════════ THE UNICORN FEATURE: HOW ESCROW WORKS (Apple Style) ══════════ */}
+      <section className="py-24 relative z-10 bg-muted/30 border-y border-border">
+        <div className="max-w-6xl mx-auto px-4">
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 text-blue-600 text-sm font-semibold mb-4">
+              <ShieldCheck className="w-4 h-4" /> 100% Safe & Secure
+            </span>
+            <h2 className="text-3xl md:text-5xl font-black mb-4">How SkillSwap Works</h2>
+            <p className="text-xl text-muted-foreground">A transparent, credit-based escrow economy. 1 Credit = ₹1.</p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="p-8 rounded-3xl bg-background border border-border shadow-xl relative overflow-hidden group">
+              <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Wallet className="w-8 h-8 text-blue-500" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3">1. Earn Credits</h3>
+              <p className="text-muted-foreground leading-relaxed">Sign up and instantly get <strong>200 Free Credits</strong>. Want more? Just teach your skills to someone else. 1 hour = 10 Credits.</p>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.15 }} className="p-8 rounded-3xl bg-background border border-border shadow-xl relative overflow-hidden group">
+              <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Lock className="w-8 h-8 text-purple-500" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3">2. Secure Escrow</h3>
+              <p className="text-muted-foreground leading-relaxed">When you book a mentor, your credits are <strong>locked securely</strong>. They are only released when both parties complete the session via our OTP system.</p>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }} className="p-8 rounded-3xl bg-background border border-border shadow-xl relative overflow-hidden group">
+              <div className="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Zap className="w-8 h-8 text-green-500" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3">3. Learn or Withdraw</h3>
+              <p className="text-muted-foreground leading-relaxed">Use your earned credits to learn new skills from others, OR <strong>withdraw them directly to your UPI</strong> bank account!</p>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* ══════════ 6 FEATURES GRID ══════════ */}
-      <section className="px-4 sm:px-6 lg:px-8 py-24 bg-muted/20 relative overflow-hidden">
+      <section className="px-4 sm:px-6 lg:px-8 py-24 bg-background relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
           style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #6366f1 1px, transparent 0)", backgroundSize: "40px 40px" }} />
         <div className="max-w-6xl mx-auto">
@@ -295,7 +333,7 @@ export default function Landing() {
               <Sparkles className="w-4 h-4" /> Everything You Need
             </span>
             <h2 className="text-4xl md:text-5xl font-extrabold mb-4">Why SkillSwap Wins</h2>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto">8 powerful features that make learning free, fun, and effective.</p>
+            <p className="text-muted-foreground text-lg max-w-xl mx-auto">6 powerful features that make learning free, fun, and effective.</p>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((f, i) => (
@@ -323,78 +361,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══════════ HOW IT WORKS ══════════ */}
-      <section className="px-4 sm:px-6 lg:px-8 py-24 relative overflow-hidden">
-        <div className="max-w-6xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-sm font-semibold mb-4">
-              <Zap className="w-4 h-4" /> Super Simple
-            </span>
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-4">Start in 3 Minutes</h2>
-            <p className="text-muted-foreground text-lg">No credit card. No fees. No catch.</p>
-          </motion.div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
-            <div className="hidden lg:block absolute top-10 left-[12%] right-[12%] h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-            {[
-              { step: "01", icon: Sparkles, title: "Sign Up Free", desc: "Create account. Get 200 bonus credits instantly. Zero card needed.", color: "from-indigo-500 to-violet-600" },
-              { step: "02", icon: BookOpen, title: "List Your Skills", desc: "Add what you can teach. Any skill counts — coding, music, cooking, languages.", color: "from-violet-500 to-purple-600" },
-              { step: "03", icon: TrendingUp, title: "Exchange & Earn", desc: "Teach others, earn credits, book your dream skill sessions.", color: "from-purple-500 to-pink-600" },
-              { step: "04", icon: Trophy, title: "Get Verified", desc: "Build trust score, earn badges, become a top-rated expert. Get hired.", color: "from-pink-500 to-rose-600" },
-            ].map((s, i) => (
-              <motion.div key={s.step}
-                initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.15 }}
-                whileHover={{ scale: 1.05, y: -6 }}
-                className="card-premium text-center cursor-default">
-                <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.6 }}
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center mx-auto mb-4 shadow-xl`}>
-                  <s.icon className="w-8 h-8 text-white" />
-                </motion.div>
-                <div className="text-5xl font-extrabold text-primary/10 mb-2 select-none">{s.step}</div>
-                <h3 className="text-lg font-bold mb-2">{s.title}</h3>
-                <p className="text-muted-foreground text-sm">{s.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════ CREDIT ECONOMY EXPLAINER ══════════ */}
-      <section className="px-4 sm:px-6 lg:px-8 py-20 bg-muted/20">
-        <div className="max-w-5xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-extrabold mb-3">💳 How Credits Work</h2>
-            <p className="text-muted-foreground">Simple, fair, transparent — like a skill currency</p>
-          </motion.div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { emoji: "🎁", title: "Sign Up Bonus", desc: "Get 200 free credits on registration. No card needed. Start learning immediately.", value: "+200 Credits", color: "border-green-500/30 bg-green-500/5" },
-              { emoji: "📚", title: "Teach & Earn", desc: "Teach Python for 1 hour → Earn 10 credits. The more you teach, the more you learn.", value: "+10 Credits/hr", color: "border-blue-500/30 bg-blue-500/5" },
-              { emoji: "🎓", title: "Learn & Spend", desc: "Book a session with any expert. 10 credits for 1 hour of personalized mentorship.", value: "-10 Credits/hr", color: "border-purple-500/30 bg-purple-500/5" },
-            ].map((c, i) => (
-              <motion.div key={c.title}
-                initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.15 }}
-                whileHover={{ scale: 1.05, y: -5 }}
-                className={`p-6 rounded-2xl border ${c.color} text-center cursor-default`}>
-                <div className="text-4xl mb-3">{c.emoji}</div>
-                <div className="text-2xl font-extrabold text-primary mb-2">{c.value}</div>
-                <h3 className="font-bold mb-2">{c.title}</h3>
-                <p className="text-sm text-muted-foreground">{c.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-            className="mt-8 p-5 rounded-2xl bg-primary/5 border border-primary/20 text-center">
-            <p className="text-sm text-muted-foreground">
-              💡 <span className="font-semibold text-foreground">Example:</span> Aditya teaches React (earns 10 credits) → Books English session with Priya (spends 10 credits). <span className="text-primary font-semibold">Zero money exchanged. Pure skill swap!</span>
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
       {/* ══════════ TESTIMONIALS ══════════ */}
-      <section className="px-4 sm:px-6 lg:px-8 py-24 relative overflow-hidden">
+      <section className="px-4 sm:px-6 lg:px-8 py-24 relative overflow-hidden bg-muted/20">
         <motion.div className="absolute -top-40 right-0 w-[500px] h-[500px] rounded-full bg-primary/5 blur-3xl pointer-events-none"
           animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 8, repeat: Infinity }} />
         <div className="max-w-4xl mx-auto">
@@ -413,7 +381,7 @@ export default function Landing() {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: -60, scale: 0.95 }}
                 transition={{ duration: 0.4 }}
-                className="card-premium p-8 text-center">
+                className="card-premium p-8 text-center bg-background">
                 <div className="flex justify-center gap-1 mb-4">
                   {Array.from({length:TESTIMONIALS[activeT].rating}).map((_,i)=><Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400"/>)}
                 </div>
@@ -442,69 +410,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══════════ TRUST + PRICING ══════════ */}
-      <section className="px-4 sm:px-6 lg:px-8 py-16 bg-muted/20">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Trust */}
-            <div>
-              <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-                <h2 className="text-3xl font-extrabold mb-6">Why Students Love Us</h2>
-                <div className="space-y-4">
-                  {[
-                    { icon: CheckCircle, text: "No money needed — pure skill exchange", color: "text-green-500" },
-                    { icon: ShieldCheck, text: "All mentors verified with skill badges", color: "text-blue-500" },
-                    { icon: Flame, text: "Streak system keeps you consistent", color: "text-orange-500" },
-                    { icon: Brain, text: "AI matches you with perfect partners", color: "text-purple-500" },
-                    { icon: Globe, text: "50+ countries, 500+ skills available", color: "text-cyan-500" },
-                    { icon: Trophy, text: "Build portfolio that impresses employers", color: "text-yellow-500" },
-                  ].map((t, i) => (
-                    <motion.div key={i} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-                      className="flex items-center gap-3">
-                      <t.icon className={`w-5 h-5 flex-shrink-0 ${t.color}`} />
-                      <span className="text-sm font-medium">{t.text}</span>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-            {/* Pricing */}
-            <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-              <div className="space-y-4">
-                <div className="card-premium border-border/50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-bold text-lg">Free Plan</h3>
-                    <span className="text-2xl font-extrabold">₹0</span>
-                  </div>
-                  <ul className="space-y-2 text-sm text-muted-foreground mb-4">
-                    {["200 signup credits","Unlimited skill browsing","Basic AI matching","5 exchanges/month","Community access"].map(f=>(
-                      <li key={f} className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0"/>{f}</li>
-                    ))}
-                  </ul>
-                  <Link href="/register"><Button className="w-full rounded-full">Get Started Free</Button></Link>
-                </div>
-                <div className="card-premium border-primary/30 bg-primary/5 relative overflow-hidden">
-                  <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-primary text-white text-xs font-bold">POPULAR</div>
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-bold text-lg">Pro Plan</h3>
-                    <div className="text-right"><span className="text-2xl font-extrabold text-primary">₹199</span><span className="text-xs text-muted-foreground">/mo</span></div>
-                  </div>
-                  <ul className="space-y-2 text-sm text-muted-foreground mb-4">
-                    {["Unlimited exchanges","Priority AI matching","Verified skill badges","Advanced analytics","Video call sessions","Portfolio generator","Priority support"].map(f=>(
-                      <li key={f} className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-primary flex-shrink-0"/>{f}</li>
-                    ))}
-                  </ul>
-                  <Link href="/register"><Button className="w-full rounded-full bg-primary">Start Pro Trial</Button></Link>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
       {/* ══════════ BOTTOM CTA ══════════ */}
-      <section className="px-4 sm:px-6 lg:px-8 py-24 relative overflow-hidden">
+      <section className="px-4 sm:px-6 lg:px-8 py-24 relative overflow-hidden bg-background">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }} transition={{ duration: 0.7 }}
           className="max-w-4xl mx-auto text-center bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700 rounded-3xl p-12 md:p-16 text-white relative overflow-hidden shadow-2xl shadow-primary/30">
