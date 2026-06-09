@@ -8,10 +8,7 @@ export default function Footer() {
   const [subscribed, setSubscribed] = useState(false);
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
 
-  const handleNewsletter = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) { setSubscribed(true); setEmail(""); }
-  };
+  const handleNewsletter = async (e: React.FormEvent) => { e.preventDefault(); if (!email) return; try { await fetch('/api/platform/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) }); setSubscribed(true); setEmail(''); } catch (err) { console.error(err); } };
 
   const stats = [
     { icon: Users, value: "10,000+", label: "Active Learners", color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -192,3 +189,4 @@ export default function Footer() {
     </footer>
   );
 }
+

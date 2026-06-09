@@ -16,6 +16,7 @@ import notificationsRouter from "./routes/notifications.js";
 import walletRouter from "./routes/wallet.js";
 import verificationRouter from "./routes/verification.js";
 import quizRouter from "./routes/quiz.js";
+import platformRouter from "./routes/platform.js";
 
 dotenv.config();
 
@@ -41,7 +42,9 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/wallet", walletRouter);
 app.use("/api/verification", verificationRouter);
 app.use("/api/quiz", quizRouter);
+app.use("/api/platform", platformRouter);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+

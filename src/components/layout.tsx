@@ -72,10 +72,7 @@ export function Layout({ children }: { children: ReactNode }) {
     setAiLoading(false);
   };
 
-  const sendFeedback = () => {
-    setFeedbackSent(true);
-    setTimeout(() => { setFeedbackOpen(false); setFeedbackSent(false); setFeedbackText(""); setFeedbackRating(5); }, 2000);
-  };
+  const sendFeedback = async () => { if (!feedbackText.trim()) return; try { await fetch('/api/platform/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: Bearer  } : {}) }, body: JSON.stringify({ rating: feedbackRating, text: feedbackText }) }); setFeedbackSent(true); setTimeout(() => { setFeedbackOpen(false); setFeedbackSent(false); setFeedbackText(''); setFeedbackRating(5); }, 2000); } catch (err) { console.error(err); } };
 
   // 🚨 ADDED "QUIZ" TO DESKTOP NAV
   const navLinks = [
@@ -344,3 +341,4 @@ export function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
