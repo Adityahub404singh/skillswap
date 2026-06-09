@@ -398,17 +398,17 @@ export default function Sessions() {
                     )}
 
                     {/* STUDENT VIEW: Completed (Rate Mentor) */}
-                    {tab === "learning" && session.status === "completed" && !session.rating && (
+                    {tab === "learning" && session.status === "completed" && !session.teacherRating && (
                       <Button variant="outline" size="sm" className="w-full md:w-auto border-orange-400 text-orange-500 hover:bg-orange-50 font-bold rounded-xl"
                         onClick={() => setRatingId(session.id)}>
                         <Star className="w-4 h-4 mr-2" /> Rate Experience
                       </Button>
                     )}
 
-                    {session.status === "completed" && session.rating && (
+                    {session.status === "completed" && session.teacherRating && (
                       <div className="px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-1.5 w-full md:w-auto justify-center">
                         <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-                        <span className="font-black text-amber-600">{session.rating.rating} / 5</span>
+                        <span className="font-black text-amber-600">{session.teacherRating} / 5</span>
                       </div>
                     )}
 
@@ -478,6 +478,7 @@ export default function Sessions() {
     </div>
   );
 }
+
 
 
 
