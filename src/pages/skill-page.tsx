@@ -61,7 +61,7 @@ export default function SkillPage() {
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 200, damping: 20 } }
+    show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 200, damping: 20 } }
   };
 
   return (
@@ -159,7 +159,7 @@ export default function SkillPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <h3 className="font-black text-xl truncate">{mentor.name}</h3>
-                            {(mentor.isPremium || mentor.trustScore >= 50) && <Shield className="w-4 h-4 text-blue-500 fill-blue-500 shrink-0" title="Verified Expert" />}
+                            {(mentor.isPremium || mentor.trustScore >= 50) && <span title="Verified Expert" className="shrink-0 flex items-center"><Shield className="w-4 h-4 text-blue-500 fill-blue-500" /></span>}
                           </div>
                           <p className="text-sm text-muted-foreground font-medium truncate">{mentor.headline || mentor.bio || "SkillSwap Expert"}</p>
                         </div>
@@ -197,3 +197,4 @@ export default function SkillPage() {
     </div>
   );
 }
+
