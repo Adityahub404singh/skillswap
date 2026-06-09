@@ -312,7 +312,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* 🚨 MOBILE BOTTOM NAV */}
       {token && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border/50 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-          <nav className="flex items-center justify-around h-16 px-1">
+          <nav className="flex items-center justify-between h-16 px-2 sm:px-4 max-w-md mx-auto">
             {[
               { href: "/dashboard", label: "Home", icon: LayoutDashboard },
               { href: "/explore", label: "Explore", icon: Compass },
@@ -325,7 +325,7 @@ export function Layout({ children }: { children: ReactNode }) {
               
               if (link.isSpecial) {
                 return (
-                  <Link key={link.href} href={link.href} className="relative -top-5 flex flex-col items-center justify-center">
+                  <Link key={link.href} href={link.href} className="relative -top-6 flex flex-col items-center justify-center w-14">
                      <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl ${isActive ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white' : 'bg-background border-4 border-muted text-orange-500'}`}>
                         <Icon className="w-6 h-6" />
                      </div>
@@ -354,5 +354,8 @@ export function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+
+
 
 

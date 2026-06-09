@@ -88,7 +88,7 @@ export default function AdminPanel() {
   ];
 
   return (
-    <div className="min-h-screen -mx-4 sm:-mx-6 lg:-mx-8 bg-gray-50/50">
+    <div className="min-h-[85vh] bg-gray-50/50 rounded-3xl overflow-hidden border border-border shadow-xl">
       <div className="bg-gradient-premium px-6 py-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
@@ -209,3 +209,4 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+

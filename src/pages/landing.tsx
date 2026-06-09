@@ -107,7 +107,7 @@ export default function Landing() {
       <MouseGlow />
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative min-h-[calc(100vh-80px)] flex flex-col px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative min-h-[calc(100vh-80px)] flex flex-col px-6 sm:px-6 lg:px-8 overflow-hidden pb-20">
         {/* Particles */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
           {PARTICLES.map((p, i) => (
@@ -185,7 +185,7 @@ export default function Landing() {
 
             {/* Subtext */}
             <motion.p variants={{ hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0 } }}
-              className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+              className="text-base sm:text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed px-2">
               The first peer-to-peer skill economy.{" "}
               <span className="text-foreground font-semibold">Teach what you know</span> → earn credits →{" "}
               <span className="text-foreground font-semibold">learn anything</span> from experts.{" "}
@@ -217,7 +217,7 @@ export default function Landing() {
 
             {/* Animated counters */}
             <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.5 } } }}
-              className="grid grid-cols-4 gap-4 max-w-lg mx-auto mb-16">
+              className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-4 max-w-lg mx-auto mb-20">
               {[
                 { value: 10000, suffix: "+", label: "Learners" },
                 { value: 500, suffix: "+", label: "Skills" },
@@ -455,3 +455,4 @@ export default function Landing() {
     </div>
   );
 }
+
