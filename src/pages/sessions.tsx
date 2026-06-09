@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, CheckCircle2, AlertTriangle, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, BookOpen, GraduationCap, Coins, Filter, Zap, Lock, Key, Info, User } from "lucide-react";
+import { Clock, CheckCircle2, AlertTriangle, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, BookOpen, GraduationCap, Coins, Filter, Zap, Lock, Key, Info, User, Compass } from "lucide-react";
 
 type SessionTab    = "learning" | "teaching";
 type StatusFilter  = "all" | "requested" | "accepted" | "completed" | "cancelled";
@@ -478,4 +478,5 @@ export default function Sessions() {
     </div>
   );
 }
+
 
