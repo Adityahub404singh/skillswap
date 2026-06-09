@@ -205,14 +205,19 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     await db.update(sessionsTable).set({ status: "completed", completedAt: new Date(), actualDuration: Math.round(elapsedMins) }).where(eq(sessionsTable.id, sessionId));
 
     const isMicro = session.sessionType !== "standard" && session.sessionType !== "extended";
+    // 🛡️ FRAUD FIX & PLATFORM PROFIT: 15% Commission
+    const platformFeePercent = 0.15;
+    const platformFee = Math.round(session.creditsAmount * platformFeePercent);
+    const mentorEarnings = session.creditsAmount - platformFee;
+
     await db.update(usersTable).set({
-      credits:            sql`${usersTable.credits} + ${session.creditsAmount}`,
-      sessionsCompleted:  sql`${usersTable.sessionsCompleted} + 1`,
-      microSessionsCount: isMicro ? sql`${usersTable.microSessionsCount} + 1` : sql`${usersTable.microSessionsCount}`,
+      credits:             sql`${usersTable.credits} + ${mentorEarnings}`,
+      sessionsCompleted:   sql`${usersTable.sessionsCompleted} + 1`,
+      microSessionsCount:  isMicro ? sql`${usersTable.microSessionsCount} + 1` : sql`${usersTable.microSessionsCount}`,
     }).where(eq(usersTable.id, session.mentorId));
 
     await db.insert(transactionsTable).values({
-      userId: session.mentorId, type: "earned", amount: session.creditsAmount,
+      userId: session.mentorId, type: "earned", amount: mentorEarnings,
       description: `Taught ${session.skill}`, sessionId: session.id,
     });
 
@@ -251,7 +256,7 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
     } else {
        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
        await db.insert(transactionsTable).values({
-         userId: session.studentId, type: "refund", amount: session.creditsAmount,
+         userId: session.studentId, type: "refund", amount: mentorEarnings,
          description: `Refund - cancelled ${session.skill}`, sessionId: session.id,
        });
     }

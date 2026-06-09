@@ -2,9 +2,8 @@
 import { Link } from "wouter";
 import { useGetSkills } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, Compass, Users, ArrowRight, Star, ShieldCheck, Award, BookOpen, Zap, Sparkles, Monitor, Palette, Briefcase, Globe } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+import { Search, Compass, Users, ArrowRight, Star, Sparkles, Monitor, Palette, Briefcase, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -17,11 +16,11 @@ const CATEGORIES = [
 ];
 
 const FALLBACK_SKILLS = [
-  { id: 1, name: "Python Programming", category: "Technology", description: "Master Python, AI basics, and Data Science from verified experts.", mentorCount: 18, rating: 4.9 },
+  { id: 1, name: "Python", category: "Technology", description: "Master Python, AI basics, and Data Science from verified experts.", mentorCount: 18, rating: 4.9 },
   { id: 2, name: "UI/UX Design", category: "Design", description: "Learn Figma, wireframing, and build beautiful interactive interfaces.", mentorCount: 12, rating: 4.8 },
-  { id: 3, name: "JavaScript & React", category: "Technology", description: "Frontend magic with modern JS and React ecosystems.", mentorCount: 25, rating: 4.7 },
-  { id: 4, name: "Public Speaking", category: "Business", description: "Communicate with confidence and master stage presence.", mentorCount: 8, rating: 5.0 },
-  { id: 5, name: "Machine Learning", category: "Technology", description: "Deep dive into neural networks and predictive modeling.", mentorCount: 10, rating: 4.9 },
+  { id: 3, name: "JavaScript", category: "Technology", description: "Frontend magic with modern JS and React ecosystems.", mentorCount: 25, rating: 4.7 },
+  { id: 4, name: "React", category: "Technology", description: "Build highly interactive web apps and user interfaces.", mentorCount: 22, rating: 4.9 },
+  { id: 5, name: "Public Speaking", category: "Business", description: "Communicate with confidence and master stage presence.", mentorCount: 8, rating: 5.0 },
   { id: 6, name: "Spoken English", category: "Language", description: "Improve your fluency, vocabulary, and professional communication.", mentorCount: 42, rating: 4.6 },
 ];
 
@@ -30,11 +29,12 @@ export default function Explore() {
   const [activeCat, setActiveCat] = useState("all");
   const options = useApiOptions();
   
-  // Try to fetch real skills from DB, otherwise use empty array temporarily
-  const { data: dbSkills, isLoading } = useGetSkills(options);
+  // FIX 1: Passing undefined as first argument to satisfy TS GetSkillsParams
+  const { data: dbSkills, isLoading } = useGetSkills(undefined as any, options as any);
   
-  // If DB has skills, use them. Otherwise use our beautiful fallback data so the page never looks empty!
-  const skills = dbSkills?.length > 0 ? dbSkills : FALLBACK_SKILLS;
+  // FIX 2: Safely checking if array exists to prevent undefined .length errors
+  const safeDbSkills = Array.isArray(dbSkills) ? dbSkills : [];
+  const skills = safeDbSkills.length > 0 ? safeDbSkills : FALLBACK_SKILLS;
 
   const filteredSkills = useMemo(() => {
     return skills.filter((s: any) => 
@@ -43,12 +43,13 @@ export default function Explore() {
     );
   }, [skills, activeCat, search]);
 
-  const containerVariants = {
+  // FIX 3: Explicitly declaring type as Variants for Framer Motion
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.1 } }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 30 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 200, damping: 20 } }
   };
@@ -74,7 +75,6 @@ export default function Explore() {
               Find verified experts, book live 1-on-1 sessions, and pay securely using SkillSwap Credits. The ultimate peer-to-peer learning network.
             </p>
             
-            {/* Super Search Bar */}
             <div className="relative group max-w-xl">
               <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
                 <Search className="h-6 w-6 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -141,7 +141,6 @@ export default function Explore() {
                 <Link href={`/skills/${skill.name.toLowerCase().replace(/\s+/g, '-')}`}>
                   <div className="h-full cursor-pointer relative overflow-hidden rounded-[2rem] bg-card border-2 border-border/40 p-6 md:p-8 shadow-sm hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:border-primary/40 transition-all duration-300 flex flex-col group-hover:-translate-y-2">
                     
-                    {/* Glowing Category Badge & Trust Signal */}
                     <div className="flex justify-between items-start mb-6">
                       <div className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-black uppercase tracking-widest border border-primary/20">
                         {skill.category || "Skill"}
@@ -160,7 +159,6 @@ export default function Explore() {
                       {skill.description}
                     </p>
 
-                    {/* Footer Stats & CTA */}
                     <div className="pt-5 border-t border-border/60 flex items-center justify-between mt-auto">
                       <div className="flex items-center gap-2">
                         <div className="flex -space-x-3">

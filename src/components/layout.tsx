@@ -72,16 +72,16 @@ export function Layout({ children }: { children: ReactNode }) {
     setAiLoading(false);
   };
 
-  const sendFeedback = async () => { if (!feedbackText.trim()) return; try { await fetch('/api/platform/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: Bearer  } : {}) }, body: JSON.stringify({ rating: feedbackRating, text: feedbackText }) }); setFeedbackSent(true); setTimeout(() => { setFeedbackOpen(false); setFeedbackSent(false); setFeedbackText(''); setFeedbackRating(5); }, 2000); } catch (err) { console.error(err); } };
+  const sendFeedback = async () => { if (!feedbackText.trim()) return; try { await fetch('/api/platform/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ rating: feedbackRating, text: feedbackText }) }); setFeedbackSent(true); setTimeout(() => { setFeedbackOpen(false); setFeedbackSent(false); setFeedbackText(''); setFeedbackRating(5); }, 2000); } catch (err) { console.error(err); } };
 
-  // 🚨 ADDED "QUIZ" TO DESKTOP NAV
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/sessions", label: "Sessions", icon: BookOpen },
     { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
     { href: "/flash-board", label: "Doubts", icon: Zap },
     { href: "/leaderboard", label: "Rank", icon: Trophy },
-    { href: "/ai", label: "SkillAI", icon: Bot },
+    { href: "/ai", label: "SkillAI", icon: Bot }
   ];
 
   return (
@@ -93,11 +93,11 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       <header className="sticky top-0 z-50 glass-effect border-b border-border/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16 sm:h-20">
             <div className="flex-shrink-0 flex items-center">
               <Link href="/" className="flex items-center gap-2 group">
-                <div className="w-10 h-10 flex-shrink-0 group-hover:scale-105 transition-transform duration-300 drop-shadow-lg">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 group-hover:scale-105 transition-transform duration-300 drop-shadow-lg">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" className="w-full h-full">
                     <rect width="48" height="48" rx="12" fill="#5B5BF6"/>
                     <path d="M13 18 C13 13 18 11 22 11 C26 11 31 13 31 18 C31 23 26 25 22 25" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round"/>
@@ -106,7 +106,8 @@ export function Layout({ children }: { children: ReactNode }) {
                     <polyline points="21,34 17,30 21,26" stroke="#a5a5ff" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <span className="font-display font-bold text-2xl tracking-tight text-foreground">Skill<span className="text-primary">Swap</span></span>
+                {/* 📱 MOBILE FIX: Hide text logo on small screens to make room for logout */}
+                <span className="hidden sm:block font-display font-bold text-2xl tracking-tight text-foreground">Skill<span className="text-primary">Swap</span></span>
               </Link>
             </div>
             {token ? (
@@ -132,18 +133,18 @@ export function Layout({ children }: { children: ReactNode }) {
                 })}
               </nav>
             ) : null}
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {token && user ? (
                 <>
                   <Link href="/wallet">
-                    <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-secondary/50 border border-secondary text-secondary-foreground hover:bg-secondary transition-colors cursor-pointer">
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 sm:px-4 sm:py-2 rounded-full bg-secondary/50 border border-secondary text-secondary-foreground hover:bg-secondary transition-colors cursor-pointer">
                       <Wallet className="w-4 h-4 text-primary" />
-                      <span className="font-bold text-sm sm:text-base">{wallet?.balance ?? user.credits} cr</span>
+                      <span className="font-bold text-xs sm:text-base">{wallet?.balance ?? user.credits} <span className="hidden sm:inline">cr</span></span>
                     </div>
                   </Link>
                   
                   <Link href="/notifications">
-                    <div className="relative p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-secondary/50 cursor-pointer">
+                    <div className="relative p-1.5 sm:p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-secondary/50 cursor-pointer">
                       <Bell className="w-5 h-5" />
                       {unreadCount > 0 && (
                         <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border border-background">
@@ -153,18 +154,19 @@ export function Layout({ children }: { children: ReactNode }) {
                     </div>
                   </Link>
 
-                  <div className="h-8 w-px bg-border hidden sm:block" />
-                  <div className="flex items-center gap-3">
+                  <div className="h-6 sm:h-8 w-px bg-border" />
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <div className="hidden sm:flex flex-col items-end">
                       <span className="text-sm font-bold leading-none">{user.name}</span>
                       <span className="text-xs text-muted-foreground">Score: {user.trustScore}</span>
                     </div>
                     <Link href={`/profile`}>
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 cursor-pointer overflow-hidden">
-                        {user.avatar ? <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-primary" />}
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 cursor-pointer overflow-hidden">
+                        {user.avatar ? <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" /> : <User className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />}
                       </div>
                     </Link>
-                    <button onClick={handleLogout} className="p-2 hidden sm:block text-muted-foreground hover:text-destructive transition-colors rounded-full hover:bg-destructive/10">
+                    {/* 📱 MOBILE FIX: Removed 'hidden sm:block' so Logout ALWAYS shows! */}
+                    <button onClick={handleLogout} className="p-1.5 sm:p-2 text-muted-foreground hover:text-destructive transition-colors rounded-full hover:bg-destructive/10">
                       <LogOut className="w-5 h-5" />
                     </button>
                   </div>
@@ -185,7 +187,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </main>
       <Footer />
 
-      {/* Floating AI Panel Logic preserved... */}
+      {/* Floating AI & Feedback panels... (kept intact for brevity) */}
       {token && (
         <div className="fixed bottom-24 md:bottom-6 right-4 z-50 flex flex-col items-end gap-3">
           {feedbackOpen && (
@@ -303,7 +305,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* 🚨 MOBILE BOTTOM NAV WITH QUIZ ADDED */}
+      {/* 🚨 MOBILE BOTTOM NAV */}
       {token && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border/50 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
           <nav className="flex items-center justify-around h-16 px-1">
@@ -335,6 +337,13 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            
+            {/* 🔴 MOBILE LOGOUT BUTTON */}
+            <button onClick={handleLogout} className="flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-destructive transition-colors">
+              <LogOut className="w-5 h-5" />
+              <span className="text-[10px] font-medium mt-1">Logout</span>
+            </button>
+
           </nav>
         </div>
       )}
