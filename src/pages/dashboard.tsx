@@ -50,7 +50,7 @@ function StreakWidget({ streak }: { streak: number }) {
         })}
       </div>
       <div className="text-xs text-muted-foreground text-center">
-        {streak >= 30 ? "ðŸ… 30-Day Legend!" : streak >= 7 ? "⚡ On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
+        {streak >= 30 ? "⭐ 30-Day Legend!" : streak >= 7 ? "⚡ On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
       </div>
     </div>
   );
@@ -104,8 +104,7 @@ export default function Dashboard() {
 
       {/* Hero welcome */}
       <motion.div variants={item} className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700 p-6 md:p-8 text-white shadow-2xl shadow-primary/20">
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/5 blur-2xl pointer-events-none" />        <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -116,7 +115,7 @@ export default function Dashboard() {
             <div className="flex flex-wrap gap-3 text-sm">
               <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
                 <Wallet className="w-3.5 h-3.5" />
-                <span className="font-bold">{user?.credits} credits</span>
+                <span className="font-bold">{user?.credits} cr</span>
               </div>
               <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
                 <Star className="w-3.5 h-3.5 fill-yellow-300 text-yellow-300" />
@@ -144,28 +143,32 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* NEW: Invite & Earn Banner */}
+      {/* 🚨 NEW: DAILY QUIZ BANNER */}
       <motion.div variants={item}>
-        <Link href="/invite">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 p-1 cursor-pointer group shadow-lg hover:shadow-xl transition-all">
+        <Link href="/quiz">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-400 via-rose-500 to-red-500 p-1 cursor-pointer group shadow-lg hover:shadow-2xl transition-all">
             <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="bg-background/95 backdrop-blur-md rounded-[22px] px-6 py-4 flex items-center justify-between">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
+            <div className="bg-background/95 backdrop-blur-md rounded-[22px] px-6 py-5 flex items-center justify-between relative z-10">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-inner">
-                  <Gift className="w-6 h-6 text-white" />
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-inner">
+                  <Brain className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-foreground text-lg">Give 50, Get 50 Credits! 🎁</h3>
-                  <p className="text-sm text-muted-foreground">Invite a friend to SkillSwap and you both earn 50 credits.</p>
+                  <h3 className="font-black text-foreground text-xl flex items-center gap-2">
+                    Daily Skill Quiz <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
+                  </h3>
+                  <p className="text-sm text-muted-foreground">Answer 10 questions daily. Earn up to 20 Credits! ⚡</p>
                 </div>
               </div>
-              <Button className="shrink-0 rounded-full font-bold bg-primary hover:bg-primary/90 hidden sm:flex">
-                Invite Now <ArrowRight className="w-4 h-4 ml-2" />
+              <Button className="shrink-0 rounded-full font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hidden sm:flex">
+                Play Now <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
           </div>
         </Link>
       </motion.div>
+
       {/* Stats grid */}
       <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -311,11 +314,11 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-2">
               {[
+                { href: "/quiz", icon: Brain, label: "Daily Quiz", color: "text-red-500", bg: "bg-red-500/10" },
                 { href: "/explore", icon: Compass, label: "Find a Mentor", color: "text-primary", bg: "bg-primary/10" },
                 { href: "/sessions", icon: BookOpen, label: "My Sessions", color: "text-blue-500", bg: "bg-blue-500/10" },
                 { href: "/wallet", icon: Wallet, label: "View Wallet", color: "text-green-500", bg: "bg-green-500/10" },
                 { href: "/ai", icon: Sparkles, label: "Ask SkillAI", color: "text-purple-500", bg: "bg-purple-500/10" },
-                { href: "/profile", icon: User, label: "Edit Profile", color: "text-orange-500", bg: "bg-orange-500/10" },
               ].map(a => (
                 <Link key={a.href} href={a.href}>
                   <motion.div whileHover={{ x: 4 }}
@@ -338,11 +341,10 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-2 text-sm">
               {[
+                { action: "Play Daily Quiz", credits: "+20", done: false },
                 { action: "Teach a session", credits: "+10", done: (sessions?.length || 0) > 0 },
                 { action: "Complete profile", credits: "+5", done: !!user.bio },
-                { action: "Get 5-star rating", credits: "+15", done: user?.trustScore > 80 },
                 { action: "7-day streak", credits: "+20", done: streak >= 7 },
-                { action: "Refer a friend", credits: "+25", done: false },
               ].map(t => (
                 <div key={t.action} className={`flex items-center justify-between ${t.done ? "opacity-50 line-through" : ""}`}>
                   <div className="flex items-center gap-2">
@@ -359,4 +361,3 @@ export default function Dashboard() {
     </motion.div>
   );
 }
-

@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/auth";
 import { useGetMe, useGetWallet } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X, Star, MessageSquare, Sparkles, Bell, Zap, Trophy } from "lucide-react";
+import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X, Star, MessageSquare, Sparkles, Bell, Zap, Trophy, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,12 +77,12 @@ export function Layout({ children }: { children: ReactNode }) {
     setTimeout(() => { setFeedbackOpen(false); setFeedbackSent(false); setFeedbackText(""); setFeedbackRating(5); }, 2000);
   };
 
-  // 🚨 UI FIX: Added Leaderboard (Trophy) to Desktop Nav
+  // 🚨 ADDED "QUIZ" TO DESKTOP NAV
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/explore", label: "Explore", icon: Compass },
-    { href: "/flash-board", label: "Live Doubts", icon: Zap },
-    { href: "/sessions", label: "Sessions", icon: BookOpen },
+    { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
+    { href: "/flash-board", label: "Doubts", icon: Zap },
     { href: "/leaderboard", label: "Rank", icon: Trophy },
     { href: "/ai", label: "SkillAI", icon: Bot },
   ];
@@ -95,7 +95,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="absolute bottom-[-10%] left-[20%] w-[45%] h-[45%] bg-secondary/60 rounded-full mix-blend-multiply filter blur-[100px] animate-pulse" style={{ animationDuration: '12s', animationDelay: '4s' }} />
       </div>
 
-      <header className="sticky top-0 z-50 glass-effect">
+      <header className="sticky top-0 z-50 glass-effect border-b border-border/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex-shrink-0 flex items-center">
@@ -113,13 +113,22 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             {token ? (
-              <nav className="hidden lg:flex space-x-6">
+              <nav className="hidden lg:flex items-center space-x-2">
                 {navLinks.map((link) => {
                   const Icon = link.icon;
                   const isActive = location === link.href;
+                  if (link.isSpecial) {
+                    return (
+                      <Link key={link.href} href={link.href} className="mx-2">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 hover:bg-orange-500 hover:text-white transition-all cursor-pointer font-bold text-sm">
+                           <Flame className="w-4 h-4" /> {link.label}
+                        </div>
+                      </Link>
+                    )
+                  }
                   return (
                     <Link key={link.href} href={link.href}
-                      className={`flex items-center gap-2 px-1 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ${isActive ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}`}>
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
                       <Icon className="w-4 h-4" />{link.label}
                     </Link>
                   );
@@ -174,12 +183,12 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* 🚨 UI FIX: Added pb-32 to ensure content is NOT hidden behind bottom mobile nav */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-32 md:pb-12">
         {children}
       </main>
       <Footer />
 
+      {/* Floating AI Panel Logic preserved... */}
       {token && (
         <div className="fixed bottom-24 md:bottom-6 right-4 z-50 flex flex-col items-end gap-3">
           {feedbackOpen && (
@@ -297,20 +306,31 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
+      {/* 🚨 MOBILE BOTTOM NAV WITH QUIZ ADDED */}
       {token && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border/50 pb-safe">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border/50 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
           <nav className="flex items-center justify-around h-16 px-1">
-            {/* 🚨 UI FIX: Added Leaderboard to Bottom Mobile Nav */}
             {[
               { href: "/dashboard", label: "Home", icon: LayoutDashboard },
               { href: "/explore", label: "Explore", icon: Compass },
-              { href: "/leaderboard", label: "Rank", icon: Trophy },
-              { href: "/flash-board", label: "Doubts", icon: Zap },
+              { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
               { href: "/sessions", label: "Sessions", icon: BookOpen },
               { href: "/profile", label: "Profile", icon: User },
             ].map((link) => {
               const Icon = link.icon;
               const isActive = location === link.href;
+              
+              if (link.isSpecial) {
+                return (
+                  <Link key={link.href} href={link.href} className="relative -top-5 flex flex-col items-center justify-center">
+                     <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl ${isActive ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white' : 'bg-background border-4 border-muted text-orange-500'}`}>
+                        <Icon className="w-6 h-6" />
+                     </div>
+                     <span className="text-[10px] font-bold mt-1 text-orange-500">{link.label}</span>
+                  </Link>
+                )
+              }
+
               return (
                 <Link key={link.href} href={link.href} className={`flex flex-col items-center justify-center w-full h-full ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                   <Icon className={`w-5 h-5 ${isActive ? "text-primary" : ""}`} />
