@@ -56,18 +56,22 @@ export function Layout({ children }: { children: ReactNode }) {
     if (!aiInput.trim()) return;
     const msg = aiInput.trim();
     setAiInput("");
-    setAiMessages(prev => [...prev, { role: "user", text: msg }]);
+    
+    // Memory Context
+    const currentHistory = [...aiMessages, { role: "user", text: msg }];
+    setAiMessages(currentHistory);
     setAiLoading(true);
+    
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: msg, history: currentHistory }),
       });
       const data = await res.json();
       setAiMessages(prev => [...prev, { role: "ai", text: data.reply }]);
     } catch {
-      setAiMessages(prev => [...prev, { role: "ai", text: "Sorry, try again!" }]);
+      setAiMessages(prev => [...prev, { role: "ai", text: "Oops, network glitch! Try again." }]);
     }
     setAiLoading(false);
   };
@@ -350,4 +354,5 @@ export function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
