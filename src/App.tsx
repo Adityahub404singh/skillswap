@@ -33,6 +33,7 @@ import Subscription from "@/pages/subscription";
 import BuyCredits from "@/pages/buy-credits";
 import VerifyEmail from "@/pages/verify-email";
 import FlashBoard from "@/pages/flash-board";
+import Quiz from "@/pages/quiz";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -81,6 +82,7 @@ function Router() {
         <Route path="/leaderboard" component={Leaderboard} />
         <Route path="/premium" component={Subscription} />
         <Route path="/terms" component={Terms} />
+        <Route path="/quiz"><ProtectedRoute component={Quiz} /></Route>
         <Route path="/u/:slug" component={PublicPortfolio} />
         <Route path="/notifications"><ProtectedRoute component={NotificationsPage} /></Route>
         <Route component={NotFound} />
