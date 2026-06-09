@@ -256,7 +256,7 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
     } else {
        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
        await db.insert(transactionsTable).values({
-         userId: session.studentId, type: "refund", amount: mentorEarnings,
+         userId: session.studentId, type: "refund", amount: session.creditsAmount,
          description: `Refund - cancelled ${session.skill}`, sessionId: session.id,
        });
     }
@@ -335,3 +335,4 @@ router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+
