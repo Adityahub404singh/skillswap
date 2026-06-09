@@ -227,6 +227,21 @@ export default function AdminPanel() {
             </div>
           )}
 
+                    {tab === "transactions" && (
+            <div className="space-y-4 animate-in fade-in duration-300 mt-8">
+              <h2 className="text-xl font-extrabold">All System Transactions</h2>
+              <div className="card-premium overflow-auto bg-white">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/20 border-b"><tr><th className="p-4">ID</th><th className="p-4">User ID</th><th className="p-4">Amount</th><th className="p-4">Type</th><th className="p-4">Description</th></tr></thead>
+                  <tbody>
+                    {transactions.map((t: any) => (
+                      <tr key={t.id} className="border-b"><td className="p-4 font-bold">#{t.id}</td><td className="p-4">#{t.userId}</td><td className={"p-4 font-black " + (t.amount < 0 ? "text-red-500" : "text-green-500")}>{t.amount > 0 ? "+" : ""}{t.amount} cr</td><td className="p-4"><span className="px-2 py-1 rounded-full text-[10px] font-bold bg-muted uppercase">{t.type}</span></td><td className="p-4 text-xs text-muted-foreground">{t.description}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           {/* Dashboard View */}
           {tab === "dashboard" && (
             <div className="space-y-6 animate-in fade-in duration-300">
@@ -251,8 +266,37 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
-          {/* Added small placeholder for users/tx to keep snippet compact, but they remain intact from your original code */}
-          {tab === "users" && <div className="card-premium bg-white p-6"><h3>Users Management loaded (check full code implementation)</h3></div>}
+                    {tab === "users" && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <h2 className="text-2xl font-extrabold">Platform Users</h2>
+              <div className="card-premium overflow-auto bg-white">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/20 border-b"><tr><th className="p-4">ID</th><th className="p-4">Name</th><th className="p-4">Email</th><th className="p-4">Credits</th><th className="p-4">Sessions</th></tr></thead>
+                  <tbody>
+                    {users.map((u: any) => (
+                      <tr key={u.id} className="border-b"><td className="p-4 font-bold">#{u.id}</td><td className="p-4 font-bold">{u.name}</td><td className="p-4 text-xs text-muted-foreground">{u.email}</td><td className="p-4 font-black text-primary">{u.credits} cr</td><td className="p-4">{u.sessionsCompleted}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {tab === "sessions" && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <h2 className="text-2xl font-extrabold">All Sessions</h2>
+              <div className="card-premium overflow-auto bg-white">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/20 border-b"><tr><th className="p-4">ID</th><th className="p-4">Skill</th><th className="p-4">Mentor ID</th><th className="p-4">Student ID</th><th className="p-4">Status</th></tr></thead>
+                  <tbody>
+                    {sessions.map((s: any) => (
+                      <tr key={s.id} className="border-b"><td className="p-4 font-bold">#{s.id}</td><td className="p-4 font-bold text-primary">{s.skill}</td><td className="p-4">#{s.mentorId}</td><td className="p-4">#{s.studentId}</td><td className="p-4"><span className="px-2 py-1 rounded-full text-[10px] font-bold bg-muted uppercase">{s.status}</span></td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -261,6 +305,8 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
+
 
 
 
