@@ -116,7 +116,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
             {token ? (
               <nav className="hidden lg:flex items-center space-x-2">
-                {navLinks.map((link) => {
+                {navLinks.map((link: any) => {
                   const Icon = link.icon;
                   const isActive = location === link.href;
                   if (link.isSpecial) {
@@ -318,7 +318,7 @@ export function Layout({ children }: { children: ReactNode }) {
               { href: "/explore", label: "Explore", icon: Compass },
               { href: "/sessions", label: "Sessions", icon: BookOpen },
               { href: "/profile", label: "Profile", icon: User },
-            ].map((link) => {
+            ].map((link: any) => {
               const Icon = link.icon;
               const isActive = location === link.href;
               
@@ -353,6 +353,7 @@ export function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 
