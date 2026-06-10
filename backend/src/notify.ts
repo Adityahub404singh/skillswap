@@ -1,4 +1,4 @@
-import { db } from "./db.js";
+﻿import { db } from "./db.js";
 import { pgTable, serial, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
 import { sendEmail } from "./utils/mailer.js";
 import { eq } from "drizzle-orm";
@@ -38,6 +38,28 @@ export async function createNotification(userId: number, type: string, title: st
 }
 
 export const notify = {
+  // 🌟 AUTOMATED RETENTION & ENGAGEMENT NOTIFICATIONS
+  inactiveReminder: (userId: number, daysInactive: number) => 
+    createNotification(userId, "marketing", "We Miss You!", `It's been ${daysInactive} days! Come back and learn a new skill today.`, "/explore"),
+  
+  profileIncomplete: (userId: number) => 
+    createNotification(userId, "system", "Complete Your Profile 🚀", "Learners and Mentors trust complete profiles. Add your bio today!", "/profile"),
+    
+  adminBroadcast: (userId: number, title: string, message: string, url: string) => 
+    createNotification(userId, "marketing", `📢 ${title}`, message, url),
+
+  // 📝 EXISTING ACTION NOTIFICATIONS
+  // 🌟 AUTOMATED RETENTION & ENGAGEMENT NOTIFICATIONS
+  inactiveReminder: (userId: number, daysInactive: number) => 
+    createNotification(userId, "marketing", "We Miss You!", `It's been ${daysInactive} days! Come back and learn a new skill today.`, "/explore"),
+  
+  profileIncomplete: (userId: number) => 
+    createNotification(userId, "system", "Complete Your Profile 🚀", "Learners and Mentors trust complete profiles. Add your bio today!", "/profile"),
+    
+  adminBroadcast: (userId: number, title: string, message: string, url: string) => 
+    createNotification(userId, "marketing", `📢 ${title}`, message, url),
+
+  // 📝 EXISTING ACTION NOTIFICATIONS
   sessionBooked:    (mentorId: number, learnerName: string, skill: string) =>
     createNotification(mentorId, "session", "New Session Booked!", `${learnerName} booked ${skill} session.`, "/sessions"),
 
@@ -59,3 +81,5 @@ export const notify = {
   paymentSuccess:   (userId: number, credits: number, amount: number) =>
     createNotification(userId, "credit", "Payment Done!", `${credits} credits added for Rs.${amount}`, "/wallet"),
 };
+
+

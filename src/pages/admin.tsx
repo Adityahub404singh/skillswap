@@ -334,7 +334,7 @@ export default function AdminPanel() {
                       <tr key={u.id} className="border-b hover:bg-muted/5">
                         <td className="p-4 font-bold">#{u.id}</td>
                         <td className="p-4 font-bold flex items-center gap-1">
-                          {u.name} {u.isPremium && <CheckCircle className="w-3 h-3 text-blue-500" title="Verified User" />}
+                          {u.name} {u.isPremium && <span title="Verified User"><CheckCircle className="w-3 h-3 text-blue-500" /></span>}
                         </td>
                         <td className="p-4 text-xs text-muted-foreground">{u.email}</td>
                         <td className="p-4 font-black text-primary">{u.credits} cr</td>
@@ -383,6 +383,7 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
 
 
 
