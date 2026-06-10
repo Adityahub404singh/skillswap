@@ -44,7 +44,45 @@ app.use("/api/verification", verificationRouter);
 app.use("/api/quiz", quizRouter);
 app.use("/api/platform", platformRouter);
 
+// 🤖 AUTOMATED RETENTION ENGINE (CRON JOB)
+import { db } from "./db.js";
+import { notify } from "./notify.js";
+import { pgTable, serial, integer, text } from "drizzle-orm/pg-core";
+
+const usersForCron = pgTable("users", {
+  id: serial("id").primaryKey(),
+  lastActiveDate: text("last_active_date"),
+  credits: integer("credits")
+});
+
+const startCronJobs = () => {
+  // Runs every 24 hours
+  setInterval(async () => {
+    try {
+      console.log("⏳ Running daily retention checks...");
+      const users = await db.select().from(usersForCron);
+      const now = new Date().getTime();
+      
+      users.forEach(user => {
+        if (user.lastActiveDate) {
+          const lastActive = new Date(user.lastActiveDate).getTime();
+          const daysInactive = Math.floor((now - lastActive) / (1000 * 60 * 60 * 24));
+          
+          // If inactive for 5 days, send "We Miss You" reminder
+          if (daysInactive === 5) {
+             notify.inactiveReminder(user.id, daysInactive);
+          }
+        }
+      });
+    } catch (e) {
+      console.error("Cron Error:", e);
+    }
+  }, 24 * 60 * 60 * 1000); // 24 hours in milliseconds
+};
+
 app.listen(PORT, () => {
+  startCronJobs();
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
