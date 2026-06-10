@@ -149,5 +149,43 @@ router.post("/transactions/:id/approve", requireAuth, async (req: AuthRequest, r
     }
 });
 
+// ❌ REJECT WITHDRAWAL & REFUND ROUTE
+router.post("/transactions/:id/reject", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+    try {
+        const txId = parseInt(req.params.id as string);
+        const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId));
+        if (!tx || tx.type !== "withdrawal_pending") return res.status(400).json({ error: "Invalid transaction" });
+
+        const refundAmount = Math.abs(tx.amount);
+        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${refundAmount}` }).where(eq(usersTable.id, tx.userId));
+        await db.update(transactionsTable).set({ type: "withdrawal_rejected", description: tx.description + " (REJECTED & REFUNDED)" }).where(eq(transactionsTable.id, txId));
+        res.json({ success: true, message: "Withdrawal rejected" });
+    } catch (err: any) { res.status(500).json({ error: "Server error" }); }
+});
+
+// ⚖️ RESOLVE DISPUTE / FORCE CANCEL SESSION
+router.post("/sessions/:id/resolve", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+    try {
+        const sessionId = parseInt(req.params.id as string);
+        const { action } = req.body; 
+        const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+        if (!session) return res.status(404).json({ error: "Session not found" });
+
+        if (action === "refund_student") {
+            await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
+            await db.insert(transactionsTable).values({ userId: session.studentId, type: "refund", amount: session.creditsAmount, description: `Admin Refund for session #${sessionId}` });
+            await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Admin force cancelled & refunded." }).where(eq(sessionsTable.id, sessionId));
+        } else if (action === "pay_mentor") {
+            const platformFee = Math.round(session.creditsAmount * 0.15);
+            const mentorEarnings = session.creditsAmount - platformFee;
+            await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${mentorEarnings}` }).where(eq(usersTable.id, session.mentorId));
+            await db.insert(transactionsTable).values({ userId: session.mentorId, type: "earned", amount: mentorEarnings, description: `Admin forced payment for session #${sessionId}` });
+            await db.update(sessionsTable).set({ status: "completed", cancelReason: "Admin forced payment to mentor." }).where(eq(sessionsTable.id, sessionId));
+        }
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: "Server error" }); }
+});
+
 export default router;
+
 

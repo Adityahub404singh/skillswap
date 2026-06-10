@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, sql, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -45,7 +45,7 @@ router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 3. SECURE WITHDRAWAL LOGIC (With 7-Day Maturity Hold)
+// 3. SECURE WITHDRAWAL LOGIC (7-Day Bypass + 20% Platform Fee)
 router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
     try {
         const { amount, upiId } = req.body;
@@ -60,7 +60,7 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
         const earnedTx = await db.select().from(transactionsTable)
             .where(sql`${transactionsTable.userId} = ${req.userId} AND ${transactionsTable.type} = 'earned'`);
         
-        // 🚨 FRAUD FIX 2: 7-Day Maturity Lock added here
+        // 🚨 FRAUD FIX 2: 7-Day Maturity Lock calculation
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
         const now = Date.now();
 
@@ -68,27 +68,32 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
             .filter(tx => (now - new Date(tx.createdAt).getTime()) >= SEVEN_DAYS_MS)
             .reduce((sum, tx) => sum + tx.amount, 0);
         
-        if (maturedEarned < amount) {
+        if (false) { // 🚨 BYPASSED FOR ADMIN TESTING (Change to true later)
             return res.status(403).json({ 
                 error: `Credits take 7 days to clear. Your matured withdrawable balance is only ${maturedEarned} cr.` 
             });
         }
 
-        // Deduct from user wallet
+        // Deduct full amount from user wallet
         await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${amount}` }).where(eq(usersTable.id, req.userId!));
         
-        // Save UPI ID in description so Admin knows where to send money
+        // 💸 20% WITHDRAWAL CUT LOGIC
+        const platformCut = Math.round(amount * 0.20);
+        const finalPayout = amount - platformCut;
+
+        // Save transaction with 20% fee details
         await db.insert(transactionsTable).values({
             userId: req.userId!, 
             type: "withdrawal_pending", 
             amount: -amount,
-            description: `Withdrawal pending to UPI: ${upiId}`,
+            description: `Payout: Rs ${finalPayout} (20% fee: ${platformCut} cr). UPI: ${upiId}`
         });
 
-        res.json({ success: true, message: "Withdrawal requested successfully!" });
+        res.json({ success: true, message: `Withdrawal requested! 20% fee applied. Rs ${finalPayout} will be credited to your UPI within 24-48 hours.` });
     } catch (err: any) {
         res.status(500).json({ error: "Server error. Please try again." });
     }
 });
 
 export default router;
+

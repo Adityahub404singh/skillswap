@@ -89,6 +89,29 @@ export default function AdminPanel() {
     }
   };
 
+  const handleRejectWithdrawal = async (txId: number) => {
+    if (!confirm("Reject this withdrawal and refund credits to the user?")) return;
+    try {
+      await apiFetch("/admin/transactions/" + txId + "/reject", { method: "POST" });
+      toast({ title: "Rejected", description: "Withdrawal cancelled and refunded." });
+      fetchData();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Could not reject transaction." });
+    }
+  };
+
+  const handleResolveSession = async (sessionId: number, action: string) => {
+    const msg = action === "refund_student" ? "Cancel session and REFUND student?" : "Force complete session and PAY mentor?";
+    if (!confirm(msg)) return;
+    try {
+      await apiFetch("/admin/sessions/" + sessionId + "/resolve", { method: "POST", body: JSON.stringify({ action }) });
+      toast({ title: "Session Resolved", description: "Action completed successfully." });
+      fetchData();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Could not resolve session." });
+    }
+  };
+
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "users", label: "Users & Teachers", icon: Users },
@@ -128,6 +151,41 @@ export default function AdminPanel() {
         </div>
 
         <div className="flex-1 p-6">
+          {/* 💸 CREDIT MODAL UI */}
+          {creditModal && (
+            <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-extrabold text-xl">Manage Credits</h3>
+                  <button onClick={() => { setCreditModal(null); setCreditAmount(""); setCreditReason(""); }} className="text-muted-foreground hover:text-black bg-muted p-1 rounded-full"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="bg-primary/10 border border-primary/20 p-3 rounded-xl mb-4">
+                  <p className="text-xs text-muted-foreground">Target User:</p>
+                  <p className="font-bold text-primary flex items-center gap-1">{creditModal.name} <span className="text-xs text-black font-normal ml-auto">Bal: {creditModal.credits} cr</span></p>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block text-muted-foreground">Amount (Credits)</label>
+                    <Input type="number" placeholder="e.g. 500" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} className="h-10 font-bold" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block text-muted-foreground">Reason (Log Note)</label>
+                    <Input placeholder="e.g. Marketing Bonus, Refund" value={creditReason} onChange={e => setCreditReason(e.target.value)} className="h-10 text-sm" />
+                  </div>
+                  
+                  <div className="flex gap-3 pt-2">
+                    <Button className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold h-10 rounded-xl shadow-lg shadow-green-500/20" onClick={() => handleCredits(true)}>
+                      <Plus className="w-4 h-4 mr-1" /> Add
+                    </Button>
+                    <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold h-10 rounded-xl shadow-lg shadow-red-500/20" onClick={() => handleCredits(false)}>
+                      <Minus className="w-4 h-4 mr-1" /> Deduct
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {tab === "feedback" && (
             <div className="space-y-4 animate-in fade-in duration-300">
               <h2 className="text-2xl font-extrabold flex items-center gap-2">Platform Feedback</h2>
@@ -211,9 +269,7 @@ export default function AdminPanel() {
                         </td>
                         <td className="py-3 px-4 text-right">
                           {t.type === "withdrawal_pending" && (
-                            <Button size="sm" onClick={() => handleApproveWithdrawal(t.id)} className="bg-green-500 hover:bg-green-600 text-white text-xs h-8">
-                              Mark as Paid
-                            </Button>
+                            <div className="flex justify-end gap-2"><Button size="sm" onClick={() => handleApproveWithdrawal(t.id)} className="bg-green-500 hover:bg-green-600 text-white text-xs h-8">Mark as Paid</Button><Button size="sm" onClick={() => handleRejectWithdrawal(t.id)} className="bg-red-500 hover:bg-red-600 text-white text-xs h-8">Reject & Refund</Button></div>
                           )}
                         </td>
                       </tr>
@@ -266,15 +322,36 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
-                    {tab === "users" && (
+                              {tab === "users" && (
             <div className="space-y-4 animate-in fade-in duration-300">
               <h2 className="text-2xl font-extrabold">Platform Users</h2>
               <div className="card-premium overflow-auto bg-white">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-muted/20 border-b"><tr><th className="p-4">ID</th><th className="p-4">Name</th><th className="p-4">Email</th><th className="p-4">Credits</th><th className="p-4">Sessions</th></tr></thead>
+                  <thead className="bg-muted/20 border-b"><tr><th className="p-4">ID</th><th className="p-4">Name</th><th className="p-4">Email</th><th className="p-4">Credits</th><th className="p-4">Sessions</th><th className="p-4 text-right">God Mode Actions</th></tr></thead>
                   <tbody>
                     {users.map((u: any) => (
-                      <tr key={u.id} className="border-b"><td className="p-4 font-bold">#{u.id}</td><td className="p-4 font-bold">{u.name}</td><td className="p-4 text-xs text-muted-foreground">{u.email}</td><td className="p-4 font-black text-primary">{u.credits} cr</td><td className="p-4">{u.sessionsCompleted}</td></tr>
+                      <tr key={u.id} className="border-b hover:bg-muted/5">
+                        <td className="p-4 font-bold">#{u.id}</td>
+                        <td className="p-4 font-bold flex items-center gap-1">
+                          {u.name} {u.isPremium && <CheckCircle className="w-3 h-3 text-blue-500" title="Verified User" />}
+                        </td>
+                        <td className="p-4 text-xs text-muted-foreground">{u.email}</td>
+                        <td className="p-4 font-black text-primary">{u.credits} cr</td>
+                        <td className="p-4">{u.sessionsCompleted}</td>
+                        <td className="p-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" className="h-7 text-xs bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100" onClick={() => toggleVerification(u)}>
+                              {u.isPremium ? "Unverify" : "Verify"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs bg-green-50 text-green-600 border-green-200 hover:bg-green-100" onClick={() => setCreditModal(u)}>
+                              Credits
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 px-2 bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700" onClick={() => handleDeleteUser(u.id)} title="Ban User">
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -287,10 +364,10 @@ export default function AdminPanel() {
               <h2 className="text-2xl font-extrabold">All Sessions</h2>
               <div className="card-premium overflow-auto bg-white">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-muted/20 border-b"><tr><th className="p-4">ID</th><th className="p-4">Skill</th><th className="p-4">Mentor ID</th><th className="p-4">Student ID</th><th className="p-4">Status</th></tr></thead>
+                  <thead className="bg-muted/20 border-b"><tr><th className="p-4">ID</th><th className="p-4">Skill</th><th className="p-4">Mentor ID</th><th className="p-4">Student ID</th><th className="p-4">Status</th><th className="p-4 text-right">God Mode Actions</th></tr></thead>
                   <tbody>
                     {sessions.map((s: any) => (
-                      <tr key={s.id} className="border-b"><td className="p-4 font-bold">#{s.id}</td><td className="p-4 font-bold text-primary">{s.skill}</td><td className="p-4">#{s.mentorId}</td><td className="p-4">#{s.studentId}</td><td className="p-4"><span className="px-2 py-1 rounded-full text-[10px] font-bold bg-muted uppercase">{s.status}</span></td></tr>
+                      <tr key={s.id} className="border-b"><td className="p-4 font-bold">#{s.id}</td><td className="p-4 font-bold text-primary">{s.skill}</td><td className="p-4">#{s.mentorId}</td><td className="p-4">#{s.studentId}</td><td className="p-4"><span className="px-2 py-1 rounded-full text-[10px] font-bold bg-muted uppercase">{s.status}</span></td><td className="p-4 text-right"><div className="flex justify-end gap-2"><Button size="sm" onClick={() => handleResolveSession(s.id, "refund_student")} className="bg-red-100 text-red-600 hover:bg-red-200 h-7 text-xs">Refund Student</Button><Button size="sm" onClick={() => handleResolveSession(s.id, "pay_mentor")} className="bg-green-100 text-green-600 hover:bg-green-200 h-7 text-xs">Pay Mentor</Button></div></td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -305,6 +382,10 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
+
+
+
 
 
 

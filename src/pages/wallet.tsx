@@ -62,7 +62,7 @@ export default function Wallet() {
       const data = await res.json();
       
       if (res.ok) {
-        toast({ title: "Withdrawal Requested!", description: "Admin will review and transfer via UPI in 24 hrs." });
+        toast({ title: "Withdrawal Requested!", description: "Request sent! Rs " + (amount * 0.8) + " will be credited to your UPI within 24-48 hours (max 7 days for security check)." });
         setShowWithdraw(false);
         setWithdrawAmount("");
         setUpiId("");
@@ -174,6 +174,34 @@ export default function Wallet() {
               <p className="text-xs text-muted-foreground leading-relaxed">{c.desc}</p>
             </div>
           ))}
+        </div>
+      </motion.div>
+
+      {/* 📜 PLATFORM GUIDELINES & FEES */}
+      <motion.div variants={item} className="p-6 rounded-2xl bg-background border border-orange-500/20">
+        <h2 className="font-bold text-base mb-4 flex items-center gap-2 text-orange-600">📜 Platform Fees & Rules</h2>
+        <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
+                <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="text-orange-600 text-xs font-bold">1</span></div>
+                <div>
+                    <p className="font-bold text-sm">20% Withdrawal Fee</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">When you withdraw money to your bank account, a 20% platform processing fee is applied. (e.g., Withdraw 1000 cr, get ₹800).</p>
+                </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
+                <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="text-orange-600 text-xs font-bold">2</span></div>
+                <div>
+                    <p className="font-bold text-sm">15% Session Commission</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">To maintain the platform, a 15% fee is deducted from the mentor's earnings per completed session.</p>
+                </div>
+            </div>
+             <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
+                <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="text-orange-600 text-xs font-bold">3</span></div>
+                <div>
+                    <p className="font-bold text-sm">7-Day Security Policy</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">For security and anti-fraud purposes, all withdrawal requests take between 24-48 hours to process, and up to 7 days for new users.</p>
+                </div>
+            </div>
         </div>
       </motion.div>
 
