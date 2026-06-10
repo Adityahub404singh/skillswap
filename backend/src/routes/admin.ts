@@ -40,16 +40,27 @@ const transactionsTable = pgTable("transactions", {
 const router: IRouter = Router();
 
 // GET /api/admin/stats
+// GET /api/admin/stats
 router.get("/stats", requireAuth, requireAdmin, async (_req, res) => {
   try {
     const users = await db.select().from(usersTable);
     const sessions = await db.select().from(sessionsTable);
+    const txs = await db.select().from(transactionsTable);
+
+    // Calculate 15% from all completed sessions
     const completed = sessions.filter(s => s.status === "completed");
+    const sessionRevenue = completed.reduce((sum, s) => sum + Math.round(s.creditsAmount * 0.15), 0);
+    
+    // Calculate 20% from all withdrawals
+    const withdrawals = txs.filter(t => t.type === "withdrawal_pending" || t.type === "withdrawal_completed" || t.type === "withdrawal_complete");
+    const withdrawalRevenue = withdrawals.reduce((sum, t) => sum + Math.round(Math.abs(t.amount) * 0.20), 0);
+
     res.json({
       totalUsers: users.length,
       totalSessions: sessions.length,
       completedSessions: completed.length,
       totalCreditsInSystem: users.reduce((sum, u) => sum + u.credits, 0),
+      platformRevenue: sessionRevenue + withdrawalRevenue, // 💰 TOTAL PROFIT
       recentUsers: users.slice(-5)
     });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
@@ -187,5 +198,6 @@ router.post("/sessions/:id/resolve", requireAuth, requireAdmin, async (req: Auth
 });
 
 export default router;
+
 
 

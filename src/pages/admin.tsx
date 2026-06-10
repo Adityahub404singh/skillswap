@@ -305,7 +305,8 @@ export default function AdminPanel() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { label: "Total Users", value: stats?.totalUsers, icon: Users, color: "text-primary", bg: "bg-primary/10" },
-                  { label: "Total Sessions", value: stats?.totalSessions, icon: BookOpen, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+                                    { label: "Total Sessions", value: stats?.totalSessions, icon: BookOpen, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+                  { label: "Platform Profit", value: "₹" + (stats?.platformRevenue || 0), icon: TrendingUp, color: "text-green-600", bg: "bg-green-600/10" },
                   { label: "Completed", value: stats?.completedSessions, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
                   { label: "Feedbacks", value: feedbacks?.length, icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-500/10" },
                 ].map(s => (
@@ -382,6 +383,7 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
 
 
 
