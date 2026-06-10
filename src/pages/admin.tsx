@@ -235,7 +235,7 @@ export default function AdminPanel() {
                   <thead className="bg-muted/20 border-b"><tr><th className="p-4">ID</th><th className="p-4">User ID</th><th className="p-4">Amount</th><th className="p-4">Type</th><th className="p-4">Description</th></tr></thead>
                   <tbody>
                     {transactions.map((t: any) => (
-                      <tr key={t.id} className="border-b"><td className="p-4 font-bold">#{t.id}</td><td className="p-4">#{t.userId}</td><td className={"p-4 font-black " + (t.amount < 0 ? "text-red-500" : "text-green-500")}>{t.amount > 0 ? "+" : ""}{t.amount} cr</td><td className="p-4"><span className="px-2 py-1 rounded-full text-[10px] font-bold bg-muted uppercase">{t.type}</span></td><td className="p-4 text-xs text-muted-foreground">{t.description}</td></tr>
+                      <tr key={t.id} className="border-b"><td className="p-4 font-bold">#{t.id}</td><td className="p-4">#{t.userId}</td><td className={"p-4 font-black " + (t.amount < 0 || t.type === "spent" || t.type.includes("withdrawal") ? "text-red-500" : "text-green-500")}>{(t.amount < 0 || t.type === "spent" || t.type.includes("withdrawal")) ? "-" : "+"}{Math.abs(t.amount)} cr</td><td className="p-4"><span className="px-2 py-1 rounded-full text-[10px] font-bold bg-muted uppercase">{t.type}</span></td><td className="p-4 text-xs text-muted-foreground">{t.description}</td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -305,6 +305,7 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
 
 
 

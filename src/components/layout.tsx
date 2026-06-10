@@ -111,7 +111,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   </svg>
                 </div>
                 {/* 📱 MOBILE FIX: Hide text logo on small screens to make room for logout */}
-                <span className="hidden sm:block font-display font-bold text-2xl tracking-tight text-foreground">Skill<span className="text-primary">Swap</span></span>
+                <span className="block font-display font-bold text-xl sm:text-2xl tracking-tight text-foreground">Skill<span className="text-primary">Swap</span></span>
               </Link>
             </div>
             {token ? (
@@ -186,14 +186,14 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-32 md:pb-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-40 md:pb-12">
         {children}
       </main>
       <Footer />
 
       {/* Floating AI & Feedback panels... (kept intact for brevity) */}
       {token && (
-        <div className="fixed bottom-24 md:bottom-6 right-4 z-50 flex flex-col items-end gap-3">
+        <div className="fixed bottom-28 md:bottom-6 right-4 z-[60] flex flex-col items-end gap-3">
           {feedbackOpen && (
             <div className="w-72 bg-background border border-border rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
               <div className="bg-gradient-to-r from-orange-500 to-pink-500 p-3 flex justify-between items-center">
@@ -316,7 +316,6 @@ export function Layout({ children }: { children: ReactNode }) {
             {[
               { href: "/dashboard", label: "Home", icon: LayoutDashboard },
               { href: "/explore", label: "Explore", icon: Compass },
-              { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
               { href: "/sessions", label: "Sessions", icon: BookOpen },
               { href: "/profile", label: "Profile", icon: User },
             ].map((link) => {
@@ -354,6 +353,8 @@ export function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+
 
 
 
