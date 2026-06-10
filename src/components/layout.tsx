@@ -309,14 +309,18 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* 🚨 MOBILE BOTTOM NAV */}
+            {/* 🚨 MOBILE BOTTOM NAV - SWIPEABLE & SOLID */}
       {token && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border/50 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-          <nav className="flex items-center justify-between h-16 px-2 sm:px-4 max-w-md mx-auto">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-background border-t border-border shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
+          <style dangerouslySetInnerHTML={{__html: `.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}} />
+          <nav className="flex items-center gap-1 h-[72px] px-2 overflow-x-auto hide-scrollbar w-full">
             {[
               { href: "/dashboard", label: "Home", icon: LayoutDashboard },
               { href: "/explore", label: "Explore", icon: Compass },
+              { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
               { href: "/sessions", label: "Sessions", icon: BookOpen },
+              { href: "/flash-board", label: "Doubts", icon: Zap },
+              { href: "/leaderboard", label: "Rank", icon: Trophy },
               { href: "/profile", label: "Profile", icon: User },
             ].map((link: any) => {
               const Icon = link.icon;
@@ -324,9 +328,9 @@ export function Layout({ children }: { children: ReactNode }) {
               
               if (link.isSpecial) {
                 return (
-                  <Link key={link.href} href={link.href} className="relative -top-6 flex flex-col items-center justify-center w-14">
-                     <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl ${isActive ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white' : 'bg-background border-4 border-muted text-orange-500'}`}>
-                        <Icon className="w-6 h-6" />
+                  <Link key={link.href} href={link.href} className="flex flex-col items-center justify-center min-w-[5rem] flex-shrink-0 h-full">
+                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md ${isActive ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white' : 'bg-orange-100 border border-orange-200 text-orange-500'}`}>
+                        <Icon className="w-5 h-5" />
                      </div>
                      <span className="text-[10px] font-bold mt-1 text-orange-500">{link.label}</span>
                   </Link>
@@ -334,7 +338,7 @@ export function Layout({ children }: { children: ReactNode }) {
               }
 
               return (
-                <Link key={link.href} href={link.href} className={`flex flex-col items-center justify-center w-full h-full ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                <Link key={link.href} href={link.href} className={`flex flex-col items-center justify-center min-w-[4.5rem] flex-shrink-0 h-full ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                   <Icon className={`w-5 h-5 ${isActive ? "text-primary" : ""}`} />
                   <span className="text-[10px] font-medium mt-1">{link.label}</span>
                 </Link>
@@ -342,23 +346,13 @@ export function Layout({ children }: { children: ReactNode }) {
             })}
             
             {/* 🔴 MOBILE LOGOUT BUTTON */}
-            <button onClick={handleLogout} className="flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-destructive transition-colors">
+            <button onClick={handleLogout} className="flex flex-col items-center justify-center min-w-[4.5rem] flex-shrink-0 h-full text-muted-foreground hover:text-destructive transition-colors">
               <LogOut className="w-5 h-5" />
               <span className="text-[10px] font-medium mt-1">Logout</span>
             </button>
-
           </nav>
         </div>
       )}
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
