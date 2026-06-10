@@ -186,14 +186,14 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-40 md:pb-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10 pb-48 md:pb-12">
         {children}
       </main>
       <Footer />
 
       {/* Floating AI & Feedback panels... (kept intact for brevity) */}
       {token && (
-        <div className="fixed bottom-28 md:bottom-6 right-4 z-[60] flex flex-col items-end gap-3">
+        <div className="fixed bottom-32 md:bottom-6 right-4 z-[90] flex flex-col items-end gap-3">
           {feedbackOpen && (
             <div className="w-72 bg-background border border-border rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
               <div className="bg-gradient-to-r from-orange-500 to-pink-500 p-3 flex justify-between items-center">
@@ -353,6 +353,7 @@ export function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 
