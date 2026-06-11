@@ -54,3 +54,4 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+

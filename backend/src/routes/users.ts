@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -118,7 +118,7 @@ router.get("/portfolio/:slug", async (req, res) => {
 
 router.get("/", async (_req, res) => {
   try {
-    // ✅ FIX: Added .limit(50) so Explore page doesn't crash the server memory
+    // ? FIX: Added .limit(50) so Explore page doesn't crash the server memory
     const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted)).limit(50);
     res.json(rows.map(formatUser));
   } catch (err: any) {
@@ -140,7 +140,7 @@ const UpdateSchema = z.object({
 router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const data = UpdateSchema.parse(req.body);
-    const updateData: any = { ...data };
+    const data = UpdateSchema.parse(req.body);`n    const updateData: any = { ...data };
     
     if (updateData.skillsTeach !== undefined) {
       updateData.skillsTeach = JSON.stringify(updateData.skillsTeach);
@@ -161,6 +161,7 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// ✅ FIX: Deleted duplicate POST /streak logic. Everything is routed to gamification.ts
+// ? FIX: Deleted duplicate POST /streak logic. Everything is routed to gamification.ts
 
 export default router;
+
