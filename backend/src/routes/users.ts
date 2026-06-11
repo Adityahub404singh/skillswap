@@ -140,7 +140,7 @@ const UpdateSchema = z.object({
 router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const data = UpdateSchema.parse(req.body);
-    const data = UpdateSchema.parse(req.body);`n    const updateData: any = { ...data };
+    const updateData: any = { ...data };
     
     if (updateData.skillsTeach !== undefined) {
       updateData.skillsTeach = JSON.stringify(updateData.skillsTeach);
@@ -164,4 +164,5 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
 // ? FIX: Deleted duplicate POST /streak logic. Everything is routed to gamification.ts
 
 export default router;
+
 
