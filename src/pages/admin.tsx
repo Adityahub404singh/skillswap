@@ -2,7 +2,7 @@
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/store/auth";
 import { API_BASE_URL } from "@/lib/api-utils";
-import { Users, LayoutDashboard, BookOpen, CreditCard, Trash2, Plus, Minus, X, Shield, TrendingUp, CheckCircle, Clock, MessageSquare, Mail } from "lucide-react";
+import { Users, LayoutDashboard, ClipboardList, BookOpen, CreditCard, Trash2, Plus, Minus, X, Shield, TrendingUp, CheckCircle, Clock, MessageSquare, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -112,7 +112,8 @@ export default function AdminPanel() {
     }
   };
 
-  const tabs = [
+    const tabs = [
+    { id: "audit", label: "Audit Logs", icon: ClipboardList },
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "users", label: "Users & Teachers", icon: Users },
     { id: "sessions", label: "Sessions", icon: BookOpen },
@@ -375,6 +376,53 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
+          {/* 🛡️ AUDIT LOGS TAB */}
+          {tab === "audit" && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <h2 className="text-2xl font-extrabold flex items-center gap-2">🛡️ System Audit Logs</h2>
+              <p className="text-muted-foreground text-sm mb-4">Track all God Mode actions, refunds, and manual credit adjustments.</p>
+              
+              <div className="card-premium overflow-auto bg-white shadow-sm border border-border">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-900 text-white">
+                    <tr>
+                      <th className="p-4 rounded-tl-xl">Log ID</th>
+                      <th className="p-4">Target User</th>
+                      <th className="p-4">Action Type</th>
+                      <th className="p-4">Details & Reason</th>
+                      <th className="p-4 rounded-tr-xl text-right">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions
+                      .filter((t: any) => ["bonus", "refund", "withdrawal_rejected", "withdrawal_completed"].includes(t.type))
+                      .map((log: any) => (
+                      <tr key={log.id} className="border-b hover:bg-slate-50 transition-colors">
+                        <td className="p-4 font-mono text-xs text-muted-foreground">#{log.id}</td>
+                        <td className="p-4 font-bold text-primary">User #{log.userId}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            log.type === "bonus" ? "bg-green-100 text-green-700" :
+                            log.type === "refund" ? "bg-amber-100 text-amber-700" :
+                            log.type === "withdrawal_rejected" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {log.type.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="p-4 text-xs font-medium text-slate-700">{log.description}</td>
+                        <td className="p-4 text-right text-xs text-muted-foreground">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                    {transactions.filter((t: any) => ["bonus", "refund", "withdrawal_rejected", "withdrawal_completed"].includes(t.type)).length === 0 && (
+                      <tr><td colSpan={5} className="py-8 text-center text-muted-foreground font-medium">No admin actions recorded yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -383,6 +431,7 @@ export default function AdminPanel() {
 
 // Ensure Star icon is available if you didn't have it imported above
 import { Star } from "lucide-react";
+
 
 
 
