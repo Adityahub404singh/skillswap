@@ -23,6 +23,7 @@ import Wallet from "@/pages/wallet";
 import AIChat from "@/pages/ai-chat";
 import AdminPanel from "@/pages/admin";
 import Profile from "@/pages/profile";
+import Discover from "./pages/discover";
 import Invite from "@/pages/invite";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
@@ -81,6 +82,9 @@ function Router() {
         <Route path="/skills/:skill" component={SkillPage} />
         <Route path="/leaderboard" component={Leaderboard} />
         <Route path="/premium" component={Subscription} />
+        
+        <Route path="/verify-email" component={VerifyEmail} />
+         <Route path="/discover" component={Discover} />
         <Route path="/terms" component={Terms} />
         <Route path="/quiz"><ProtectedRoute component={Quiz} /></Route>
         <Route path="/u/:slug" component={PublicPortfolio} />
