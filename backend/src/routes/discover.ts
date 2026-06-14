@@ -86,28 +86,50 @@ router.post("/swipe", async (req: any, res) => {
         res.status(500).json({ error: "Failed to process swipe" });
     }
 });
-// 💖 3. GET: Fetch Mutual Matches
+// 💖 3. GET: Fetch Mutual Matches (Crash-Proof Drizzle Version)
 router.get("/matches", async (req: any, res) => {
     try {
-        const userId = req.user?.id || 1; // Tumhara auth middleware jaisa hai
+        // Fallback to 1 for testing if token is missing
+        const userId = req.user?.id || 1;
 
-        // Fetch those users where there is a mutual 'like'
-        const myMatchesResult = await db.execute(sql`
-            SELECT u.id, u.name, u.avatar, u.bio
-            FROM users u
-            JOIN swipes s1 ON u.id = s1.swiped_on_id
-            JOIN swipes s2 ON u.id = s2.swiper_id
-            WHERE s1.swiper_id = ${userId} AND s1.action = 'like'
-            AND s2.swiped_on_id = ${userId} AND s2.action = 'like'
-        `);
+        // 1. Jinhe is user ne 'like' kiya hai unki list nikalo
+        const myLikes = await db.select().from(swipes).where(and(eq(swipes.swiperId, userId), eq(swipes.action, 'like')));
+        const myLikedIds = myLikes.map(s => s.swipedOnId);
 
-        // Neon DB se mostly .rows mein data aata hai
-        const myMatches = myMatchesResult.rows || myMatchesResult;
+        if (myLikedIds.length === 0) {
+            return res.json([]); // Agar kisi ko like nahi kiya, toh 0 matches
+        }
 
-        res.json(myMatches);
+        // 2. Jinhone is user ko 'like' kiya hai AND jo myLikedIds mein hain (Mutual)
+        const mutualSwipes = await db.select().from(swipes).where(and(
+            eq(swipes.swipedOnId, userId),
+            eq(swipes.action, 'like'),
+            notInArray(swipes.swiperId, [0]) // Dummy condition to prevent empty array error, we will filter below
+        ));
+        
+        // Manual filter for safety
+        const mutualMatchIds = mutualSwipes.filter(s => myLikedIds.includes(s.swiperId)).map(s => s.swiperId);
+
+        if (mutualMatchIds.length === 0) {
+            return res.json([]); // Mutual match nahi mila
+        }
+
+        // 3. Un mutual matches ki profile details nikal lo
+        const myMatches = await db.select({
+            id: usersTable.id,
+            name: usersTable.name,
+            avatar: usersTable.avatar,
+            bio: usersTable.bio
+        }).from(usersTable);
+        
+        // Filter those who are in mutual matches
+        const finalMatches = myMatches.filter(user => mutualMatchIds.includes(user.id));
+
+        res.json(finalMatches);
     } catch (error) {
         console.error("Error fetching matches:", error);
         res.status(500).json({ error: "Failed to fetch matches" });
     }
 });
+
 export default router;

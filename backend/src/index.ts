@@ -9,6 +9,7 @@ import sessionsRouter from "./routes/sessions.js";
 import healthRouter from "./routes/health.js";
 import skillsRouter from "./routes/skills.js";
 import gamificationRouter from "./routes/gamification.js";
+import chatRouter from "./routes/chat.js"; // Import add karo
 import aiRouter from "./routes/ai.js";
 import usersRouter from "./routes/users.js";
 import matchingRouter from "./routes/matching.js";
@@ -42,6 +43,7 @@ app.use("/api/matching", matchingRouter);
 app.use("/api/ratings", ratingsRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/wallet", walletRouter);
+app.use("/api/chat", chatRouter); // Routes ke beech mein ye line add karo
 app.use("/api/verification", verificationRouter);
 app.use("/api/quiz", quizRouter);
 app.use("/api/platform", platformRouter);

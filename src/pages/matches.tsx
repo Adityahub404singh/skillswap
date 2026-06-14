@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Search, MoreVertical, Heart, MessageCircle } from "lucide-react";
-import { Link } from "wouter"; // 🔥 Link already imported tha
+import { Link } from "wouter";
 
 // Purane Chats ke liye Dummy Data rehne dete hain (abhi ke liye demo ke liye mast hai)
 const MESSAGES = [
@@ -17,15 +17,23 @@ export default function Matches() {
   const [newMatches, setNewMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 Real matches database se fetch karna
+  // 🔥 Real matches database se fetch karna (Crash-Proof)
   useEffect(() => {
     const fetchMatches = async () => {
       try {
         const response = await fetch("http://localhost:5000/api/discover/matches");
         const data = await response.json();
-        setNewMatches(data);
+        
+        // 🛡️ CRASH PREVENTION: Check if data is actually an array
+        if (Array.isArray(data)) {
+          setNewMatches(data);
+        } else {
+          console.error("Backend sent an error instead of array:", data);
+          setNewMatches([]);
+        }
       } catch (error) {
         console.error("Error fetching matches:", error);
+        setNewMatches([]); // Error aaye tab bhi empty array set karo
       } finally {
         setLoading(false);
       }
@@ -90,7 +98,6 @@ export default function Matches() {
           
           <div className="flex flex-col">
             {MESSAGES.map((msg) => (
-              /* 🔥 Yahan Link add kiya hai taaki click karke seedha chat page khule */
               <Link key={msg.id} href={`/chat/${msg.id}`}>
                 <div className="flex items-center gap-3 p-4 hover:bg-slate-50 cursor-pointer border-b border-slate-50 transition-colors">
                   <img src={msg.image} alt={msg.name} className="w-14 h-14 rounded-full object-cover" />

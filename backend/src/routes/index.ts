@@ -24,6 +24,7 @@ router.use("/wallet", walletRouter);
 router.use("/ratings", ratingsRouter);
 router.use("/ai", aiRouter);
 router.use("/admin", adminRouter);
+
 router.use("/chat", chatRouter);
 router.use("/gamification", gamificationRouter);
 router.use("/payment", paymentRouter);

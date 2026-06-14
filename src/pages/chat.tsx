@@ -13,7 +13,7 @@ export default function Chat() {
 
   const fetchMessages = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/chat/${otherUserId}`);
+    const res = await fetch(`http://localhost:5000/api/chat/${otherUserId}`);
       const data = await res.json();
       setMessages(data);
     } catch (error) {

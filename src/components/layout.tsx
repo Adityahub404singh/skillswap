@@ -5,10 +5,11 @@ import { useAuthStore } from "@/store/auth";
 import { useGetMe, useGetWallet } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X,Heart, Star, MessageSquare, Sparkles, Bell, Zap, Trophy, Flame } from "lucide-react";
+import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X,Heart, Star, MessageSquare, Sparkles, Bell, Zap, Trophy, Flame, } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MessageCircle } from "lucide-react";
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
@@ -83,6 +84,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/explore", label: "Explore", icon: Compass },
     { href: "/discover", label: "Discover", icon: Heart }, // 🔥 Ye line add karni hai
     { href: "/sessions", label: "Sessions", icon: BookOpen },
+    { href: "/matches", label: "Chats", icon: MessageCircle },
     { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
     { href: "/flash-board", label: "Doubts", icon: Zap },
     { href: "/leaderboard", label: "Rank", icon: Trophy },
@@ -322,6 +324,7 @@ export function Layout({ children }: { children: ReactNode }) {
               { href: "/sessions", label: "Sessions", icon: BookOpen },
               { href: "/flash-board", label: "Doubts", icon: Zap },
               { href: "/leaderboard", label: "Rank", icon: Trophy },
+              { href: "/matches", label: "Chats", icon: MessageCircle },
               { href: "/profile", label: "Profile", icon: User },
             ].map((link: any) => {
               const Icon = link.icon;
