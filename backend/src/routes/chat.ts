@@ -21,7 +21,24 @@ router.post(["/", ""], async (req: any, res) => {
         res.status(500).json({ error: "Failed to send message" });
     }
 });
-
+// Add this inside backend/src/index.ts ke andar, baaki routes ke neeche:
+router.get("/conversations", async (req: any, res) => {
+    try {
+        const userId = req.user?.id || 1;
+        // Fetch users who have chatted with me
+        const convos = await db.execute(sql`
+            SELECT DISTINCT u.id, u.name, u.avatar, m.content as lastMessage, m.created_at
+            FROM users u
+            JOIN messages m ON (u.id = m.sender_id OR u.id = m.receiver_id)
+            WHERE (m.sender_id = ${userId} OR m.receiver_id = ${userId})
+            AND u.id != ${userId}
+            ORDER BY m.created_at DESC
+        `);
+        res.json(convos.rows || convos);
+    } catch (e) {
+        res.status(500).json({ error: "Failed to load chats" });
+    }
+});
 // 💬 GET: Puraani Chat History nikaalo
 router.get("/:otherUserId", async (req: any, res) => {
     try {
@@ -41,5 +58,6 @@ router.get("/:otherUserId", async (req: any, res) => {
         res.status(500).json({ error: "Failed to fetch messages" });
     }
 });
+
 
 export default router;
