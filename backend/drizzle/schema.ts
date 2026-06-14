@@ -79,3 +79,19 @@ export const users = pgTable("users", {
 }, (table) => [
 	unique("users_email_unique").on(table.email),
 ]);
+export const swipes = pgTable("swipes", {
+    id: serial().primaryKey().notNull(),
+    swiperId: integer("swiper_id").notNull(), // Jisne swipe kiya
+    swipedOnId: integer("swiped_on_id").notNull(), // Jisko swipe kiya
+    action: text().notNull(), // 'like' ya 'pass'
+    createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+});
+
+export const messages = pgTable("messages", {
+    id: serial().primaryKey().notNull(),
+    senderId: integer("sender_id").notNull(),
+    receiverId: integer("receiver_id").notNull(),
+    content: text().notNull(),
+    isRead: integer("is_read").default(0),
+    createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+});

@@ -11,6 +11,7 @@ export const usersTable = pgTable("users", {
   isPhoneVerified: boolean("is_phone_verified").default(false),
   bio:                text("bio"),
   avatar:             text("avatar"),
+  linkedinUrl: text("linkedin_url"),
   skillsTeach:        text("skills_teach"),
   skillsLearn:        text("skills_learn"),
   credits:            integer("credits").default(50),

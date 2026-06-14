@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, real, varchar } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, serial, integer, timestamp, real, varchar } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 export const sessionsTable = pgTable("sessions", {
@@ -26,6 +26,12 @@ export const sessionsTable = pgTable("sessions", {
   learnerReview: text("learner_review"),
   sessionOtp: text("session_otp"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // 🔥 Ye 4 columns database mein pehle se the, par code mein missing the. Inhe add kar diya!
+  mentorConfirmed: integer("mentor_confirmed").default(0),
+  studentConfirmed: integer("student_confirmed").default(0),
+  flagged: integer("flagged").default(0),
+  flagReason: text("flag_reason"),
 });
 
 export const insertSessionSchema = z.object({

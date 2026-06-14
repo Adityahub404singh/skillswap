@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/auth";
 import { useGetMe, useGetWallet } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X, Star, MessageSquare, Sparkles, Bell, Zap, Trophy, Flame } from "lucide-react";
+import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X,Heart, Star, MessageSquare, Sparkles, Bell, Zap, Trophy, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,6 +81,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/discover", label: "Discover", icon: Heart }, // 🔥 Ye line add karni hai
     { href: "/sessions", label: "Sessions", icon: BookOpen },
     { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
     { href: "/flash-board", label: "Doubts", icon: Zap },

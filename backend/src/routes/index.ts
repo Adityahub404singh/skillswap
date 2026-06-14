@@ -9,6 +9,7 @@ import walletRouter from "./wallet.js";
 import ratingsRouter from "./ratings.js";
 import aiRouter from "./ai.js";
 import adminRouter from "./admin.js";
+import chatRouter from "./chat.js";
 import gamificationRouter from "./gamification.js";
 import paymentRouter from "./payment.js";
 
@@ -23,6 +24,7 @@ router.use("/wallet", walletRouter);
 router.use("/ratings", ratingsRouter);
 router.use("/ai", aiRouter);
 router.use("/admin", adminRouter);
+router.use("/chat", chatRouter);
 router.use("/gamification", gamificationRouter);
 router.use("/payment", paymentRouter);
 export default router;

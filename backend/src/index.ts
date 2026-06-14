@@ -1,6 +1,7 @@
 ﻿import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import discoverRouter from "./routes/discover.js"
 import authRouter from "./routes/auth.js";
 import adminRouter from "./routes/admin.js";
 import paymentRouter from "./routes/payment.js";
@@ -35,6 +36,7 @@ app.use("/api/sessions", sessionsRouter);
 app.use("/api/skills", skillsRouter);
 app.use("/api/gamification", gamificationRouter);
 app.use("/api/ai", aiRouter);
+app.use("/api/discover", discoverRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/matching", matchingRouter);
 app.use("/api/ratings", ratingsRouter);

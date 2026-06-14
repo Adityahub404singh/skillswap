@@ -8,7 +8,8 @@ import { useAuthStore } from "@/store/auth";
 import { useState, useEffect } from "react";
 import LoadingScreen from "@/components/loading-screen";
 import NotFound from "@/pages/not-found";
-
+import Matches from "./pages/matches";
+import Chat from "./pages/chat";    
 import PublicPortfolio from "@/pages/public-portfolio";
 import NotificationsPage from "@/pages/notifications";
 import Landing from "@/pages/landing";
@@ -76,13 +77,14 @@ function Router() {
         <Route path="/flash-board"><ProtectedRoute component={FlashBoard} /></Route>
         <Route path="/ai"><ProtectedRoute component={AIChat} /></Route>
         <Route path="/admin" component={AdminPanel} />
+        <Route path="/matches" component={Matches} />
         <Route path="/profile"><ProtectedRoute component={Profile} /></Route>
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/skills/:skill" component={SkillPage} />
         <Route path="/leaderboard" component={Leaderboard} />
         <Route path="/premium" component={Subscription} />
-        
+        <Route path="/chat/:id" component={Chat} />
         <Route path="/verify-email" component={VerifyEmail} />
          <Route path="/discover" component={Discover} />
         <Route path="/terms" component={Terms} />

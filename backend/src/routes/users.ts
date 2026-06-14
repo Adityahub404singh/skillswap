@@ -131,6 +131,7 @@ const UpdateSchema = z.object({
   bio:             z.string().max(500).optional(),
   location:        z.string().max(100).optional(),
   skillsTeach:     z.array(z.string()).optional(),
+  linkedinUrl: z.string().optional(),
   skillsLearn:     z.array(z.string()).optional(),
   pricePerHour:    z.number().min(0).optional(),
   portfolioPublic: z.boolean().optional(),
