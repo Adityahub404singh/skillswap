@@ -83,11 +83,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/explore", label: "Explore", icon: Compass },
-    { href: "/discover", label: "Discover", icon: Heart }, // 🔥 Ye line add karni hai
+    { href: "/discover", label: "Discover", icon: Heart },
     { href: "/sessions", label: "Sessions", icon: BookOpen },
     { href: "/matches", label: "Chats", icon: MessageCircle },
     { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
-{ href: "/discover", label: "Discover", icon: Heart },
     { href: "/flash-board", label: "Doubts", icon: Zap },
     { href: "/leaderboard", label: "Rank", icon: Trophy },
     { href: "/ai", label: "SkillAI", icon: Bot }
@@ -119,29 +118,41 @@ export function Layout({ children }: { children: ReactNode }) {
                 <span className="block font-display font-bold text-xl sm:text-2xl tracking-tight text-foreground">Skill<span className="text-primary">Swap</span></span>
               </Link>
             </div>
-            {token ? (
-              <nav className="hidden lg:flex items-center space-x-2">
-                {navLinks.map((link: any) => {
-                  const Icon = link.icon;
-                  const isActive = location === link.href;
-                  if (link.isSpecial) {
-                    return (
-                      <Link key={link.href} href={link.href} className="mx-2">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 hover:bg-orange-500 hover:text-white transition-all cursor-pointer font-bold text-sm">
-                           <Flame className="w-4 h-4" /> {link.label}
-                        </div>
-                      </Link>
-                    )
-                  }
-                  return (
-                    <Link key={link.href} href={link.href}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
-                      <Icon className="w-4 h-4" />{link.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            ) : null}
+           {token ? (
+  <nav className="hidden lg:flex items-center space-x-1">
+    {navLinks.map((link: any) => {
+      const Icon = link.icon;
+      const isActive = location === link.href;
+
+      // Special link (e.g., "Earn")
+      if (link.isSpecial) {
+        return (
+          <Link key={link.href} href={link.href} className="mx-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 hover:bg-orange-500 hover:text-white transition-all cursor-pointer font-bold text-sm">
+               <Flame className="w-4 h-4" /> {link.label}
+            </div>
+          </Link>
+        );
+      }
+
+      // Regular nav links
+      return (
+        <Link 
+          key={link.href} 
+          href={link.href}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
+            isActive 
+              ? "bg-primary/10 text-primary shadow-sm" 
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          }`}
+        >
+          <Icon className="w-4 h-4" />
+          {link.label}
+        </Link>
+      );
+    })}
+  </nav>
+) : null}
             <div className="flex items-center gap-2 sm:gap-4">
               {token && user ? (
                 <>
@@ -316,22 +327,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
             {/* 🚨 MOBILE BOTTOM NAV - SWIPEABLE & SOLID */}
       {token && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-background border-t border-border shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
-          <style dangerouslySetInnerHTML={{__html: `.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}} />
-          <nav className="flex items-center gap-1 h-[72px] px-2 overflow-x-auto hide-scrollbar w-full">
-            {[
-              { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-              { href: "/explore", label: "Explore", icon: Compass },
-              { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
-              { href: "/sessions", label: "Sessions", icon: BookOpen },
-              { href: "/flash-board", label: "Doubts", icon: Zap },
-              { href: "/leaderboard", label: "Rank", icon: Trophy },
-              { href: "/matches", label: "Chats", icon: MessageCircle },
-              { href: "/profile", label: "Profile", icon: User },
-            ].map((link: any) => {
-              const Icon = link.icon;
-              const isActive = location === link.href;
-              
+  <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-background border-t border-border shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
+    <style dangerouslySetInnerHTML={{__html: `.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}} />
+    <nav className="flex items-center gap-1 h-[72px] px-2 overflow-x-auto hide-scrollbar w-full">
+      {navLinks.map((link: any) => {
+        const Icon = link.icon;
+        const isActive = location === link.href;
               if (link.isSpecial) {
                 return (
                   <Link key={link.href} href={link.href} className="flex flex-col items-center justify-center min-w-[5rem] flex-shrink-0 h-full">
