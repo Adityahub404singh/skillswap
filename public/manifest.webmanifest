@@ -1,4 +1,5 @@
 ﻿{
+  "id": "com.skillswap.app",
   "name": "SkillSwap",
   "short_name": "SkillSwap",
   "description": "AI-powered peer-to-peer skill exchange platform",
