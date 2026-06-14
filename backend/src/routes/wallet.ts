@@ -45,7 +45,7 @@ router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 3. SECURE WITHDRAWAL LOGIC (7-Day Bypass + 20% Platform Fee)
+// 3. SECURE WITHDRAWAL LOGIC (7-Day Lock Active + 15% Platform Fee)
 router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
     try {
         const { amount, upiId } = req.body;
@@ -60,7 +60,7 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
         const earnedTx = await db.select().from(transactionsTable)
             .where(sql`${transactionsTable.userId} = ${req.userId} AND ${transactionsTable.type} = 'earned'`);
         
-        // 🚨 FRAUD FIX 2: 7-Day Maturity Lock calculation
+        // 🔒 PRODUCTION MODE ON: 7-Day Maturity Lock calculation active
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
         const now = Date.now();
 
@@ -68,7 +68,7 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
             .filter(tx => (now - new Date(tx.createdAt).getTime()) >= SEVEN_DAYS_MS)
             .reduce((sum, tx) => sum + tx.amount, 0);
         
-        if (false) { // 🚨 BYPASSED FOR ADMIN TESTING (Change to true later)
+        if (maturedEarned < amount) {
             return res.status(403).json({ 
                 error: `Credits take 7 days to clear. Your matured withdrawable balance is only ${maturedEarned} cr.` 
             });
@@ -77,23 +77,22 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
         // Deduct full amount from user wallet
         await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${amount}` }).where(eq(usersTable.id, req.userId!));
         
-        // 💸 20% WITHDRAWAL CUT LOGIC
-        const platformCut = Math.round(amount * 0.20);
+        // 💸 15% WITHDRAWAL CUT LOGIC (Your Platform Profit)
+        const platformCut = Math.round(amount * 0.15);
         const finalPayout = amount - platformCut;
 
-        // Save transaction with 20% fee details
+        // Save transaction with 15% fee details
         await db.insert(transactionsTable).values({
             userId: req.userId!, 
             type: "withdrawal_pending", 
             amount: -amount,
-            description: `Payout: Rs ${finalPayout} (20% fee: ${platformCut} cr). UPI: ${upiId}`
+            description: `Payout: Rs ${finalPayout} (15% fee: ${platformCut} cr). UPI: ${upiId}`
         });
 
-        res.json({ success: true, message: `Withdrawal requested! 20% fee applied. Rs ${finalPayout} will be credited to your UPI within 24-48 hours.` });
+        res.json({ success: true, message: `Withdrawal requested! 15% fee applied. Rs ${finalPayout} will be credited to your UPI within 24-48 hours.` });
     } catch (err: any) {
         res.status(500).json({ error: "Server error. Please try again." });
     }
 });
 
 export default router;
-

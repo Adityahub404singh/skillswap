@@ -205,7 +205,7 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     await db.update(sessionsTable).set({ status: "completed", completedAt: new Date(), actualDuration: Math.round(elapsedMins) }).where(eq(sessionsTable.id, sessionId));
 
     const isMicro = session.sessionType !== "standard" && session.sessionType !== "extended";
-    // 🛡️ FRAUD FIX & PLATFORM PROFIT: 15% Commission
+    // 🛡️ 15% Commission
     const platformFeePercent = 0.15;
     const platformFee = Math.round(session.creditsAmount * platformFeePercent);
     const mentorEarnings = session.creditsAmount - platformFee;
@@ -264,13 +264,11 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// 🚨 FRAUD FIX: STRICT DISPUTE ROUTE (Requires Evidence/Reason)
 router.post("/:id/dispute", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
     const reason = req.body.reason?.trim();
 
-    // Check for minimum 20 characters
     if (!reason || reason.length < 20) {
         return res.status(400).json({ 
             error: "Dispute rejected. Please provide a detailed reason (at least 20 characters) explaining what went wrong." 
@@ -334,7 +332,6 @@ router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ⭐ RATE MENTOR ROUTE
 router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
@@ -350,27 +347,22 @@ router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
     if (session.status !== "completed") return res.status(400).json({ error: "Can only rate completed sessions" });
     if (session.teacherRating) return res.status(400).json({ error: "You have already rated this session" });
 
-    // 1. Save the rating & review in the sessions table
     await db.update(sessionsTable)
       .set({ teacherRating: rating, teacherReview: review })
       .where(eq(sessionsTable.id, sessionId));
 
-    // 2. Recalculate the Mentor's Average Rating
     const allMentorSessions = await db.select({ rating: sessionsTable.teacherRating })
       .from(sessionsTable)
       .where(eq(sessionsTable.mentorId, session.mentorId));
 
-    // Filter out sessions that haven't been rated yet
     const ratedSessions = allMentorSessions.filter(s => s.rating !== null && s.rating > 0);
     
     let newAvgRating = rating;
     if (ratedSessions.length > 0) {
       const sum = ratedSessions.reduce((acc, curr) => acc + (curr.rating || 0), 0);
-      // Ensure we round to 1 decimal place (e.g., 4.8)
       newAvgRating = Math.round((sum / ratedSessions.length) * 10) / 10;
     }
 
-    // 3. Update the Mentor's profile
     await db.update(usersTable)
       .set({ averageRating: newAvgRating })
       .where(eq(usersTable.id, session.mentorId));
@@ -382,5 +374,3 @@ router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
-
-
