@@ -7,6 +7,7 @@ import { useApiOptions } from "@/lib/api-utils";
 import { useQuery } from "@tanstack/react-query";
 import { LogOut, Wallet, BookOpen, Compass, LayoutDashboard, User, Bot, Send, X,Heart, Star, MessageSquare, Sparkles, Bell, Zap, Trophy, Flame, } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageCircle } from "lucide-react";
@@ -86,6 +87,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/sessions", label: "Sessions", icon: BookOpen },
     { href: "/matches", label: "Chats", icon: MessageCircle },
     { href: "/quiz", label: "Earn", icon: Flame, isSpecial: true },
+{ href: "/discover", label: "Discover", icon: Heart },
     { href: "/flash-board", label: "Doubts", icon: Zap },
     { href: "/leaderboard", label: "Rank", icon: Trophy },
     { href: "/ai", label: "SkillAI", icon: Bot }
