@@ -16,5 +16,13 @@
       "source": "/((?!assets/|sitemap.xml|robots.txt|favicon.svg|logo.svg|opengraph.jpg|ads.txt|google876107b7140265e0.html).*)",
       "destination": "/index.html"
     }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)\\.png",
+      "headers": [
+        { "key": "Content-Type", "value": "image/png" }
+      ]
+    }
   ]
 }
