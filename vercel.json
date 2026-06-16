@@ -6,11 +6,19 @@
       "destination": "https://skillswap-b59w.onrender.com/api/$1"
     },
     {
-      "source": "/(sitemap.*\\.xml|robots\\.txt|ads\\.txt|google876107b7140265e0\\.html)",
-      "destination": "/$1"
+      "source": "/sitemap:path*\\.xml",
+      "destination": "/sitemap:path*.xml"
     },
     {
-      "source": "/((?!assets/|sitemap.*\\.xml|robots\\.txt|favicon\\.svg|logo\\.svg|opengraph\\.jpg|ads\\.txt|google876107b7140265e0\\.html).*)",
+      "source": "/robots.txt",
+      "destination": "/robots.txt"
+    },
+    {
+      "source": "/google876107b7140265e0.html",
+      "destination": "/google876107b7140265e0.html"
+    },
+    {
+      "source": "/((?!assets/|favicon\\.svg|logo\\.svg|opengraph\\.jpg|ads\\.txt).*)",
       "destination": "/index.html"
     }
   ],
