@@ -10,7 +10,7 @@
       "destination": "/$1"
     },
     {
-      "source": "/((?!assets/|sitemap|robots\\.txt|favicon\\.svg|logo\\.svg|opengraph\\.jpg|ads\\.txt|google876107b7140265e0\\.html).*)",
+      "source": "/((?!assets/|sitemap.*\\.xml|robots\\.txt|favicon\\.svg|logo\\.svg|opengraph\\.jpg|ads\\.txt|google876107b7140265e0\\.html).*)",
       "destination": "/index.html"
     }
   ],
