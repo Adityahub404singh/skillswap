@@ -1,21 +1,21 @@
 import { Router } from "express";
-import { db } from "../db.js"; 
+import { db } from "../db.js";
 import { usersTable } from "../schema/users.js";
-import { swipes } from "../schema/swipes.js"; 
-import { eq, and, notInArray, sql } from "drizzle-orm";
+import { swipesTable } from "../schema/swipes.js"; // ✅ Fixed: removed duplicate import
+import { eq, and, notInArray } from "drizzle-orm";
 
 const router = Router();
 
 // 🎯 1. GET: Fetch Profiles for Swiping (Discover Page)
 router.get("/profiles", async (req: any, res) => {
     try {
-        const userId = req.user?.id || 1; 
+        const userId = req.user?.id || 1;
 
         // 1. Get already swiped profiles
         const previousSwipes = await db
-            .select({ swipedOnId: swipes.swipedOnId })
-            .from(swipes)
-            .where(eq(swipes.swiperId, userId));
+            .select({ swipedOnId: swipesTable.swipedOnId })
+            .from(swipesTable)
+            .where(eq(swipesTable.swiperId, userId));
 
         const swipedIds = previousSwipes.map((s) => s.swipedOnId);
         swipedIds.push(userId); // Exclude self
@@ -27,7 +27,7 @@ router.get("/profiles", async (req: any, res) => {
                 name: usersTable.name,
                 avatar: usersTable.avatar,
                 bio: usersTable.bio,
-                skillsTeach: usersTable.skillsTeach,
+                skillsTeach: usersTable.skillsTeachV2,
                 sessionsCompleted: usersTable.sessionsCompleted,
                 averageRating: usersTable.averageRating,
                 linkedinUrl: usersTable.linkedinUrl,
@@ -48,13 +48,12 @@ router.get("/profiles", async (req: any, res) => {
                         parsedSkills = [user.skillsTeach];
                     }
                 } catch (e) {
-                    // If JSON fails, treat as comma-separated string
                     parsedSkills = user.skillsTeach.split(',').map((s: string) => s.trim()).filter(Boolean);
                 }
             }
             return {
                 ...user,
-                skillsTeach: parsedSkills // Guaranteed to be an array now
+                skillsTeach: parsedSkills
             };
         });
 
@@ -69,9 +68,10 @@ router.get("/profiles", async (req: any, res) => {
 router.post("/swipe", async (req: any, res) => {
     try {
         const userId = req.user?.id || 1;
-        const { swipedOnId, action } = req.body; 
+        const { swipedOnId, action } = req.body;
 
-        await db.insert(swipes).values({
+        // ✅ Fixed: swipesTable now has swiperId, swipedOnId, action columns
+        await db.insert(swipesTable).values({
             swiperId: userId,
             swipedOnId: swipedOnId,
             action: action,
@@ -80,12 +80,12 @@ router.post("/swipe", async (req: any, res) => {
         if (action === "like") {
             const reverseSwipe = await db
                 .select()
-                .from(swipes)
+                .from(swipesTable)
                 .where(
                     and(
-                        eq(swipes.swiperId, swipedOnId),
-                        eq(swipes.swipedOnId, userId),
-                        eq(swipes.action, "like")
+                        eq(swipesTable.swiperId, swipedOnId),
+                        eq(swipesTable.swipedOnId, userId),
+                        eq(swipesTable.action, "like") // ✅ Fixed: action column now exists
                     )
                 );
 
@@ -106,29 +106,52 @@ router.get("/matches", async (req: any, res) => {
     try {
         const userId = req.user?.id || 1;
 
-        const myLikes = await db.select().from(swipes).where(and(eq(swipes.swiperId, userId), eq(swipes.action, 'like')));
+        // Get all users that I liked
+        const myLikes = await db
+            .select()
+            .from(swipesTable)
+            .where(
+                and(
+                    eq(swipesTable.swiperId, userId),
+                    eq(swipesTable.action, "like") // ✅ Fixed: action column now exists
+                )
+            );
+
         const myLikedIds = myLikes.map(s => s.swipedOnId);
 
         if (myLikedIds.length === 0) return res.json([]);
 
-        const mutualSwipes = await db.select().from(swipes).where(and(
-            eq(swipes.swipedOnId, userId),
-            eq(swipes.action, 'like'),
-            notInArray(swipes.swiperId, [0]) 
-        ));
-        
-        const mutualMatchIds = mutualSwipes.filter(s => myLikedIds.includes(s.swiperId)).map(s => s.swiperId);
+        // Get all users who liked me back
+        const theyLikedMe = await db
+            .select()
+            .from(swipesTable)
+            .where(
+                and(
+                    eq(swipesTable.swipedOnId, userId),
+                    eq(swipesTable.action, "like") // ✅ Fixed: action column now exists
+                )
+            );
+
+        // Find mutual matches: people I liked who also liked me
+        const mutualMatchIds = theyLikedMe
+            .filter(s => myLikedIds.includes(s.swiperId))
+            .map(s => s.swiperId);
 
         if (mutualMatchIds.length === 0) return res.json([]);
 
-        const myMatches = await db.select({
-            id: usersTable.id,
-            name: usersTable.name,
-            avatar: usersTable.avatar,
-            bio: usersTable.bio
-        }).from(usersTable);
-        
-        const finalMatches = myMatches.filter(user => mutualMatchIds.includes(user.id));
+        // Fetch user details for all mutual matches
+        const matchedUsers = await db
+            .select({
+                id: usersTable.id,
+                name: usersTable.name,
+                avatar: usersTable.avatar,
+                bio: usersTable.bio,
+            })
+            .from(usersTable)
+            .where(notInArray(usersTable.id, mutualMatchIds.map(id => id))); // ✅ Cleaner query
+
+        // Filter to only mutual match IDs
+        const finalMatches = matchedUsers.filter(user => mutualMatchIds.includes(user.id));
 
         res.json(finalMatches);
     } catch (error) {

@@ -1,7 +1,7 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, CheckCircle, Clock, Shield, Zap, ArrowRight, User, BookOpen, Sparkles } from "lucide-react";
+import { Star, CheckCircle, Shield, Zap, ArrowRight, User, BookOpen, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -11,11 +11,12 @@ export default function SkillPage() {
   // Convert slug back to readable name (e.g., "graphic-design" -> "Graphic Design")
   const skillName = skillSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   
-  const [mentors, setMentors] = useState<any[]>([]);
+  // 1. MUST INITIALIZE AS EMPTY ARRAY
+  const [mentors, setMentors] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 🚀 FIX: Using relative path to utilize Vite proxy and avoid API_BASE_URL bugs
+    setLoading(true);
     fetch("/api/users")
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch");
@@ -23,24 +24,41 @@ export default function SkillPage() {
       })
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          // 🛡️ SUPER SEARCH FILTER: Checking skills, bio, and headline safely
+          
+          const targetSkill = skillName.toLowerCase().trim();
+          const targetSlug = skillSlug.toLowerCase().trim().replace(/-/g, ' ');
+
           const matched = data.filter(u => {
-            // Safely convert skills to a single string whether it's an array or a string
-            const skillsStr = Array.isArray(u.skillsTeach) ? u.skillsTeach.join(" ") : (u.skillsTeach || "");
+            let teachSkills: string[] = [];
+
+            // 2. Safely parse skillsTeach (handles stringified JSON)
+            if (Array.isArray(u.skillsTeach)) {
+              teachSkills = u.skillsTeach;
+            } else if (typeof u.skillsTeach === "string") {
+              try {
+                const parsed = JSON.parse(u.skillsTeach);
+                teachSkills = Array.isArray(parsed) ? parsed : [u.skillsTeach];
+              } catch {
+                teachSkills = [u.skillsTeach];
+              }
+            }
+
+            // 3. Exact Match Check (Case Insensitive)
+            const exactMatch = teachSkills.some((s) => {
+               if (typeof s !== "string") return false;
+               const currentSkill = s.toLowerCase().trim();
+               return currentSkill === targetSkill || currentSkill === targetSlug;
+            });
+
+            // Fallback Match (Bio/Headline)
             const bioStr = u.bio || "";
             const headlineStr = u.headline || "";
-            
-            // Combine everything into one giant lowercased string for easy searching
-            const superString = `${skillsStr} ${bioStr} ${headlineStr}`.toLowerCase();
-            
-            // Search targets
-            const target1 = skillName.toLowerCase();
-            const target2 = skillSlug.toLowerCase().replace(/-/g, ' ');
+            const looseMatch = `${bioStr} ${headlineStr}`.toLowerCase().includes(targetSkill) ||
+                               `${bioStr} ${headlineStr}`.toLowerCase().includes(targetSlug);
 
-            // If the user's profile contains the skill anywhere, they are a mentor for it!
-            return superString.includes(target1) || superString.includes(target2);
+            return exactMatch || looseMatch;
           });
-          
+
           setMentors(matched);
         } else {
           setMentors([]);
@@ -48,7 +66,7 @@ export default function SkillPage() {
         setLoading(false);
       })
       .catch(err => {
-        console.error("Error loading real mentors:", err);
+        console.error("Error loading mentors:", err);
         setMentors([]);
         setLoading(false);
       });
@@ -67,7 +85,7 @@ export default function SkillPage() {
   return (
     <div className="min-h-screen pb-20">
       
-      {/* 🚀 Premium Hero Header */}
+      {/* Premium Hero Header */}
       <div className="bg-gradient-to-b from-indigo-950 via-primary/90 to-background pt-20 pb-32 px-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="max-w-4xl mx-auto text-center relative z-10">
@@ -92,7 +110,7 @@ export default function SkillPage() {
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-20 relative z-20 space-y-16">
         
-        {/* 📚 Why Learn Section */}
+        {/* Why Learn Section */}
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="grid md:grid-cols-3 gap-6">
           {[
             { title: "Career Growth", desc: `Adding ${skillName} to your resume opens up premium opportunities globally.` },
@@ -109,7 +127,7 @@ export default function SkillPage() {
           ))}
         </motion.div>
 
-        {/* 👨‍🏫 Mentors Grid Section */}
+        {/* Mentors Grid Section */}
         <div id="mentors" className="pt-10">
           <div className="flex items-center justify-between mb-10">
             <div>
@@ -128,7 +146,7 @@ export default function SkillPage() {
               {[1,2,3].map(i => <Skeleton key={i} className="h-64 rounded-[2rem]" />)}
             </div>
           ) : mentors.length === 0 ? (
-            /* 🚀 THE STARTUP GROWTH HACK: EMPTY STATE */
+            /* Empty state if no mentors found */
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card-premium p-12 text-center bg-card border-2 border-dashed border-border/80 rounded-[3rem] shadow-sm">
               <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Sparkles className="w-12 h-12 text-primary" />
@@ -197,5 +215,3 @@ export default function SkillPage() {
     </div>
   );
 }
-
-

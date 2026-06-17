@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Brain, Zap, AlertTriangle, CheckCircle, Trophy, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/store/auth";
 import { API_BASE_URL } from "@/lib/api-utils";
 
-// 🦄 PREMIUM QUESTION POOL (Tech, Startups, AI, Coding, Design)
+// ?? PREMIUM QUESTION POOL (Tech, Startups, AI, Coding, Design)
 const ALL_QUESTIONS = [
   { q: "What does 'Unicorn' mean in the startup world?", options: ["A myth", "A company valued at $1B+", "A profitable company", "A tech monopoly"], ans: 1 },
   { q: "Which AI model is the brain behind ChatGPT?", options: ["Gemini", "Claude", "Transformer (GPT)", "Llama"], ans: 2 },
@@ -39,7 +39,7 @@ export default function Quiz() {
   const [dailyQuestions, setDailyQuestions] = useState<typeof ALL_QUESTIONS>([]);
 
   useEffect(() => {
-    // 🔀 Randomly pick 10 questions for today
+    // ?? Randomly pick 10 questions for today
     const shuffled = [...ALL_QUESTIONS].sort(() => 0.5 - Math.random());
     setDailyQuestions(shuffled.slice(0, 10));
     fetchStats();

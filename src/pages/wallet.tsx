@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useGetWallet, useGetTransactions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
@@ -134,7 +134,7 @@ export default function Wallet() {
                 <span className="text-xl font-medium text-white/70">credits</span>
               </div>
             )}
-            <p className="text-white/60 text-sm mb-6">≈ ₹{wallet?.balance ?? 0} withdrawal value • 1 cr = ₹1</p>
+            <p className="text-white/60 text-sm mb-6">� ?{wallet?.balance ?? 0} withdrawal value � 1 cr = ?1</p>
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => setShowWithdraw(true)} disabled={(wallet?.balance || 0) < 500} className="bg-white text-primary hover:bg-white/90 font-bold rounded-full h-10 px-5 shadow-lg">
                 <Send className="w-4 h-4 mr-2" /> Withdraw
@@ -166,7 +166,7 @@ export default function Wallet() {
           {[
             { icon: Gift, color: "text-green-500", bg: "bg-green-500/10 border-green-500/20", title: "Get Free Credits", desc: "200 credits on signup. Earn 50 more per referral." },
             { icon: TrendingUp, color: "text-primary", bg: "bg-primary/10 border-primary/20", title: "Earn by Teaching", desc: "Teach any skill and earn credits per session." },
-            { icon: Coins, color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/20", title: "Learn with Credits", desc: "Spend credits to book sessions. 1 credit = ₹1." }
+            { icon: Coins, color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/20", title: "Learn with Credits", desc: "Spend credits to book sessions. 1 credit = ?1." }
           ].map(c => (
             <div key={c.title} className={`p-4 rounded-xl border ${c.bg}`}>
               <div className={`w-8 h-8 rounded-lg bg-background flex items-center justify-center mb-3`}><c.icon className={`w-4 h-4 ${c.color}`} /></div>
@@ -177,15 +177,15 @@ export default function Wallet() {
         </div>
       </motion.div>
 
-      {/* 📜 PLATFORM GUIDELINES & FEES */}
+      {/* ?? PLATFORM GUIDELINES & FEES */}
       <motion.div variants={item} className="p-6 rounded-2xl bg-background border border-orange-500/20">
-        <h2 className="font-bold text-base mb-4 flex items-center gap-2 text-orange-600">📜 Platform Fees & Rules</h2>
+        <h2 className="font-bold text-base mb-4 flex items-center gap-2 text-orange-600">?? Platform Fees & Rules</h2>
         <div className="space-y-3">
             <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
                 <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="text-orange-600 text-xs font-bold">1</span></div>
                 <div>
                     <p className="font-bold text-sm">20% Withdrawal Fee</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">When you withdraw money to your bank account, a 20% platform processing fee is applied. (e.g., Withdraw 1000 cr, get ₹800).</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">When you withdraw money to your bank account, a 20% platform processing fee is applied. (e.g., Withdraw 1000 cr, get ?800).</p>
                 </div>
             </div>
             <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
@@ -214,7 +214,7 @@ export default function Wallet() {
           <div className="flex-1 bg-muted border border-border rounded-xl px-4 py-3 text-xs font-mono text-primary truncate">{referralLink}</div>
           <Button onClick={copyReferral} className="rounded-xl px-4 shrink-0">{copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}</Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">Share this link — when friends sign up, you both get credits!</p>
+        <p className="text-xs text-muted-foreground mt-2">Share this link � when friends sign up, you both get credits!</p>
       </motion.div>
 
       <motion.div variants={item} className="p-6 rounded-2xl bg-background border border-border">
@@ -240,7 +240,7 @@ export default function Wallet() {
                     </div>
                     <div>
                       <p className="font-semibold text-sm leading-tight">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(tx.createdAt), "MMM d, yyyy • h:mm a")}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(tx.createdAt), "MMM d, yyyy � h:mm a")}</p>
                     </div>
                   </div>
                   <span className={`font-black text-sm tabular-nums ${isBonus ? "text-primary" : isPositive ? "text-green-600" : "text-red-500"}`}>

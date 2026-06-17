@@ -1,4 +1,4 @@
-ï»¿import { motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { Check, Zap, Crown, Star, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -132,7 +132,7 @@ export default function Subscription() {
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
           className="mt-12 text-center text-sm text-muted-foreground">
-          <p>All plans include SSL security Â· No hidden fees Â· Cancel anytime</p>
+          <p>All plans include SSL security · No hidden fees · Cancel anytime</p>
           <p className="mt-2 flex items-center justify-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />
             10,000+ learners already on SkillSwap

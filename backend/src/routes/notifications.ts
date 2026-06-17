@@ -3,18 +3,8 @@ import { db } from "../db.js";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-import { pgTable, serial, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
-
-const notificationsTable = pgTable("notifications", {
-  id:        serial("id").primaryKey(),
-  userId:    integer("user_id").notNull(),
-  type:      varchar("type", { length: 30 }).notNull(),
-  title:     varchar("title", { length: 200 }).notNull(),
-  message:   text("message").notNull(),
-  isRead:    boolean("is_read").notNull().default(false),
-  actionUrl: varchar("action_url", { length: 300 }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+// 🔥 Duplicate table removed, schema imported
+import { notificationsTable } from "../schema/index.js";
 
 const router: IRouter = Router();
 
@@ -46,7 +36,6 @@ router.patch("/read-all", requireAuth, async (req: AuthRequest, res) => {
 // PATCH /api/notifications/:id/read
 router.patch("/:id/read", requireAuth, async (req: AuthRequest, res) => {
   try {
-    // FIX: Added 'as string' to resolve the TypeScript strict typing error
     const id = parseInt(req.params.id as string);
     await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, id));
     res.json({ success: true });

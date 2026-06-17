@@ -35,8 +35,8 @@ export default function Matches() {
       setLoading(true);
       try {
         const [mRes, cRes] = await Promise.all([
-          fetch("http://localhost:5000/api/discover/matches"),
-          fetch("http://localhost:5000/api/chat/conversations")
+          fetch("/api/discover/matches"),
+          fetch("/api/chat/conversations")
         ]);
         const mData = await mRes.json();
         const cData = await cRes.json();

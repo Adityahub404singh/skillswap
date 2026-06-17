@@ -1,3 +1,5 @@
+// backend/src/schema/users.ts
+
 import { pgTable, serial, integer, text, timestamp, real, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
@@ -5,15 +7,15 @@ export const usersTable = pgTable("users", {
   name:               text("name"),
   email:              text("email"),
   passwordHash:       text("password_hash"),
-  isEmailVerified: boolean("is_email_verified").default(false),
-  emailVerifyToken: text("email_verify_token"),
-  phoneVerifyToken: text("phone_verify_token"),
-  isPhoneVerified: boolean("is_phone_verified").default(false),
+  isEmailVerifiedStatus: boolean("is_email_verified_status").default(false),
+  emailVerifyToken:   text("email_verify_token"),
+  phoneVerifyToken:   text("phone_verify_token"),
+  isPhoneVerifiedStatus: boolean("is_phone_verified_status").default(false),
   bio:                text("bio"),
   avatar:             text("avatar"),
-  linkedinUrl: text("linkedin_url"),
-  skillsTeach:        text("skills_teach"),
-  skillsLearn:        text("skills_learn"),
+  linkedinUrl:        text("linkedin_url"),
+  skillsTeachV2:      jsonb("skills_teach_v2"),   
+  skillsLearnV2:      jsonb("skills_learn_v2"),   
   credits:            integer("credits").default(50),
   trustScore:         integer("trust_score").default(0),
   sessionsCompleted:  integer("sessions_completed").default(0),
@@ -24,14 +26,15 @@ export const usersTable = pgTable("users", {
   currentStreak:      integer("current_streak").default(0),
   longestStreak:      integer("longest_streak").default(0),
   lastActiveDate:     text("last_active_date"),
-  verifiedSkills:     jsonb("verified_skills"),
-  badges:             jsonb("badges"),
+  verifiedSkillsV2:   jsonb("verified_skills_v2"), 
+  badgesV2:           jsonb("badges_v2"),           
   location:           varchar("location", { length: 100 }),
   microSessionsCount: integer("micro_sessions_count").default(0),
-  portfolioPublic:    boolean("portfolio_public").default(true),
+  isPortfolioPublic:  boolean("is_portfolio_public").default(true), 
   seoSlug:            varchar("seo_slug", { length: 100 }),
-  isPremium:          boolean("is_premium").default(false),
+  isPremiumUser:      boolean("is_premium_user").default(false),    
   premiumExpiresAt:   timestamp("premium_expires_at"),
   notificationLastSent: timestamp("notification_last_sent"),
-  referredBy:         integer("referred_by")
+  referredBy:         integer("referred_by"),
+  earnedBalance:      integer("earned_balance").default(0),         
 });

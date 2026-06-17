@@ -20,7 +20,7 @@ export default function Chat() {
 
   const fetchMessages = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/chat/${otherUserId}`, {
+      const res = await fetch(`/api/chat/${otherUserId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -33,7 +33,7 @@ export default function Chat() {
   // Helper to get partner details (You can replace this if you have a specific /api/users/:id endpoint)
   const fetchPartnerDetails = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/discover/profiles", {
+      const res = await fetch("/api/discover/profiles", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -73,7 +73,7 @@ export default function Chat() {
     setInputText("");
 
     try {
-      await fetch("http://localhost:5000/api/chat", {
+      await fetch("/api/chat", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

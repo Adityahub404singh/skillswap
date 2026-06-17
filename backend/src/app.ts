@@ -18,28 +18,43 @@ import gamificationRouter from "./routes/gamification.js";
 const app = express();
 
 app.use(cors({ origin: process.env.FRONTEND_URL || "*", credentials: true }));
-app.use(express.json());
 
-const globalLimiter = rateLimit({ windowMs: 15*60*1000, max: 500, standardHeaders: true, legacyHeaders: false });
-const strictLimiter = rateLimit({ windowMs: 15*60*1000, max: 15 });
+// ✅ Single body parser registered ONCE, before any routes, with a proper limit.
+// This fixes the 413 "Payload Too Large" error that was happening because a
+// second express.json() (with no limit override) was registered earlier and
+// intercepting requests before they ever reached the 10mb version below.
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const strictLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15 });
 
 app.use(globalLimiter);
-app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
 
-app.use("/api/auth",          strictLimiter, authRouter);
-app.use("/api/users",         usersRouter);
-app.use("/api/sessions",      sessionsRouter);
-app.use("/api/wallet",        walletRouter);
-app.use("/api/skills",        skillsRouter);
+app.get("/health", (_req, res) =>
+  res.json({ status: "ok", time: new Date().toISOString() })
+);
+
+app.use("/api/auth", strictLimiter, authRouter);
+app.use("/api/users", usersRouter);
+app.use("/api/sessions", sessionsRouter);
+app.use("/api/wallet", walletRouter);
+app.use("/api/skills", skillsRouter);
 app.use("/api/notifications", notificationsRouter);
-app.use("/api/match",         matchingRouter);
-app.use("/api/payment",       paymentRouter);
-app.use("/api/admin",         adminRouter);
-app.use("/api/ai",            aiRouter);
-app.use("/api/gamification",  gamificationRouter);
-app.use("/api/ratings",       ratingsRouter);
+app.use("/api/match", matchingRouter);
+app.use("/api/payment", paymentRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/ai", aiRouter);
+app.use("/api/gamification", gamificationRouter);
+app.use("/api/ratings", ratingsRouter);
 
 app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
 
 startStaleSessionCleanup();
+
 export default app;

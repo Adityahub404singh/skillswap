@@ -1,7 +1,7 @@
-﻿import { useEffect } from "react";
+import { useEffect } from "react";
 interface SEOProps { title?: string; description?: string; image?: string; url?: string; }
 const D = {
-  title: "SkillSwap — Exchange Skills, Grow Together",
+  title: "SkillSwap � Exchange Skills, Grow Together",
   description: "India's peer-to-peer skill exchange. Learn Python, DSA, Design from real experts. Earn credits by teaching. 200 free credits on signup. No money needed.",
   image: "/opengraph.jpg",
   url: "https://skillswap-fawn-mu.vercel.app",

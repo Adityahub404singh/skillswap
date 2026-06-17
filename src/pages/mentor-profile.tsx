@@ -1,4 +1,4 @@
-﻿import { useRoute, Link } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useGetUserById, useGetMentorRatings, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { format } from "date-fns";

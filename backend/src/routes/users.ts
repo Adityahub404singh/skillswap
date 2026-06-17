@@ -1,54 +1,29 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-import { pgTable, serial, integer, text, timestamp, real, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
+import { usersTable } from "../schema/index.js";
 
-const usersTable = pgTable("users", {
-  id:                  serial("id").primaryKey(),
-  name:                text("name").notNull(),
-  email:               text("email").notNull(),
-  passwordHash:        text("password_hash").notNull(),
-  bio:                 text("bio"),
-  avatar:              text("avatar"),
-  skillsTeach:         text("skills_teach"),
-  skillsLearn:         text("skills_learn"),
-  credits:             integer("credits").notNull().default(50),
-  trustScore:          integer("trust_score").notNull().default(0),
-  sessionsCompleted:   integer("sessions_completed").notNull().default(0),
-  averageRating:       real("average_rating").notNull().default(0),
-  createdAt:           timestamp("created_at").notNull().defaultNow(),
-  pricePerHour:        integer("price_per_hour").notNull().default(0),
-  isAdmin:             integer("is_admin").default(0),
-  currentStreak:       integer("current_streak").notNull().default(0),
-  longestStreak:       integer("longest_streak").notNull().default(0),
-  lastActiveDate:      text("last_active_date"),
-  verifiedSkills:      jsonb("verified_skills"),
-  badges:              jsonb("badges"),
-  location:            varchar("location", { length: 100 }),
-  microSessionsCount:  integer("micro_sessions_count").notNull().default(0),
-  portfolioPublic:     boolean("portfolio_public").notNull().default(true),
-  seoSlug:             varchar("seo_slug", { length: 100 }),
-  isPremium:           boolean("is_premium").notNull().default(false),
-  premiumExpiresAt:    timestamp("premium_expires_at"),
-  notificationLastSent: timestamp("notification_last_sent"),
-});
-
-const transactionsTable = pgTable("transactions", {
-  id:          serial("id").primaryKey(),
-  userId:      integer("user_id").notNull(),
-  amount:      integer("amount").notNull(),
-  type:        text("type").notNull(),
-  description: text("description").notNull(),
-  sessionId:   integer("session_id"),
-  createdAt:   timestamp("created_at").notNull().defaultNow(),
-});
+const router: IRouter = Router();
 
 function parseJsonField(val: any): string[] {
   if (!val) return [];
   if (Array.isArray(val)) return val;
-  try { return JSON.parse(val); } catch { return []; }
+  try {
+    const parsed = JSON.parse(val);
+    if (typeof parsed === "string") {
+      try {
+        const reparsed = JSON.parse(parsed);
+        return Array.isArray(reparsed) ? reparsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function formatUser(user: any) {
@@ -57,10 +32,14 @@ function formatUser(user: any) {
     name:                user.name,
     email:               user.email,
     bio:                 user.bio ?? null,
-    avatar:              user.avatar ?? null,
+    avatar:              user.avatar ?? null, 
     location:            user.location ?? null,
-    skillsTeach:         parseJsonField(user.skillsTeach),
-    skillsLearn:         parseJsonField(user.skillsLearn),
+    skillsTeach:         parseJsonField(user.skillsTeachV2),
+    skillsLearn:         parseJsonField(user.skillsLearnV2),
+    verifiedSkills:      parseJsonField(user.verifiedSkillsV2),
+    badges:              parseJsonField(user.badgesV2), 
+    isPremium:           user.isPremiumUser ?? false,
+    portfolioPublic:     user.isPortfolioPublic ?? true,
     credits:             user.credits ?? 0,
     trustScore:          user.trustScore ?? 0,
     sessionsCompleted:   user.sessionsCompleted ?? 0,
@@ -70,26 +49,35 @@ function formatUser(user: any) {
     currentStreak:       user.currentStreak ?? 0,
     longestStreak:       user.longestStreak ?? 0,
     lastActiveDate:      user.lastActiveDate ?? null,
-    verifiedSkills:      parseJsonField(user.verifiedSkills),
-    badges:              parseJsonField(user.badges),
     microSessionsCount:  user.microSessionsCount ?? 0,
-    portfolioPublic:     user.portfolioPublic ?? true,
     seoSlug:             user.seoSlug ?? null,
-    isPremium:           user.isPremium ?? false,
     createdAt:           user.createdAt,
   };
 }
-
-const router: IRouter = Router();
 
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const rows = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
     if (!rows[0]) return res.status(404).json({ error: "User not found" });
     res.json(formatUser(rows[0]));
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get("/portfolio/:slug", async (req, res) => {
+  try {
+    const all = await db.select().from(usersTable);
+    const user = all.find(u => u.seoSlug === req.params.slug);
+    if (!user) return res.status(404).json({ error: "Profile not found" });
+    res.json(formatUser(user));
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get("/", async (_req, res) => {
+  try {
+    // 🔥 FIX 1: Limit 50 hata diya, taaki naye "Pro Mentor" (0 sessions) bhi Frontend ko milein!
+    const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted));
+    res.json(rows.map(formatUser));
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get("/:id", async (req, res) => {
@@ -99,31 +87,7 @@ router.get("/:id", async (req, res) => {
     const rows = await db.select().from(usersTable).where(eq(usersTable.id, id));
     if (!rows[0]) return res.status(404).json({ error: "User not found" });
     res.json(formatUser(rows[0]));
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get("/portfolio/:slug", async (req, res) => {
-  try {
-    const all = await db.select().from(usersTable);
-    const user = all.find(u => u.seoSlug === req.params.slug);
-    if (!user) return res.status(404).json({ error: "Profile not found" });
-    if (!user.portfolioPublic) return res.status(403).json({ error: "Private profile" });
-    res.json(formatUser(user));
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get("/", async (_req, res) => {
-  try {
-    // ? FIX: Added .limit(50) so Explore page doesn't crash the server memory
-    const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted)).limit(50);
-    res.json(rows.map(formatUser));
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 const UpdateSchema = z.object({
@@ -131,11 +95,11 @@ const UpdateSchema = z.object({
   bio:             z.string().max(500).optional(),
   location:        z.string().max(100).optional(),
   skillsTeach:     z.array(z.string()).optional(),
-  linkedinUrl: z.string().optional(),
+  linkedinUrl:     z.string().optional(),
   skillsLearn:     z.array(z.string()).optional(),
   pricePerHour:    z.number().min(0).optional(),
   portfolioPublic: z.boolean().optional(),
-  avatar:          z.string().optional(),
+  avatar:          z.string().optional(), 
 });
 
 router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
@@ -143,11 +107,18 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
     const data = UpdateSchema.parse(req.body);
     const updateData: any = { ...data };
     
+    // 🔥 FIX 2: JSON.stringify hata diya! Drizzle jsonb arrays ko khud handle karta hai.
     if (updateData.skillsTeach !== undefined) {
-      updateData.skillsTeach = JSON.stringify(updateData.skillsTeach);
+      updateData.skillsTeachV2 = updateData.skillsTeach;
+      delete updateData.skillsTeach;
     }
     if (updateData.skillsLearn !== undefined) {
-      updateData.skillsLearn = JSON.stringify(updateData.skillsLearn);
+      updateData.skillsLearnV2 = updateData.skillsLearn;
+      delete updateData.skillsLearn;
+    }
+    if (updateData.portfolioPublic !== undefined) {
+      updateData.isPortfolioPublic = updateData.portfolioPublic;
+      delete updateData.portfolioPublic;
     }
 
     const updated = await db.update(usersTable)
@@ -162,8 +133,4 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// ? FIX: Deleted duplicate POST /streak logic. Everything is routed to gamification.ts
-
 export default router;
-
-

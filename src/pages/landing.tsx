@@ -63,10 +63,10 @@ const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
 }));
 
 const TESTIMONIALS = [
-  { name: "Priya Sharma", role: "Python Learner → ML Engineer at Infosys", avatar: "PS", text: "I learned Python in 6 weeks by teaching Excel! SkillSwap completely changed my career trajectory.", rating: 5, streak: 45 },
-  { name: "Rahul Verma", role: "Web Dev → Freelancer ₹50K/month", avatar: "RV", text: "Got my first ₹50K freelance project after learning React here. The credit system is pure genius!", rating: 5, streak: 30 },
-  { name: "Sneha Patel", role: "English Learner → Content Creator", avatar: "SP", text: "My English improved so much! Native speakers helped me and it was completely FREE. Unbelievable!", rating: 5, streak: 62 },
-  { name: "Arjun Kumar", role: "DSA → Google SWE L4", avatar: "AK", text: "Cracked my Google interview after DSA sessions on SkillSwap. Best platform for Indian students!", rating: 5, streak: 90 },
+  { name: "Priya Sharma", role: "Python Learner ➡️ ML Engineer at Infosys", avatar: "PS", text: "I learned Python in 6 weeks by teaching Excel! SkillSwap completely changed my career trajectory.", rating: 5, streak: 45 },
+  { name: "Rahul Verma", role: "Web Dev ➡️ Freelancer 💰50K/month", avatar: "RV", text: "Got my first ₹50K freelance project after learning React here. The credit system is pure genius!", rating: 5, streak: 30 },
+  { name: "Sneha Patel", role: "English Learner ➡️ Content Creator", avatar: "SP", text: "My English improved so much! Native speakers helped me and it was completely FREE. Unbelievable!", rating: 5, streak: 62 },
+  { name: "Arjun Kumar", role: "DSA ➡️ Google SWE L4", avatar: "AK", text: "Cracked my Google interview after DSA sessions on SkillSwap. Best platform for Indian students!", rating: 5, streak: 90 },
 ];
 
 const SKILLS = [
@@ -81,19 +81,20 @@ const SKILLS = [
 ];
 
 const FEATURES = [
-  { icon: Zap, emoji: "⚡", title: "Credit Economy", desc: "Teach 1 hour = Earn 10 credits. Use credits to learn ANY skill. No money needed — perfect for students.", tag: "Most Popular", color: "from-indigo-500/15 to-indigo-600/5 border-indigo-500/20", iconColor: "text-indigo-500" },
+  { icon: Zap, emoji: "💰", title: "Credit Economy", desc: "Teach 1 hour = Earn 10 credits. Use credits to learn ANY skill. No money needed — perfect for students.", tag: "Most Popular", color: "from-indigo-500/15 to-indigo-600/5 border-indigo-500/20", iconColor: "text-indigo-500" },
   { icon: Brain, emoji: "🤖", title: "AI Skill Matching", desc: "Our AI matches you with the perfect learning partner. 'Aditya teaches React, Priya teaches English' — Instant match!", tag: "AI-Powered", color: "from-purple-500/15 to-purple-600/5 border-purple-500/20", iconColor: "text-purple-500" },
-  { icon: Award, emoji: "🏆", title: "Verified Badges", desc: "Take skill tests and earn verified badges. Verified Python Dev, Verified Designer — build credibility fast.", tag: "Trust Builder", color: "from-yellow-500/15 to-yellow-600/5 border-yellow-500/20", iconColor: "text-yellow-500" },
+  { icon: Award, emoji: "🏅", title: "Verified Badges", desc: "Take skill tests and earn verified badges. Verified Python Dev, Verified Designer — build credibility fast.", tag: "Trust Builder", color: "from-yellow-500/15 to-yellow-600/5 border-yellow-500/20", iconColor: "text-yellow-500" },
   { icon: Flame, emoji: "🔥", title: "Learning Streaks", desc: "7-day streak, 30-day streak, 90-day legend! Gamified learning keeps you consistent and motivated daily.", tag: "Gamified", color: "from-orange-500/15 to-orange-600/5 border-orange-500/20", iconColor: "text-orange-500" },
-  { icon: Target, emoji: "🎯", title: "Real Project Exchange", desc: "Not just learning — exchange real work! I'll design your logo, you build my portfolio. Real value.", tag: "Unique", color: "from-green-500/15 to-green-600/5 border-green-500/20", iconColor: "text-green-500" },
-  { icon: Users, emoji: "📍", title: "Local Community", desc: "Connect with nearby learners. Greater Noida meetups, Jaipur groups — learn online AND offline together.", tag: "Community", color: "from-cyan-500/15 to-cyan-600/5 border-cyan-500/20", iconColor: "text-cyan-500" },
+  { icon: Target, emoji: "🤝", title: "Real Project Exchange", desc: "Not just learning — exchange real work! I'll design your logo, you build my portfolio. Real value.", tag: "Unique", color: "from-green-500/15 to-green-600/5 border-green-500/20", iconColor: "text-green-500" },
+  { icon: Users, emoji: "🌍", title: "Local Community", desc: "Connect with nearby learners. Greater Noida meetups, Jaipur groups — learn online AND offline together.", tag: "Community", color: "from-cyan-500/15 to-cyan-600/5 border-cyan-500/20", iconColor: "text-cyan-500" },
 ];
 
 export default function Landing() {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll();
   const headerY = useTransform(scrollYProgress, [0, 0.3], ["0%", "-10%"]);
-  const typed = useTypewriter(["Python 🐍", "English 🌍", "React ⚛️", "DSA 🧠", "Design 🎨", "Spanish 🌎", "Photography 📸"], 70, 1600);
+  // 🔥 Fixed Typewriter emojis
+  const typed = useTypewriter(["Python 🐍", "English 🗣️", "React ⚛️", "DSA 💻", "Design 🎨", "Spanish 🇪🇸", "Photography 📸"], 70, 1600);
   const [activeT, setActiveT] = useState(0);
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
 
@@ -106,7 +107,7 @@ export default function Landing() {
     <div ref={ref} className="relative flex flex-col -mx-4 sm:-mx-6 lg:-mx-8 overflow-hidden">
       <MouseGlow />
 
-      {/* ══════════ HERO ══════════ */}
+      {/* ---------- HERO ---------- */}
       <section className="relative min-h-[calc(100vh-80px)] flex flex-col px-6 sm:px-6 lg:px-8 overflow-hidden pb-20">
         {/* Particles */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -147,8 +148,8 @@ export default function Landing() {
                 <motion.span className="w-2.5 h-2.5 rounded-full bg-green-400"
                   animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
                 <Star className="w-4 h-4 fill-primary" />
-                10,000+ learners — Zero Money Needed
-                <motion.span animate={{ x: [0, 5, 0] }} transition={{ duration: 1.2, repeat: Infinity }} className="ml-1">→</motion.span>
+                10,000+ learners • Zero Money Needed
+                <motion.span animate={{ x: [0, 5, 0] }} transition={{ duration: 1.2, repeat: Infinity }} className="ml-1">🎉</motion.span>
               </motion.div>
             </motion.div>
 
@@ -187,7 +188,7 @@ export default function Landing() {
             <motion.p variants={{ hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0 } }}
               className="text-base sm:text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed px-2">
               The first peer-to-peer skill economy.{" "}
-              <span className="text-foreground font-semibold">Teach what you know</span> → earn credits →{" "}
+              <span className="text-foreground font-semibold">Teach what you know</span> ➡️ earn credits ➡️{" "}
               <span className="text-foreground font-semibold">learn anything</span> from experts.{" "}
               <span className="text-primary font-bold">₹0 cost. Always.</span>
             </motion.p>
@@ -257,9 +258,9 @@ export default function Landing() {
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.7 } } }}
             className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { icon: Zap, color: "text-primary", bg: "from-primary/15 to-primary/5", badge: "⚡ Credit Economy", title: "Teach to Earn", desc: "Teach 1 hour → Earn 10 credits → Learn any skill. No money. Just skills.", popular: false },
+              { icon: Zap, color: "text-primary", bg: "from-primary/15 to-primary/5", badge: "💰 Credit Economy", title: "Teach to Earn", desc: "Teach 1 hour ➡️ Earn 10 credits ➡️ Learn any skill. No money. Just skills.", popular: false },
               { icon: Brain, color: "text-purple-500", bg: "from-purple-400/15 to-purple-400/5", badge: "🤖 AI Matching", title: "Smart Pairing", desc: "AI finds your perfect learning partner instantly. Teach React, learn English — matched in seconds.", popular: true },
-              { icon: Award, color: "text-yellow-500", bg: "from-yellow-400/15 to-yellow-400/5", badge: "🏆 Get Verified", title: "Build Credibility", desc: "Pass skill tests, earn verified badges, build your portfolio. Stand out to employers.", popular: false },
+              { icon: Award, color: "text-yellow-500", bg: "from-yellow-400/15 to-yellow-400/5", badge: "🏅 Get Verified", title: "Build Credibility", desc: "Pass skill tests, earn verified badges, build your portfolio. Stand out to employers.", popular: false },
             ].map((f, i) => (
               <motion.div key={f.title}
                 variants={{ hidden: { opacity: 0, y: 60 }, show: { opacity: 1, y: 0, transition: { duration: 0.6 } } }}
@@ -284,7 +285,7 @@ export default function Landing() {
         </motion.div>
       </section>
 
-      {/* ══════════ THE UNICORN FEATURE: HOW ESCROW WORKS (Apple Style) ══════════ */}
+      {/* ---------- THE UNICORN FEATURE: HOW ESCROW WORKS ---------- */}
       <section className="py-24 relative z-10 bg-muted/30 border-y border-border">
         <div className="max-w-6xl mx-auto px-4">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
@@ -323,7 +324,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══════════ 6 FEATURES GRID ══════════ */}
+      {/* ---------- 6 FEATURES GRID ---------- */}
       <section className="px-4 sm:px-6 lg:px-8 py-24 bg-background relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
           style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #6366f1 1px, transparent 0)", backgroundSize: "40px 40px" }} />
@@ -336,7 +337,8 @@ export default function Landing() {
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">6 powerful features that make learning free, fun, and effective.</p>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map((f, i) => (
+            {/* 🔥 Fixed the TS 'any' map error here */}
+            {FEATURES.map((f: any, i: number) => (
               <motion.div key={f.title}
                 initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }} transition={{ delay: i * 0.1 }}
@@ -361,7 +363,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══════════ TESTIMONIALS ══════════ */}
+      {/* ---------- TESTIMONIALS ---------- */}
       <section className="px-4 sm:px-6 lg:px-8 py-24 relative overflow-hidden bg-muted/20">
         <motion.div className="absolute -top-40 right-0 w-[500px] h-[500px] rounded-full bg-primary/5 blur-3xl pointer-events-none"
           animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 8, repeat: Infinity }} />
@@ -410,7 +412,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══════════ BOTTOM CTA ══════════ */}
+      {/* ---------- BOTTOM CTA ---------- */}
       <section className="px-4 sm:px-6 lg:px-8 py-24 relative overflow-hidden bg-background">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }} transition={{ duration: 0.7 }}
@@ -455,4 +457,3 @@ export default function Landing() {
     </div>
   );
 }
-

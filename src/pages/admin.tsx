@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/store/auth";
 import { API_BASE_URL } from "@/lib/api-utils";
@@ -72,7 +72,7 @@ export default function AdminPanel() {
         body: JSON.stringify({ isPremium: !user.isPremium })
       });
       setUsers(users.map(u => u.id === user.id ? { ...u, isPremium: !u.isPremium } : u));
-      toast({ title: "Verification Updated", description: `${user.name} is now ${!user.isPremium ? 'Verified ✅' : 'Unverified'}.` });
+      toast({ title: "Verification Updated", description: `${user.name} is now ${!user.isPremium ? 'Verified ?' : 'Unverified'}.` });
     } catch (e) {
       toast({ title: "Admin Action Saved", description: "Verified status toggled." });
     }
@@ -152,7 +152,7 @@ export default function AdminPanel() {
         </div>
 
         <div className="flex-1 p-6">
-          {/* 💸 CREDIT MODAL UI */}
+          {/* ?? CREDIT MODAL UI */}
           {creditModal && (
             <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
@@ -307,7 +307,7 @@ export default function AdminPanel() {
                 {[
                   { label: "Total Users", value: stats?.totalUsers, icon: Users, color: "text-primary", bg: "bg-primary/10" },
                                     { label: "Total Sessions", value: stats?.totalSessions, icon: BookOpen, color: "text-cyan-500", bg: "bg-cyan-500/10" },
-                  { label: "Platform Profit", value: "₹" + (stats?.platformRevenue || 0), icon: TrendingUp, color: "text-green-600", bg: "bg-green-600/10" },
+                  { label: "Platform Profit", value: "?" + (stats?.platformRevenue || 0), icon: TrendingUp, color: "text-green-600", bg: "bg-green-600/10" },
                   { label: "Completed", value: stats?.completedSessions, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
                   { label: "Feedbacks", value: feedbacks?.length, icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-500/10" },
                 ].map(s => (
@@ -317,7 +317,7 @@ export default function AdminPanel() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{s.label}</p>
-                      <p className="text-xl font-bold">{s.value ?? '—'}</p>
+                      <p className="text-xl font-bold">{s.value ?? '�'}</p>
                     </div>
                   </div>
                 ))}
@@ -376,10 +376,10 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
-          {/* 🛡️ AUDIT LOGS TAB */}
+          {/* ??? AUDIT LOGS TAB */}
           {tab === "audit" && (
             <div className="space-y-4 animate-in fade-in duration-300">
-              <h2 className="text-2xl font-extrabold flex items-center gap-2">🛡️ System Audit Logs</h2>
+              <h2 className="text-2xl font-extrabold flex items-center gap-2">??? System Audit Logs</h2>
               <p className="text-muted-foreground text-sm mb-4">Track all God Mode actions, refunds, and manual credit adjustments.</p>
               
               <div className="card-premium overflow-auto bg-white shadow-sm border border-border">

@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Camera, CameraResultType } from "@capacitor/camera";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
@@ -15,10 +16,10 @@ const ALL_SKILLS = ["Python","JavaScript","React","DSA","Web Dev","AI/ML","Desig
 const BADGES = [
   { icon: "🎯", label: "First Session",   color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
   { icon: "🔥", label: "7-Day Streak",    color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
-  { icon: "⚡", label: "30-Day Legend",   color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
-  { icon: "🏆", label: "Top Mentor",      color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
+  { icon: "⭐", label: "30-Day Legend",   color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
+  { icon: "👑", label: "Top Mentor",      color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
   { icon: "✅", label: "Verified Expert", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
-  { icon: "👥", label: "Community Star",  color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
+  { icon: "🌟", label: "Community Star",  color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
 ];
 
 export default function Profile() {
@@ -32,9 +33,10 @@ export default function Profile() {
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState("");
-  const [linkedinUrl, setLinkedinUrl] = useState(""); // 🔥 Naya state
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [pricePerHour, setPricePerHour] = useState(50);
   const [location, setLocation] = useState("");
+
   const [skillsTeach, setSkillsTeach] = useState<string[]>([]);
   const [skillsLearn, setSkillsLearn] = useState<string[]>([]);
   const [newTeach, setNewTeach] = useState("");
@@ -54,7 +56,7 @@ export default function Profile() {
       setName(user.name || "");
       setBio(user.bio || "");
       setAvatar(user.avatar || "");
-      setLinkedinUrl((user as any).linkedinUrl || ""); // 🔥 Load existing URL
+      setLinkedinUrl((user as any).linkedinUrl || "");
       setPricePerHour((user as any).pricePerHour || 50);
       setLocation((user as any).location || "");
       const teach = (user as any).skillsTeach;
@@ -78,21 +80,35 @@ export default function Profile() {
           name:         name.trim(),
           bio:          bio.trim(),
           avatar:       avatar.trim() || undefined,
-          linkedinUrl:  linkedinUrl.trim() || undefined, // 🔥 Send to backend
+          linkedinUrl:  linkedinUrl.trim() || undefined,
           location:     location.trim() || undefined,
           pricePerHour: Number(pricePerHour),
-          skillsTeach,  
-          skillsLearn,  
+          skillsTeach,
+          skillsLearn,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Update failed");
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
-      toast({ title: "Profile Updated! ✅", description: "Your changes have been saved." });
+      toast({ title: "Profile Updated! 🎉", description: "Your changes have been saved." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Save failed", description: e.message });
     }
     setSaving(false);
+  };
+
+  const handleCamera = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: true,
+        resultType: CameraResultType.Base64,
+      });
+      const base64 = `data:image/jpeg;base64,${image.base64String}`;
+      setAvatar(base64);
+    } catch (e) {
+      console.error("Camera error:", e);
+    }
   };
 
   const addSkill = (skill: string, type: "teach" | "learn") => {
@@ -101,7 +117,7 @@ export default function Profile() {
   };
 
   const copyPortfolio = () => {
-    const text = `🎓 SkillSwap Portfolio — ${user?.name}\n⭐ Trust Score: ${user?.trustScore}/100\n💡 Skills I Teach: ${skillsTeach.join(", ") || "—"}\n📚 Skills I Learn: ${skillsLearn.join(", ") || "—"}\n🏅 Badges: ${unlockedBadges.map(i => BADGES[i].label).join(", ") || "—"}\n🔗 https://skillswap-fawn-mu.vercel.app`;
+    const text = `🚀 SkillSwap Portfolio — ${user?.name}\n⭐ Trust Score: ${user?.trustScore}/100\n📚 Skills I Teach: ${skillsTeach.join(", ") || "—"}\n🎯 Skills I Learn: ${skillsLearn.join(", ") || "—"}\n🏆 Badges: ${unlockedBadges.map(i => BADGES[i].label).join(", ") || "—"}\n🔗 https://skillswap-fawn-mu.vercel.app`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -126,8 +142,12 @@ export default function Profile() {
       {/* Header */}
       <div className="rounded-3xl bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700 text-white p-6">
         <div className="flex items-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center text-3xl shadow-xl overflow-hidden flex-shrink-0">
-            {user.avatar ? <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" /> : <User className="w-10 h-10 text-white" />}
+          <div
+            onClick={handleCamera}
+            className="w-20 h-20 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center text-3xl shadow-xl overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
+            title="Tap to change photo"
+          >
+            {avatar ? <img src={avatar} alt={name} className="w-full h-full object-cover" /> : <User className="w-10 h-10 text-white" />}
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-extrabold">{user.name}</h1>
@@ -176,13 +196,12 @@ export default function Profile() {
                 <Input value={location} onChange={e => setLocation(e.target.value)} placeholder="City, Country" />
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Avatar URL</label>
                 <Input value={avatar} onChange={e => setAvatar(e.target.value)} placeholder="https://..." />
               </div>
-              {/* 🔥 Naya LinkedIn Input Field */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">LinkedIn Profile</label>
                 <Input value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/username" />
@@ -294,7 +313,7 @@ export default function Profile() {
         </motion.div>
       )}
 
-      {/* Portfolio tab (kept exactly the same for brevity) */}
+      {/* Portfolio tab */}
       {activeTab === "portfolio" && (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
           <div className="p-6 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 space-y-5">
@@ -307,7 +326,7 @@ export default function Profile() {
 
             <div className="flex items-center gap-4 p-4 rounded-xl bg-background/60">
               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl overflow-hidden">
-                {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover rounded-2xl" alt="" /> : "👤"}
+                {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover rounded-2xl" alt="" /> : "🙂"}
               </div>
               <div>
                 <h3 className="font-bold text-lg">{user.name}</h3>

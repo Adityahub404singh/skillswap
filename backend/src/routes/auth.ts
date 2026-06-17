@@ -1,43 +1,12 @@
-﻿import crypto from "crypto";
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "../db.js";
 import { eq } from "drizzle-orm";
 import { signToken } from "../utils/jwt.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-import { pgTable, serial, integer, text, timestamp, real, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
-
-const usersTable = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  passwordHash: text("password_hash").notNull(),
-  bio: text("bio"),
-  avatar: text("avatar"),
-  skillsTeach: text("skills_teach"),
-  skillsLearn: text("skills_learn"),
-  credits: integer("credits").notNull().default(50),
-  trustScore: integer("trust_score").notNull().default(0),
-  sessionsCompleted: integer("sessions_completed").notNull().default(0),
-  averageRating: real("average_rating").notNull().default(0),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  pricePerHour: integer("price_per_hour").notNull().default(0),
-  isAdmin: integer("is_admin").default(0),
-  currentStreak: integer("current_streak").notNull().default(0),
-  longestStreak: integer("longest_streak").notNull().default(0),
-  lastActiveDate: text("last_active_date"),
-  verifiedSkills: jsonb("verified_skills"),
-  badges: jsonb("badges"),
-  location: varchar("location", { length: 100 }),
-  microSessionsCount: integer("micro_sessions_count").notNull().default(0),
-  portfolioPublic: boolean("portfolio_public").notNull().default(true),
-  seoSlug: varchar("seo_slug", { length: 100 }),
-  isPremium: boolean("is_premium").notNull().default(false),
-  premiumExpiresAt: timestamp("premium_expires_at"),
-  notificationLastSent: timestamp("notification_last_sent"),
-  referredBy: integer("referred_by"),
-});
+import { usersTable } from "../schema/users.js"; 
+import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
 
 const transactionsTable = pgTable("transactions", {
   id: serial("id").primaryKey(),
@@ -73,16 +42,20 @@ function parseJsonField(val: any): string[] {
 
 function formatUser(user: any) {
   return {
-    id: user.id, name: user.name, email: user.email,
-    bio: user.bio, avatar: user.avatar,
-    skillsTeach: parseJsonField(user.skillsTeach),
-    skillsLearn: parseJsonField(user.skillsLearn),
-    credits: user.credits, trustScore: user.trustScore,
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    bio: user.bio,
+    avatar: user.avatar,
+    skillsTeach: parseJsonField(user.skillsTeachV2),
+    skillsLearn: parseJsonField(user.skillsLearnV2),
+    credits: user.credits,
+    trustScore: user.trustScore,
     sessionsCompleted: user.sessionsCompleted,
     averageRating: user.averageRating,
     createdAt: user.createdAt,
     currentStreak: user.currentStreak,
-    isPremium: user.isPremium,
+    isPremium: user.isPremiumUser,
   };
 }
 
@@ -106,14 +79,17 @@ router.post("/register", async (req, res) => {
       name: body.name,
       email: body.email,
       passwordHash,
-      skillsTeach: JSON.stringify(body.skillsTeach),
-      skillsLearn: JSON.stringify(body.skillsLearn),
+      skillsTeachV2: body.skillsTeach,
+      skillsLearnV2: body.skillsLearn,
       credits: 200,
-      referredBy: referrerId,
+      referredBy: referrerId ?? undefined,
     }).returning();
 
     await db.insert(transactionsTable).values({
-      userId: user.id, amount: 200, type: "bonus", description: "Welcome bonus - 200 credits!",
+      userId: user.id,
+      amount: 200,
+      type: "bonus",
+      description: "Welcome bonus - 200 credits!",
     });
 
     const token = signToken({ userId: user.id, email: user.email });
@@ -145,11 +121,36 @@ router.get("/referral", requireAuth, async (req: AuthRequest, res) => {
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
     if (!user) return res.status(404).json({ error: "Not Found" });
-    const referralCode = `${user.name.replace(/\s+/g, "").toLowerCase()}${user.id}`;
+    const referralCode = `${user.name!.replace(/\s+/g, "").toLowerCase()}${user.id}`;
     const referralLink = (process.env.FRONTEND_URL || "https://skillswap.app") + "/register?ref=" + referralCode;
     res.json({ referralCode, referralLink });
   } catch (err) {
     res.status(401).json({ error: "Unauthorized" });
+  }
+});
+
+// 🔥 10x Feature: Forgot Password Route
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const users = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    if (users[0]) {
+      // Mocking email dispatch in terminal
+      console.log(`\n======================================================`);
+      console.log(`📧 [MOCK EMAIL DISPATCHED] To: ${email}`);
+      console.log(`Subject: Reset Your SkillSwap Password`);
+      console.log(`Body: Click here to reset -> http://localhost:5173/reset-password?token=${resetToken}`);
+      console.log(`======================================================\n`);
+    }
+
+    res.json({ message: "If that email is registered, a reset link has been sent." });
+  } catch (err: any) {
+    console.error("Forgot Password Error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 

@@ -8,13 +8,23 @@ import { Gift, Wallet, Star, CheckCircle, Clock, BookOpen, Compass, ArrowRight, 
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 
-const BADGES = [
-  { id: "first_session", icon: "🎯", label: "First Session", desc: "Completed your first session", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
-  { id: "streak_7", icon: "🔥", label: "7-Day Streak", desc: "Learned 7 days in a row", color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
-  { id: "streak_30", icon: "⚡", label: "30-Day Legend", desc: "30 days of consistent learning", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
-  { id: "top_mentor", icon: "🏆", label: "Top Mentor", desc: "Rated 4.8+ as a teacher", color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
-  { id: "verified", icon: "✅", label: "Verified Expert", desc: "Passed skill verification test", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
-  { id: "community", icon: "👥", label: "Community Star", desc: "Helped 10+ learners", color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
+// 🔥 FIX 1: Defines TS Type for Badges
+type BadgeType = {
+  id: string;
+  icon: string;
+  label: string;
+  desc: string;
+  color: string;
+};
+
+// 🔥 FIX 2: Emoticon Icons + Descriptions (No ???)
+const BADGES: BadgeType[] = [
+  { id: "first_session", icon: "🎯", label: "First Session",   desc: "Completed your first session", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
+  { id: "streak_7",      icon: "🔥", label: "7-Day Streak",    desc: "Learned 7 days in a row", color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
+  { id: "streak_30",     icon: "🏆", label: "30-Day Legend",   desc: "Keep going!", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
+  { id: "top_mentor",    icon: "👑", label: "Top Mentor",      desc: "Keep going!", color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
+  { id: "verified",      icon: "✅", label: "Verified Expert", desc: "Keep going!", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
+  { id: "community",     icon: "🌟", label: "Community Star",  desc: "Keep going!", color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
 ];
 
 function StreakWidget({ streak }: { streak: number }) {
@@ -50,7 +60,7 @@ function StreakWidget({ streak }: { streak: number }) {
         })}
       </div>
       <div className="text-xs text-muted-foreground text-center">
-        {streak >= 30 ? "⭐ 30-Day Legend!" : streak >= 7 ? "⚡ On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
+        {streak >= 30 ? "🏆 30-Day Legend!" : streak >= 7 ? "🔥 On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
       </div>
     </div>
   );
@@ -61,13 +71,11 @@ export default function Dashboard() {
   const { data: user, isLoading: userLoading } = useGetMe(options);
   const { data: sessions, isLoading: sessionsLoading } = useGetMySessions({ status: "accepted" }, options);
   const streak = (user as any)?.currentStreak ?? 0;
-  const unlockedBadges: number[] = [
-    ...(((user as any)?.sessionsCompleted ?? 0) > 0 ? [0] : []),
-    ...(((user as any)?.currentStreak ?? 0) >= 7 ? [1] : []),
-    ...(((user as any)?.currentStreak ?? 0) >= 30 ? [2] : []),
-    ...(((user as any)?.averageRating ?? 0) >= 4.8 && ((user as any)?.sessionsCompleted ?? 0) >= 10 ? [3] : []),
-    ...(((user as any)?.trustScore ?? 0) >= 80 ? [4] : []),
-  ];
+  
+  // 🔥 FIX 3: Safe Badges calculation based on the user object
+  const unlockedBadges: number[] = user && Array.isArray((user as any).badges) 
+    ? (user as any).badges.map((b: string) => BADGES.findIndex(bg => bg.label === b)).filter((i: number) => i !== -1) 
+    : [];
 
   const upcomingSessions = sessions?.filter(s => new Date(s.scheduledDate) > new Date()).slice(0, 3) || [];
 
@@ -143,7 +151,7 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* 🚨 NEW: DAILY QUIZ BANNER */}
+      {/* NEW: DAILY QUIZ BANNER */}
       <motion.div variants={item}>
         <Link href="/quiz">
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-400 via-rose-500 to-red-500 p-1 cursor-pointer group shadow-lg hover:shadow-2xl transition-all">
@@ -158,7 +166,7 @@ export default function Dashboard() {
                   <h3 className="font-black text-foreground text-xl flex items-center gap-2">
                     Daily Skill Quiz <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
                   </h3>
-                  <p className="text-sm text-muted-foreground">Answer 10 questions daily. Earn up to 20 Credits! ⚡</p>
+                  <p className="text-sm text-muted-foreground">Answer 10 questions daily. Earn up to 20 Credits! 🏆</p>
                 </div>
               </div>
               <Button className="shrink-0 rounded-full font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hidden sm:flex">
@@ -236,6 +244,7 @@ export default function Dashboard() {
           </motion.div>
 
           {/* Badges */}
+
           <motion.div variants={item} className="card-premium">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2">
@@ -244,6 +253,7 @@ export default function Dashboard() {
               <span className="text-xs text-muted-foreground">{unlockedBadges.length}/{BADGES.length} earned</span>
             </div>
             <div className="grid grid-cols-3 gap-3">
+              
               {BADGES.map((badge, i) => {
                 const unlocked = unlockedBadges.includes(i);
                 return (

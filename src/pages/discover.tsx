@@ -13,7 +13,7 @@ export default function Discover() {
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/discover/profiles");
+        const response = await fetch("/api/discover/profiles");
         if (!response.ok) throw new Error("Network error");
         const data = await response.json();
         
@@ -64,7 +64,7 @@ export default function Discover() {
     setCards((prev) => prev.filter((card) => card.id !== id));
     
     try {
-      const response = await fetch("http://localhost:5000/api/discover/swipe", {
+      const response = await fetch("/api/discover/swipe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ swipedOnId: id, action }),

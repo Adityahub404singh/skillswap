@@ -1,4 +1,4 @@
-﻿import { Link } from "wouter";
+import { Link } from "wouter";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";

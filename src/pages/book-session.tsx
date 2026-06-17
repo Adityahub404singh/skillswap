@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Clock, CheckCircle, Star, ShieldCheck, Loader2, Calendar, User, ChevronLeft } from "lucide-react";
@@ -29,7 +29,7 @@ export default function BookSession() {
   const urlParams = new URLSearchParams(window.location.search);
   const skillFromUrl = urlParams.get("skill") || "";
   
-  // 🔥 FIX 1: Safe Number Parsing
+  // ?? FIX 1: Safe Number Parsing
   const mentorIdFromUrl = params?.mentorId && !isNaN(Number(params.mentorId)) ? parseInt(params.mentorId) : null;
 
   const { data: currentUser } = useGetMe(options);
@@ -62,7 +62,7 @@ export default function BookSession() {
     mutation: {
       onSuccess: () => {
         confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 } });
-        toast({ title: "🎉 Booking Confirmed!", description: "Your mentor has been notified." });
+        toast({ title: "?? Booking Confirmed!", description: "Your mentor has been notified." });
         setBooked(true);
         setTimeout(() => setLocation("/sessions"), 2500);
       },
@@ -72,7 +72,7 @@ export default function BookSession() {
     }
   });
 
-  // 🔥 FIX 2: Sorting Logic - Keep selected mentor visible at the top!
+  // ?? FIX 2: Sorting Logic - Keep selected mentor visible at the top!
   const availableMentors = (allUsers as any[] || [])
     .filter(u => u.id !== currentUser?.id)
     .sort((a, b) => {
@@ -107,7 +107,7 @@ export default function BookSession() {
     } as any);
   }
 
-  // 🌟 SUCCESS STATE UI
+  // ?? SUCCESS STATE UI
   if (booked) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
@@ -127,7 +127,7 @@ export default function BookSession() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-20 font-sans relative overflow-hidden">
       
-      {/* 🔥 UNICORN GLOWS */}
+      {/* ?? UNICORN GLOWS */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-30 animate-pulse pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-30 animate-pulse pointer-events-none" style={{ animationDelay: '2s' }}></div>
 
@@ -187,7 +187,7 @@ export default function BookSession() {
             <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* 🔥 SAFE: Render sorted list so selected mentor is always visible */}
+              {/* ?? SAFE: Render sorted list so selected mentor is always visible */}
               {availableMentors.slice(0, 6).map((mentor: any) => (
                 <button
                   key={mentor.id}

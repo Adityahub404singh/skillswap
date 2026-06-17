@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useRoute, Link } from "wouter";
 import { Star, CheckCircle, MapPin, Calendar, Zap, Award, Copy, Check, Globe, Loader2, ShieldCheck, Flame } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -29,7 +29,7 @@ export default function PublicPortfolio() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
   if (!portfolio) return <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] text-white"><h1 className="text-3xl font-black mb-2">Profile Not Found</h1><p className="text-gray-400 mb-6">This user does not exist or is private.</p><Link href="/explore"><Button className="bg-primary hover:bg-primary/90 rounded-full h-12 px-8 font-bold">Explore Mentors</Button></Link></div>;
 
-  // 🚨 UNICORN LOGIC: Premium UI for Verified Experts
+  // ?? UNICORN LOGIC: Premium UI for Verified Experts
   const isVerified = portfolio.trustScore >= 80 || portfolio.isPremium;
   const rating = portfolio.averageRating > 0 ? portfolio.averageRating : 5.0;
 

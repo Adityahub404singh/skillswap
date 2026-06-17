@@ -1,18 +1,8 @@
-﻿import { db } from "./db.js";
-import { pgTable, serial, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { notificationsTable } from "./schema/index.js";
+import { db } from "./db.js";
+import { pgTable, serial, text } from "drizzle-orm/pg-core";
 import { sendEmail } from "./utils/mailer.js";
 import { eq } from "drizzle-orm";
-
-const notificationsTable = pgTable("notifications", {
-  id:        serial("id").primaryKey(),
-  userId:    integer("user_id").notNull(),
-  type:      varchar("type", { length: 30 }).notNull(),
-  title:     varchar("title", { length: 200 }).notNull(),
-  message:   text("message").notNull(),
-  isRead:    boolean("is_read").notNull().default(false),
-  actionUrl: varchar("action_url", { length: 300 }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
 
 const usersForEmail = pgTable("users", {
   id:    serial("id").primaryKey(),
@@ -38,18 +28,7 @@ export async function createNotification(userId: number, type: string, title: st
 }
 
 export const notify = {
-  // 🌟 AUTOMATED RETENTION & ENGAGEMENT NOTIFICATIONS
-  inactiveReminder: (userId: number, daysInactive: number) => 
-    createNotification(userId, "marketing", "We Miss You!", `It's been ${daysInactive} days! Come back and learn a new skill today.`, "/explore"),
-  
-  profileIncomplete: (userId: number) => 
-    createNotification(userId, "system", "Complete Your Profile 🚀", "Learners and Mentors trust complete profiles. Add your bio today!", "/profile"),
-    
-  adminBroadcast: (userId: number, title: string, message: string, url: string) => 
-    createNotification(userId, "marketing", `📢 ${title}`, message, url),
-
-  // 📝 EXISTING ACTION NOTIFICATIONS
-  // 🌟 AUTOMATED RETENTION & ENGAGEMENT NOTIFICATIONS
+  // 🌟 AUTOMATED RETENTION & ENGAGEMENT
   inactiveReminder: (userId: number, daysInactive: number) => 
     createNotification(userId, "marketing", "We Miss You!", `It's been ${daysInactive} days! Come back and learn a new skill today.`, "/explore"),
   
@@ -81,5 +60,3 @@ export const notify = {
   paymentSuccess:   (userId: number, credits: number, amount: number) =>
     createNotification(userId, "credit", "Payment Done!", `${credits} credits added for Rs.${amount}`, "/wallet"),
 };
-
-

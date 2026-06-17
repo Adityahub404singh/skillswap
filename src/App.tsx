@@ -1,4 +1,4 @@
-﻿import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+﻿import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -56,44 +56,63 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
+// 🔥 10x SCROLL TO TOP FIX (Timeout DOM ko render hone ka time deta hai)
+function ScrollToTop() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        document.documentElement.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        document.body.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, 50); 
+    return () => clearTimeout(timer);
+  }, [location]);
+
+  return null;
+}
+
 function Router() {
   const token = useAuthStore((s) => s.token);
   useEffect(() => { if (token) updateStreak(token); }, [token]);
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route path="/login" component={Login} />
-        <Route path="/forgot-password" component={ForgotPassword} />
-        <Route path="/register" component={Register} />
-        <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
-        <Route path="/explore" component={Explore} />
-        <Route path="/mentor/:id" component={MentorProfile} />
-        <Route path="/book/:mentorId"><ProtectedRoute component={BookSession} /></Route>
-        <Route path="/sessions"><ProtectedRoute component={Sessions} /></Route>
-        <Route path="/wallet"><ProtectedRoute component={Wallet} /></Route>
-        <Route path="/invite"><ProtectedRoute component={Invite} /></Route>
-        <Route path="/buy-credits"><ProtectedRoute component={BuyCredits} /></Route>
-        <Route path="/flash-board"><ProtectedRoute component={FlashBoard} /></Route>
-        <Route path="/ai"><ProtectedRoute component={AIChat} /></Route>
-        <Route path="/admin" component={AdminPanel} />
-        <Route path="/matches" component={Matches} />
-        <Route path="/profile"><ProtectedRoute component={Profile} /></Route>
-        <Route path="/privacy-policy" component={PrivacyPolicy} />
-        <Route path="/privacy" component={PrivacyPolicy} />
-        <Route path="/skills/:skill" component={SkillPage} />
-        <Route path="/leaderboard" component={Leaderboard} />
-        <Route path="/premium" component={Subscription} />
-        <Route path="/chat/:id" component={Chat} />
-        <Route path="/verify-email" component={VerifyEmail} />
-         <Route path="/discover" component={Discover} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/quiz"><ProtectedRoute component={Quiz} /></Route>
-        <Route path="/u/:slug" component={PublicPortfolio} />
-        <Route path="/notifications"><ProtectedRoute component={NotificationsPage} /></Route>
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <>
+      <ScrollToTop /> {/* 🔥 PERFECT POSITION FOR SCROLL FIX */}
+      <Layout>
+        <Switch>
+          <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/register" component={Register} />
+          <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
+          <Route path="/explore" component={Explore} />
+          <Route path="/mentor/:id" component={MentorProfile} />
+          <Route path="/book/:mentorId"><ProtectedRoute component={BookSession} /></Route>
+          <Route path="/sessions"><ProtectedRoute component={Sessions} /></Route>
+          <Route path="/wallet"><ProtectedRoute component={Wallet} /></Route>
+          <Route path="/invite"><ProtectedRoute component={Invite} /></Route>
+          <Route path="/buy-credits"><ProtectedRoute component={BuyCredits} /></Route>
+          <Route path="/flash-board"><ProtectedRoute component={FlashBoard} /></Route>
+          <Route path="/ai"><ProtectedRoute component={AIChat} /></Route>
+          <Route path="/admin" component={AdminPanel} />
+          <Route path="/matches" component={Matches} />
+          <Route path="/profile"><ProtectedRoute component={Profile} /></Route>
+          <Route path="/privacy-policy" component={PrivacyPolicy} />
+          <Route path="/privacy" component={PrivacyPolicy} />
+          <Route path="/skills/:skill" component={SkillPage} />
+          <Route path="/leaderboard" component={Leaderboard} />
+          <Route path="/premium" component={Subscription} />
+          <Route path="/chat/:id" component={Chat} />
+          <Route path="/verify-email" component={VerifyEmail} />
+           <Route path="/discover" component={Discover} />
+          <Route path="/terms" component={Terms} />
+          <Route path="/quiz"><ProtectedRoute component={Quiz} /></Route>
+          <Route path="/u/:slug" component={PublicPortfolio} />
+          <Route path="/notifications"><ProtectedRoute component={NotificationsPage} /></Route>
+          <Route component={NotFound} />
+        </Switch>
+      </Layout>
+    </>
   );
 }
 

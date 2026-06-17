@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, ArrowLeft, Loader2, CheckCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast"; // 🔥 Added toast hook
 
 const schema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -17,6 +18,7 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [sentEmail, setSentEmail] = useState("");
   const [, setLocation] = useLocation();
+  const { toast } = useToast(); // 🔥 Initialize toast
 
   const { register, handleSubmit, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
@@ -25,15 +27,30 @@ export default function ForgotPassword() {
   const onSubmit = async (data: Form) => {
     setLoading(true);
     try {
-      await fetch("/api/auth/forgot-password", {
+      const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: data.email }),
       });
-    } catch {}
-    setSentEmail(data.email);
-    setSent(true);
-    setLoading(false);
+      
+      const resData = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(resData.error || "Failed to send reset link");
+      }
+
+      setSentEmail(data.email);
+      setSent(true);
+    } catch (err: any) {
+      // 🔥 Now it shows an error if email doesn't exist!
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err.message,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

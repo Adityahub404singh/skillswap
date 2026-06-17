@@ -1,4 +1,4 @@
-﻿import { Link } from "wouter";
+import { Link } from "wouter";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Github, Twitter, Linkedin, Mail, MapPin, ArrowRight, Users, BookOpen, Star, Zap, ShieldCheck, Globe, Trophy, Code2, Brain, Palette, CheckCircle } from "lucide-react";
@@ -14,7 +14,7 @@ export default function Footer() {
     { icon: Users, value: "10,000+", label: "Active Learners", color: "text-blue-500", bg: "bg-blue-500/10" },
     { icon: BookOpen, value: "500+", label: "Skills Available", color: "text-purple-500", bg: "bg-purple-500/10" },
     { icon: Star, value: "4.9/5", label: "Average Rating", color: "text-yellow-500", bg: "bg-yellow-500/10" },
-    { icon: Zap, value: "₹0 Cost", label: "Always Free", color: "text-green-500", bg: "bg-green-500/10" },
+    { icon: Zap, value: "?0 Cost", label: "Always Free", color: "text-green-500", bg: "bg-green-500/10" },
   ];
 
   const socials = [
@@ -55,11 +55,11 @@ export default function Footer() {
   return (
     <footer className="relative bg-[#050505] text-white overflow-hidden border-t border-white/5 pt-20">
       
-      {/* 🌌 Animated Background Glows */}
+      {/* ?? Animated Background Glows */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
       
-      {/* 📊 Top Stats Banner */}
+      {/* ?? Top Stats Banner */}
       <div className="border-b border-white/10 relative z-10 bg-white/[0.02] backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -85,11 +85,11 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* 🧩 Main Footer Content */}
+      {/* ?? Main Footer Content */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 relative z-10">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-12">
 
-          {/* 🌟 Brand & Newsletter Section (Spans 4 cols) */}
+          {/* ?? Brand & Newsletter Section (Spans 4 cols) */}
           <div className="lg:col-span-4 space-y-8">
             <Link href="/" className="flex items-center gap-3 group inline-flex">
               <motion.div whileHover={{ rotate: 180 }} transition={{ duration: 0.5 }} className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
@@ -131,7 +131,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* 🔗 Links Columns (Spans 8 cols) */}
+          {/* ?? Links Columns (Spans 8 cols) */}
           <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-3 gap-8 pt-4">
             {linkGroups.map((group, groupIdx) => (
               <div key={group.title} className="space-y-6">
@@ -157,12 +157,12 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* 🌍 Bottom Bar */}
+      {/* ?? Bottom Bar */}
       <div className="border-t border-white/10 relative z-10 bg-[#020202]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-6">
           
           <div className="flex items-center gap-3 text-sm text-gray-500 font-medium">
-            <span>© 2026 SkillSwap Inc.</span>
+            <span>� 2026 SkillSwap Inc.</span>
             <span className="w-1 h-1 rounded-full bg-gray-600" />
             <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> India</span>
           </div>

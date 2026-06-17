@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { useGetSkills } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -57,7 +57,7 @@ export default function Explore() {
   return (
     <div className="min-h-screen py-8 px-4 md:px-8 max-w-7xl mx-auto space-y-12">
       
-      {/* 🚀 Premium Hero Section */}
+      {/* ?? Premium Hero Section */}
       <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-indigo-900 via-primary to-purple-800 p-8 md:p-14 text-white shadow-[0_20px_50px_rgba(91,91,246,0.3)]">
         <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-white/10 rounded-full blur-[100px] translate-x-1/3 -translate-y-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[30rem] h-[30rem] bg-black/20 rounded-full blur-[80px] -translate-x-1/4 translate-y-1/3 pointer-events-none" />
@@ -94,7 +94,7 @@ export default function Explore() {
         </div>
       </div>
 
-      {/* 🎯 Smooth Categories Navigation */}
+      {/* ?? Smooth Categories Navigation */}
       <div className="flex overflow-x-auto pb-4 hide-scrollbar gap-3 sticky top-20 z-30 bg-background/90 backdrop-blur-xl py-4 -mx-4 px-4 md:mx-0 md:px-0">
         {CATEGORIES.map((cat) => {
           const isActive = activeCat === cat.id;
@@ -117,7 +117,7 @@ export default function Explore() {
         })}
       </div>
 
-      {/* 🔮 The Magic Grid */}
+      {/* ?? The Magic Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-72 rounded-[2rem]" />)}

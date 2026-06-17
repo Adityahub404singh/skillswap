@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, CheckCheck, Zap, Calendar, Trophy, Flame, MessageSquare, Users, X, Settings, Loader2 } from "lucide-react";
 import { Link } from "wouter";
@@ -103,7 +103,7 @@ export default function Notifications() {
                     <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{notif.message}</p>
                     {notif.actionUrl && (
                       <Link href={notif.actionUrl}>
-                        <span className="text-xs text-primary hover:underline mt-1.5 inline-block font-medium">View →</span>
+                        <span className="text-xs text-primary hover:underline mt-1.5 inline-block font-medium">View ?</span>
                       </Link>
                     )}
                   </div>

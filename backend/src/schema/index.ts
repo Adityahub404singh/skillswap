@@ -5,4 +5,5 @@ export * from "./ratings.js";
 export * from "./skills.js";
 export * from "./notifications.js";
 export * from "./platform.js";
-export * from "./swipes.js"; // 🔥 Ye nayi line add karni hai
+export * from "./swipes.js";
+export * from "./messages.js";

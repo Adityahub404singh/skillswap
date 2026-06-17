@@ -1,4 +1,4 @@
-ï»¿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -15,7 +15,7 @@ import { Clock, CheckCircle2, AlertTriangle, XCircle, Star, CalendarDays, Loader
 type SessionTab    = "learning" | "teaching";
 type StatusFilter  = "all" | "requested" | "accepted" | "in_progress" | "completed" | "cancelled";
 
-// ðŸ”¥ HELPER: Live Countdown Logic
+// ?? HELPER: Live Countdown Logic
 const getCountdown = (targetDateStr: string) => {
   const target = new Date(targetDateStr).getTime();
   const now = new Date().getTime();
@@ -50,7 +50,7 @@ export default function Sessions() {
   const [otpInput,      setOtpInput]      = useState("");
   const [groupForm,     setGroupForm]     = useState({ skill: "", scheduledDate: "", creditsAmount: "20", maxStudents: "10", message: "" });
 
-  // ðŸ”¥ LIVE TIMER TICKER (Updates countdown every minute)
+  // ?? LIVE TIMER TICKER (Updates countdown every minute)
   const [, setTick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 60000);
@@ -199,7 +199,7 @@ export default function Sessions() {
   return (
     <div className="py-8 max-w-5xl mx-auto space-y-8 px-4 font-sans relative overflow-hidden">
       
-      {/* ðŸ”¥ Premium Unicorn Glows */}
+      {/* ?? Premium Unicorn Glows */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-[120px] opacity-20 animate-pulse pointer-events-none"></div>
 
       {/* Header */}
@@ -310,14 +310,14 @@ export default function Sessions() {
                         <div className="flex flex-wrap items-center gap-3">
                           <span className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
                             <CalendarDays className="w-3.5 h-3.5 text-indigo-500" />
-                            {format(new Date(session.scheduledDate), "EEE, MMM d â€¢ h:mm a")}
+                            {format(new Date(session.scheduledDate), "EEE, MMM d • h:mm a")}
                           </span>
                           <span className="text-xs font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
                             <Coins className="w-3.5 h-3.5" />{session.creditsAmount} cr
                             {session.negotiatedPrice ? <span className="text-emerald-600 ml-1 font-semibold">(Negotiated)</span> : null}
                           </span>
                           
-                          {/* ðŸ”¥ LIVE COUNTDOWN */}
+                          {/* ?? LIVE COUNTDOWN */}
                           {session.status === "accepted" && (
                             <span className="text-xs font-black text-pink-600 bg-pink-50 border border-pink-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm">
                               <Timer className="w-3.5 h-3.5" /> {getCountdown(session.scheduledDate)}
@@ -333,7 +333,7 @@ export default function Sessions() {
                       </div>
                     </div>
 
-                    {/* ðŸ”¥ ACTION BUTTONS BASED ON STATUS */}
+                    {/* ?? ACTION BUTTONS BASED ON STATUS */}
                     <div className="flex flex-col items-end gap-3 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-slate-100 shrink-0">
                       
                       {/* TEACHING: Requested */}
@@ -428,7 +428,7 @@ export default function Sessions() {
             <DialogDescription className="text-center font-medium text-slate-500 mt-2">Enter the 6-digit OTP provided by the student to unlock credits and start.</DialogDescription>
           </DialogHeader>
           <div className="py-6 flex flex-col items-center justify-center">
-            <Input type="text" maxLength={6} placeholder="â€¢ â€¢ â€¢ â€¢ â€¢ â€¢" value={otpInput} onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
+            <Input type="text" maxLength={6} placeholder="• • • • • •" value={otpInput} onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
               className="text-center text-4xl tracking-[0.5em] font-mono h-20 w-full bg-slate-50 border-2 border-slate-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 rounded-2xl shadow-inner" />
           </div>
           <DialogFooter className="gap-3 sm:gap-0">

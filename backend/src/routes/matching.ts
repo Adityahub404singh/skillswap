@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db, usersTable } from "../db.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { ilike } from "drizzle-orm";
@@ -56,7 +56,7 @@ router.get("/:skill", requireAuth, async (req: AuthRequest, res) => {
 
     // PERF FIX: Fetch ONLY potential matches from DB using ILIKE, capped at 200 to prevent OOM Server Crash
     const users = await db.select().from(usersTable)
-      .where(ilike(usersTable.skillsTeach, `%${skillName}%`))
+      .where(ilike(usersTable.skillsTeachV2, `%${skillName}%`))
       .limit(200);
 
     const result = users

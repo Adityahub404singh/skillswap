@@ -1,25 +1,10 @@
-﻿import { Router, type IRouter } from "express";
+﻿// backend/src/routes/gamification.ts
+
+import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, sql, desc, or, gt } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
-import { pgTable, serial, integer, text, real, varchar, jsonb } from "drizzle-orm/pg-core";
-
-// Inline schema to prevent undefined import errors
-const usersTable = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  avatar: text("avatar"),
-  credits: integer("credits").notNull().default(50),
-  trustScore: integer("trust_score").notNull().default(0),
-  sessionsCompleted: integer("sessions_completed").notNull().default(0),
-  averageRating: real("average_rating").notNull().default(0),
-  currentStreak: integer("current_streak").notNull().default(0),
-  longestStreak: integer("longest_streak").notNull().default(0),
-  lastActiveDate: text("last_active_date"),
-  badges: jsonb("badges"),
-  verifiedSkills: jsonb("verified_skills"),
-  location: varchar("location", { length: 100 }),
-});
+import { usersTable } from "../schema/index.js";
 
 const router: IRouter = Router();
 
@@ -43,7 +28,9 @@ router.post("/streak", requireAuth, async (req: AuthRequest, res) => {
     }
 
     const newLongest = Math.max(newStreak, user.longestStreak || 0);
-    const newBadges = Array.isArray(user.badges) ? [...user.badges] : [];
+    
+    // 🔥 FIX: Array extraction using badgesV2 
+    const newBadges = Array.isArray(user.badgesV2) ? [...user.badgesV2] : [];
     if (newStreak >= 7 && !newBadges.includes("7-day-streak")) newBadges.push("7-day-streak");
     if (newStreak >= 30 && !newBadges.includes("30-day-legend")) newBadges.push("30-day-legend");
 
@@ -53,14 +40,14 @@ router.post("/streak", requireAuth, async (req: AuthRequest, res) => {
       currentStreak: newStreak,
       longestStreak: newLongest,
       lastActiveDate: today,
-      badges: newBadges,
+      badgesV2: newBadges, // 🔥 FIX: Saving to DB as badgesV2
       credits: sql`${usersTable.credits} + ${bonus}`
     }).where(eq(usersTable.id, userId));
 
     res.json({ streak: newStreak, longestStreak: newLongest, badges: newBadges, bonusCredits: bonus });
   } catch (err) {
     console.error("[streak fallback]", err);
-    res.json({ streak: 0, message: "Fallback mode active" }); // Prevents UI crash
+    res.json({ streak: 0, message: "Fallback mode active" });
   }
 });
 
@@ -80,13 +67,14 @@ router.get("/leaderboard", async (req, res) => {
         sessionsCompleted: u.sessionsCompleted || 0,
         averageRating: u.averageRating || 0,
         currentStreak: u.currentStreak || 0,
-        badges: u.badges || [],
-        verifiedSkills: u.verifiedSkills || [],
+        // 🔥 FIX: Read from badgesV2 and verifiedSkillsV2, but send as expected by frontend
+        badges: u.badgesV2 || [], 
+        verifiedSkills: u.verifiedSkillsV2 || [], 
       }));
     res.json(leaderboard);
   } catch (err) {
     console.error("[leaderboard fallback]", err);
-    res.json([]); // Empty array instead of 500 error
+    res.json([]);
   }
 });
 

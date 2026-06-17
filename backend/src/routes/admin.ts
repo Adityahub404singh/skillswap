@@ -1,10 +1,13 @@
+﻿
+// 🔥 Auto-Fixed by Script
+import { usersTable, sessionsTable, notificationsTable, swipesTable, transactionsTable, feedbacksTable } from "../schema/index.js";
 ﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth.js";
 import { pgTable, serial, integer, text, timestamp, real, boolean, jsonb } from "drizzle-orm/pg-core";
 import { desc, eq, sql } from "drizzle-orm";
 
-const usersTable = pgTable("users", {
+/* const usersTable = pgTable("users", {
   id:                 serial("id").primaryKey(),
   name:               text("name").notNull(),
   email:              text("email").notNull(),
@@ -16,9 +19,9 @@ const usersTable = pgTable("users", {
   isPremium:          boolean("is_premium").notNull().default(false),
   createdAt:          timestamp("created_at").notNull().defaultNow(),
   skillsTeach:        jsonb("skills_teach").default(sql`'[]'::jsonb`),
-});
+}); */
 
-const sessionsTable = pgTable("sessions", {
+/* const sessionsTable = pgTable("sessions", {
   id:              serial("id").primaryKey(),
   mentorId:        integer("mentor_id").notNull(),
   studentId:       integer("student_id").notNull(),
@@ -26,16 +29,17 @@ const sessionsTable = pgTable("sessions", {
   status:          text("status").notNull().default("requested"),
   creditsAmount:   integer("credits_amount").notNull().default(10),
   createdAt:       timestamp("created_at").notNull().defaultNow(),
-});
+  cancelReason:    text("cancel_reason"),
+}); */
 
-const transactionsTable = pgTable("transactions", {
+/* const transactionsTable = pgTable("transactions", {
   id:          serial("id").primaryKey(),
   userId:      integer("user_id").notNull(),
   amount:      integer("amount").notNull(),
   type:        text("type").notNull(),
   description: text("description").notNull(),
   createdAt:   timestamp("created_at").notNull().defaultNow(),
-});
+}); */
 
 const router: IRouter = Router();
 
@@ -134,7 +138,7 @@ router.patch("/users/:id/verify", requireAuth, requireAdmin, async (req, res) =>
   try {
       const userId = parseInt(req.params.id as string);
       const { isPremium } = req.body;
-      await db.update(usersTable).set({ isPremium }).where(eq(usersTable.id, userId));
+      await db.update(usersTable).set({ isPremium } as any).where(eq(usersTable.id, userId));
       res.json({ success: true });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
