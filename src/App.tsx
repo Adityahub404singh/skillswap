@@ -37,6 +37,9 @@ import VerifyEmail from "@/pages/verify-email";
 import FlashBoard from "@/pages/flash-board";
 import Quiz from "@/pages/quiz";
 
+// 🔥 IMPORT ANDROID NATIVE UTILS HERE
+import { setupDeepLinks, setupPushNotifications } from "@/lib/android-utils";
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
@@ -118,11 +121,21 @@ function Router() {
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const token = useAuthStore((s) => s.token); // 🔥 Token liya taaki Notifications ko pata chale user logged in hai ya nahi
 
   useEffect(() => {
+    // 🔗 1. Deep Links listener chalu kiya (Android App Links ke liye)
+    setupDeepLinks();
+
+    // 🔔 2. Agar user logged in hai, toh FCM Push Notifications chalu karo
+    if (token) {
+      setupPushNotifications(token);
+    }
+
+    // ⏳ Splash screen timer
     const timer = setTimeout(() => setLoading(false), 1800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [token]); // 🔥 Dependency mein token daal diya
 
   if (loading) return <LoadingScreen />;
 
