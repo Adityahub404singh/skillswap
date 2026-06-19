@@ -1,14 +1,47 @@
-import { StrictMode } from "react";
+﻿import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import * as Sentry from "@sentry/react";
 
+// 1. 🔥 FORCE UNREGISTER SERVICE WORKER
+// Android app mein Service Worker ki zarurat nahi hoti, yeh API calls ko hijack kar sakta hai.
+// Yeh ensure karta hai ki purana cache load na ho.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister().then(() => {
+        console.log("Service Worker unregistered.");
+      });
+    }
+  });
+}
+
+// 2. 🔥 GLOBAL FETCH OVERRIDE
+// Yeh har us request ko jo '/api' se shuru hoti hai, 
+// automatically tumhare Render backend par bhej dega (Android WebView compatibility).
+const originalFetch = window.fetch;
+window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  let url = input;
+  
+  if (typeof url === 'string' && url.startsWith('/api')) {
+    const backendUrl = "https://skillswap-b59w.onrender.com";
+    url = backendUrl + url;
+  }
+  
+  // 'mode: cors' ensure karta hai ki Android WebView requests ko block na kare
+  return originalFetch(url, {
+    ...init,
+    mode: 'cors' 
+  });
+};
+
+// 3. SENTRY INIT
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN || "",
   integrations: [Sentry.browserTracingIntegration()],
   tracesSampleRate: 0.1,
-  enabled: import.meta.env.PROD,
+  enabled: import.meta.env.PROD, // Sirf production mein enabled rahega
 });
 
 createRoot(document.getElementById("root")!).render(
@@ -16,4 +49,3 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </StrictMode>
 );
-

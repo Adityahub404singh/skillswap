@@ -8,20 +8,42 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 // 1. 💽 OFFLINE STORAGE (Phone memory caching)
 // =========================================
 export const NativeStorage = {
+  /**
+   * Value ko save karta hai. Agar object hai to stringify karega, 
+   * agar string (token) hai to direct save karega.
+   */
   async set(key: string, value: any) {
+    const valToStore = typeof value === 'string' ? value : JSON.stringify(value);
+    
     if (Capacitor.isNativePlatform()) {
-      await Preferences.set({ key, value: JSON.stringify(value) });
+      await Preferences.set({ key, value: valToStore });
     } else {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, valToStore);
     }
   },
+
+  /**
+   * Value ko fetch karta hai. 
+   * Try-Catch block JSON parse errors (like JWT tokens) ko handle karta hai.
+   */
   async get(key: string) {
+    let value: string | null = null;
+    
     if (Capacitor.isNativePlatform()) {
-      const { value } = await Preferences.get({ key });
-      return value ? JSON.parse(value) : null;
+      const result = await Preferences.get({ key });
+      value = result.value;
     } else {
-      const value = localStorage.getItem(key);
-      return value ? JSON.parse(value) : null;
+      value = localStorage.getItem(key);
+    }
+
+    if (!value) return null;
+
+    // JWT Token string hota hai (parse failed), 
+    // User objects/arrays hote hain (parse success).
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value; // Parse fail hua to string wapis karo
     }
   }
 };
@@ -31,16 +53,16 @@ export const NativeStorage = {
 // =========================================
 export async function takeNativePicture() {
   if (!Capacitor.isNativePlatform()) {
-    alert("Camera is only available in the Android App!");
+    console.warn("Camera is only available in the Android App!");
     return null;
   }
   
   try {
     const image = await Camera.getPhoto({
       quality: 90,
-      allowEditing: true, // Asli Android cropping interface
+      allowEditing: true, // Android crop tool
       resultType: CameraResultType.DataUrl, 
-      source: CameraSource.Prompt // User se poochega: Camera ya Gallery?
+      source: CameraSource.Prompt // Camera vs Gallery
     });
     return image.dataUrl; 
   } catch (error) {
@@ -52,7 +74,7 @@ export async function takeNativePicture() {
 // =========================================
 // 3. 🔔 NATIVE PUSH NOTIFICATIONS (FCM)
 // =========================================
-export async function setupPushNotifications(token: string) {
+export async function setupPushNotifications() {
   if (!Capacitor.isNativePlatform()) return;
 
   let permStatus = await PushNotifications.checkPermissions();
@@ -64,9 +86,8 @@ export async function setupPushNotifications(token: string) {
 
   await PushNotifications.register();
 
-  PushNotifications.addListener('registration', async (nativeToken) => {
-    console.log('🔥 Android FCM Token: ', nativeToken.value);
-    // Is FCM token ko backend me user profile me update karne ki API call yahan aayegi
+  PushNotifications.addListener('registration', (token) => {
+    console.log('🔥 Android FCM Token: ', token.value);
   });
 
   PushNotifications.addListener('pushNotificationReceived', (notification) => {
@@ -75,16 +96,17 @@ export async function setupPushNotifications(token: string) {
 }
 
 // =========================================
-// 4. 🔗 DEEP LINKING (App Links for Referrals)
+// 4. 🔗 DEEP LINKING (Referral links handle karne ke liye)
 // =========================================
 export function setupDeepLinks() {
   if (!Capacitor.isNativePlatform()) return;
 
   App.addListener('appUrlOpen', (event) => {
     console.log('App opened with URL:', event.url);
+    // URL se path nikal kar navigate karo
     const slug = event.url.split('.app').pop(); 
     if (slug) {
-      window.location.href = slug; // User ko app me navigate kara do
+      window.location.href = slug;
     }
   });
 }

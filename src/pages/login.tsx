@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+﻿import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,12 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { ArrowRight, Mail, Lock, Loader2, Sparkles, BookOpen, Zap, Shield } from "lucide-react";
+import { ArrowRight, Mail, Lock, Loader2, Zap, BookOpen, Shield, Sparkles } from "lucide-react";
+import { Preferences } from '@capacitor/preferences';
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
   password: z.string().min(1, "Password is required"),
 });
+
 type LoginForm = z.infer<typeof loginSchema>;
 
 export default function Login() {
@@ -27,16 +29,33 @@ export default function Login() {
 
   const loginMutation = useLoginUser({
     mutation: {
-      onSuccess: (data: any) => {
+      onSuccess: async (data: any) => {
+        // 1. Save token permanently for Android/iOS
+        await Preferences.set({
+          key: 'skillswap_token',
+          value: data.token
+        });
+
+        // 2. LocalStorage for Web
+        localStorage.setItem("skillswap_token", data.token);
+        
+        // 3. Update Auth Store State
         setToken(data.token);
-        toast({ title: "Welcome back! 👋", description: "Successfully logged in." });
+        
+        toast({ 
+          title: "Welcome back! 👋", 
+          description: "Successfully logged in." 
+        });
+
+        // 4. Force navigation
         setLocation("/dashboard");
       },
       onError: (error: any) => {
+        console.error("Login Error:", error);
         toast({
           variant: "destructive",
           title: "Login failed",
-          description: error?.response?.message || error?.message || "Invalid credentials. Please try again.",
+          description: "Invalid email or password. Please try again.",
         });
       },
     },
@@ -53,7 +72,6 @@ export default function Login() {
       </div>
 
       <div className="relative z-10 w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-
         {/* Left — branding */}
         <motion.div
           initial={{ opacity: 0, x: -30 }}
@@ -85,7 +103,7 @@ export default function Login() {
               { icon: Sparkles, text: "No real money needed", color: "text-violet-500" },
             ].map((item) => (
               <div key={item.text} className="flex items-center gap-3 text-sm">
-                <div className={`w-8 h-8 rounded-lg bg-muted flex items-center justify-center`}>
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                   <item.icon className={`w-4 h-4 ${item.color}`} />
                 </div>
                 <span className="text-muted-foreground">{item.text}</span>
@@ -100,13 +118,6 @@ export default function Login() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <div className="text-center mb-6 md:hidden">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <img src="/logo.svg" alt="SkillSwap" className="w-9 h-9 rounded-xl" />
-              <span className="font-black text-xl">Skill<span className="text-primary">Swap</span></span>
-            </div>
-          </div>
-
           <div className="p-7 rounded-3xl bg-background border border-border shadow-xl shadow-black/5">
             <h1 className="text-2xl font-black mb-1">Welcome back</h1>
             <p className="text-muted-foreground text-sm mb-6">Sign in to your account</p>
@@ -119,7 +130,7 @@ export default function Login() {
                   <Input
                     type="email"
                     placeholder="you@example.com"
-                    className={`pl-10 h-12 border-2 focus-visible:ring-primary/20 ${errors.email ? "border-destructive" : "border-border focus:border-primary/50"}`}
+                    className={`pl-10 h-12 border-2 ${errors.email ? "border-destructive" : "border-border"}`}
                     {...register("email")}
                   />
                 </div>
@@ -138,7 +149,7 @@ export default function Login() {
                   <Input
                     type="password"
                     placeholder="••••••••"
-                    className={`pl-10 h-12 border-2 focus-visible:ring-primary/20 ${errors.password ? "border-destructive" : "border-border focus:border-primary/50"}`}
+                    className={`pl-10 h-12 border-2 ${errors.password ? "border-destructive" : "border-border"}`}
                     {...register("password")}
                   />
                 </div>
@@ -148,7 +159,7 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={loginMutation.isPending}
-                className="w-full h-12 rounded-2xl font-bold text-base shadow-lg shadow-primary/20 mt-2"
+                className="w-full h-12 rounded-2xl font-bold text-base mt-2"
               >
                 {loginMutation.isPending
                   ? <Loader2 className="w-5 h-5 animate-spin" />

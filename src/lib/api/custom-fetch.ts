@@ -39,12 +39,17 @@ function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
   return headers;
 }
 
-// AUTO-INJECT TOKEN from localStorage
 function getAuthHeader(): HeadersInit | undefined {
   try {
-    const token = localStorage.getItem("skillswap_token");
-    if (token) return { Authorization: `Bearer ${token}` };
-  } catch {}
+    const rawToken = localStorage.getItem("skillswap_token");
+    if (!rawToken) return undefined;
+    const cleanToken = rawToken.replace(/['"]+/g, '');
+    if (cleanToken && cleanToken !== "undefined") {
+      return { Authorization: `Bearer ${cleanToken}` };
+    }
+  } catch (e) {
+    console.error("DEBUG: Token read error", e);
+  }
   return undefined;
 }
 
@@ -217,14 +222,17 @@ export async function customFetch<T = unknown>(
   const { responseType = "auto", headers: headersInit, ...init } = options;
   const method = resolveMethod(input, init.method);
 
-  if (init.body != null && (method === "GET" || method === "HEAD")) {
-    throw new TypeError(`customFetch: ${method} requests cannot have a body.`);
+  let finalInput = input;
+  
+  const baseUrl = "https://skillswap-b59w.onrender.com"; 
+  
+  if (typeof input === "string" && input.startsWith("/")) {
+    finalInput = `${baseUrl}${input}`;
   }
 
-  // Merge: existing request headers + auto auth token + passed headers
   const headers = mergeHeaders(
-    isRequest(input) ? input.headers : undefined,
-    getAuthHeader(),   // AUTO-INJECT token from localStorage
+    isRequest(input) ? (input as Request).headers : undefined,
+    getAuthHeader(),
     headersInit,
   );
 
@@ -236,8 +244,15 @@ export async function customFetch<T = unknown>(
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
 
-  const requestInfo = { method, url: resolveUrl(input) };
-  const response = await fetch(input, { ...init, method, headers });
+  const requestInfo = { method, url: resolveUrl(finalInput) };
+  
+  // 🔥 FETCH CALL WITH CORS MODE
+  const response = await fetch(finalInput, { 
+    ...init, 
+    method, 
+    headers,
+    mode: 'cors' 
+  });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

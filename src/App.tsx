@@ -6,10 +6,20 @@ import { Layout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuthStore } from "@/store/auth";
 import { useState, useEffect } from "react";
+
+// Capacitor Plugins
+import { Preferences } from "@capacitor/preferences";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+import { StatusBar, Style } from "@capacitor/status-bar";
+import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
+import { SplashScreen } from "@capacitor/splash-screen";
+
 import LoadingScreen from "@/components/loading-screen";
 import NotFound from "@/pages/not-found";
 import Matches from "./pages/matches";
-import Chat from "./pages/chat";    
+import Chat from "./pages/chat";
+import Onboarding, { ONBOARDING_KEY } from "@/pages/onboarding";
 import PublicPortfolio from "@/pages/public-portfolio";
 import NotificationsPage from "@/pages/notifications";
 import Landing from "@/pages/landing";
@@ -37,8 +47,10 @@ import VerifyEmail from "@/pages/verify-email";
 import FlashBoard from "@/pages/flash-board";
 import Quiz from "@/pages/quiz";
 
-// 🔥 IMPORT ANDROID NATIVE UTILS HERE
-import { setupDeepLinks, setupPushNotifications } from "@/lib/android-utils";
+// Native Android Utils
+import { setupDeepLinks, setupPushNotifications, NativeStorage } from "@/lib/android-utils";
+
+const API_BASE_URL = "https://skillswap-b59w.onrender.com";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -46,11 +58,16 @@ const queryClient = new QueryClient({
 
 async function updateStreak(token: string) {
   try {
-    await fetch("/api/gamification/streak", {
+    await fetch(`${API_BASE_URL}/api/gamification/streak`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { 
+        Authorization: `Bearer ${token.replace(/['"]+/g, '')}`, 
+        "Content-Type": "application/json" 
+      },
     });
-  } catch {}
+  } catch (err) {
+    console.error("Streak update failed", err);
+  }
 }
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -59,28 +76,42 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
-// 🔥 10x SCROLL TO TOP FIX (Timeout DOM ko render hone ka time deta hai)
 function ScrollToTop() {
   const [location] = useLocation();
-
   useEffect(() => {
     const timer = setTimeout(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-        document.documentElement.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-        document.body.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    }, 50); 
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      document.documentElement.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      document.body.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, 50);
     return () => clearTimeout(timer);
   }, [location]);
-
   return null;
 }
 
 function Router() {
   const token = useAuthStore((s) => s.token);
+  const [location] = useLocation();
+  
   useEffect(() => { if (token) updateStreak(token); }, [token]);
+
+  useEffect(() => {
+    const listenerPromise = CapacitorApp.addListener("backButton", () => {
+      const isRootPage = location === "/" || location === "/dashboard";
+      if (isRootPage) {
+        CapacitorApp.minimizeApp();
+      } else {
+        window.history.back();
+      }
+    });
+    return () => {
+      listenerPromise.then((listener) => listener.remove());
+    };
+  }, [location]);
+
   return (
     <>
-      <ScrollToTop /> {/* 🔥 PERFECT POSITION FOR SCROLL FIX */}
+      <ScrollToTop />
       <Layout>
         <Switch>
           <Route path="/" component={Landing} />
@@ -107,7 +138,7 @@ function Router() {
           <Route path="/premium" component={Subscription} />
           <Route path="/chat/:id" component={Chat} />
           <Route path="/verify-email" component={VerifyEmail} />
-           <Route path="/discover" component={Discover} />
+          <Route path="/discover" component={Discover} />
           <Route path="/terms" component={Terms} />
           <Route path="/quiz"><ProtectedRoute component={Quiz} /></Route>
           <Route path="/u/:slug" component={PublicPortfolio} />
@@ -121,23 +152,63 @@ function Router() {
 
 function App() {
   const [loading, setLoading] = useState(true);
-  const token = useAuthStore((s) => s.token); // 🔥 Token liya taaki Notifications ko pata chale user logged in hai ya nahi
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    // 🔗 1. Deep Links listener chalu kiya (Android App Links ke liye)
-    setupDeepLinks();
+    const initApp = async () => {
+      try {
+        // 🔥 NATIVE FEATURES SETUP
+        if (Capacitor.isNativePlatform()) {
+          try {
+            // Set Status bar to White Background with Dark text/icons
+            await StatusBar.setStyle({ style: Style.Dark });
+            await StatusBar.setBackgroundColor({ color: "#FFFFFF" });
+            
+            // Set Keyboard to push content smoothly up instead of shrinking
+            await Keyboard.setResizeMode({ mode: KeyboardResize.Ionic });
 
-    // 🔔 2. Agar user logged in hai, toh FCM Push Notifications chalu karo
-    if (token) {
-      setupPushNotifications(token);
-    }
+            // Hide Splash Screen once app is ready
+            await SplashScreen.hide();
+          } catch (nativeErr) {
+            console.warn("Native plugins failed to load or skipped", nativeErr);
+          }
+        }
 
-    // ⏳ Splash screen timer
-    const timer = setTimeout(() => setLoading(false), 1800);
-    return () => clearTimeout(timer);
-  }, [token]); // 🔥 Dependency mein token daal diya
+        // 1. Hydrate auth token
+        const result = await NativeStorage.get("skillswap_token");
+        const savedToken = typeof result === 'object' && result !== null ? (result as any).value : result;
+        
+        if (savedToken) {
+          useAuthStore.getState().setToken(savedToken);
+          // Sync localStorage for custom-fetch compatibility
+          localStorage.setItem("skillswap_token", savedToken);
+        }
+
+        // 2. Check Onboarding
+        const { value } = await Preferences.get({ key: ONBOARDING_KEY });
+        if (!value) setShowOnboarding(true);
+
+        // 3. Native Deep Links & Push
+        setupDeepLinks();
+        
+        // 🔥 FIREBASE PUSH ENABLED (Kyunki tumne json file dal di hai)
+        if (savedToken) setupPushNotifications();
+        
+      } catch (err) {
+        console.error("App init failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initApp();
+  }, []);
 
   if (loading) return <LoadingScreen />;
+
+  if (showOnboarding) {
+    return <Onboarding onFinish={() => setShowOnboarding(false)} />;
+  }
 
   return (
     <ErrorBoundary>
