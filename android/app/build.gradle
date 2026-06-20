@@ -47,11 +47,8 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
-}
+// 🔥 FIX: google-services.json already exists in android/app/, isliye plugin
+// ko unconditionally apply karte hain. Pehle wala try-catch silently fail ho
+// sakta tha aur Firebase kabhi initialize hi nahi hota tha — isi wajah se
+// "Default FirebaseApp is not initialized" crash aa raha tha push notifications pe.
+apply plugin: 'com.google.gms.google-services'

@@ -48,6 +48,8 @@ const PORT = process.env.PORT || 3001;
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000", // agar kabhi alag dev port use kiya
+  "https://localhost",     // 🔥 Capacitor Android/iOS apps WebView ka fixed origin (koi port nahi hota)
+  "capacitor://localhost", // 🔥 kuch Capacitor versions iOS pe ye scheme bhi bhejte hain
   process.env.FRONTEND_URL, // e.g. https://skillswap.vercel.app — set in Render + local .env
 ].filter(Boolean) as string[];
 

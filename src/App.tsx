@@ -198,9 +198,18 @@ function App() {
 
         // 3. Native Deep Links & Push
         setupDeepLinks();
-        
+
         // 🔥 FIREBASE PUSH ENABLED
-        if (savedToken) setupPushNotifications();
+        // Chhota delay taaki Android native side pe FirebaseApp.initializeApp()
+        // poora ho jaye is se pehle ki hum PushNotifications.register() call karein.
+        // Race condition fix: "Default FirebaseApp is not initialized" crash isi
+        // wajah se aata tha jab register() Firebase ke initialize hone se pehle hi
+        // fire ho jata tha cold-start ke turant baad.
+        if (savedToken) {
+          setTimeout(() => {
+            setupPushNotifications();
+          }, 1500);
+        }
         
       } catch (err) {
         console.error("App init failed", err);
