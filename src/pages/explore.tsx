@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useGetSkills } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { motion, AnimatePresence, Variants } from "framer-motion";
-import { Search, Compass, Users, ArrowRight, Star, Sparkles, Monitor, Palette, Briefcase, Globe } from "lucide-react";
+import { Search, Compass, ArrowRight, Star, Sparkles, Monitor, Palette, Briefcase, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -50,131 +50,114 @@ export default function Explore() {
   };
 
   const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 30 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 200, damping: 20 } }
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
 
   return (
-    <div className="min-h-screen py-8 px-4 md:px-8 max-w-7xl mx-auto space-y-12">
+    <div className="space-y-6 pb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      {/* ?? Premium Hero Section */}
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-indigo-900 via-primary to-purple-800 p-8 md:p-14 text-white shadow-[0_20px_50px_rgba(91,91,246,0.3)]">
-        <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-white/10 rounded-full blur-[100px] translate-x-1/3 -translate-y-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[30rem] h-[30rem] bg-black/20 rounded-full blur-[80px] -translate-x-1/4 translate-y-1/3 pointer-events-none" />
+      {/* Premium Hero Search Section */}
+      <div className="bg-gradient-to-br from-[#6C3BFF] to-[#8B5CF6] rounded-[24px] p-6 text-white shadow-md relative overflow-hidden">
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-white opacity-5 rounded-full blur-2xl pointer-events-none"></div>
         
-        <div className="relative z-10 max-w-2xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md text-sm font-bold mb-6 border border-white/20 shadow-inner">
-              <Sparkles className="w-4 h-4 text-yellow-300" /> Discover Your Next Superpower
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/15 text-[10px] font-bold mb-4 border border-white/10">
+            <Sparkles className="w-3 h-3 text-yellow-300" /> Discover Your Next Superpower
+          </div>
+          
+          <h1 className="text-3xl font-black mb-2 leading-tight">
+            Master New Skills
+          </h1>
+          <p className="text-white/80 text-sm font-medium mb-6">
+            Find verified experts and book live 1-on-1 sessions.
+          </p>
+          
+          {/* Clean Search Bar */}
+          <div className="relative flex items-center shadow-lg rounded-2xl bg-white overflow-hidden">
+            <div className="pl-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-slate-400" />
             </div>
-            <h1 className="text-4xl md:text-6xl font-black mb-6 leading-tight tracking-tight">
-              Master New Skills with <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-100">Top Mentors.</span>
-            </h1>
-            <p className="text-lg text-white/80 mb-10 font-medium max-w-xl leading-relaxed">
-              Find verified experts, book live 1-on-1 sessions, and pay securely using SkillSwap Credits. The ultimate peer-to-peer learning network.
-            </p>
-            
-            <div className="relative group max-w-xl">
-              <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
-                <Search className="h-6 w-6 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              </div>
-              <input
-                type="text"
-                placeholder="What do you want to learn? (e.g. React, English)"
-                className="w-full pl-16 pr-32 py-5 rounded-full text-foreground bg-white shadow-2xl focus:ring-4 focus:ring-primary/30 outline-none text-base md:text-lg font-semibold transition-all placeholder:text-muted-foreground/60"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <Button className="absolute right-2 top-2 bottom-2 rounded-full px-6 md:px-8 font-bold text-sm md:text-md shadow-lg bg-gradient-to-r from-primary to-accent hover:scale-105 transition-transform" size="lg">
-                Search
-              </Button>
-            </div>
-          </motion.div>
+            <input
+              type="text"
+              placeholder="What do you want to learn?"
+              className="w-full pl-3 pr-4 py-3.5 bg-transparent text-slate-800 text-sm font-bold placeholder:text-slate-400 focus:outline-none"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      {/* ?? Smooth Categories Navigation */}
-      <div className="flex overflow-x-auto pb-4 hide-scrollbar gap-3 sticky top-20 z-30 bg-background/90 backdrop-blur-xl py-4 -mx-4 px-4 md:mx-0 md:px-0">
+      {/* Smooth Categories Navigation */}
+      <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-2 -mx-1 px-1 sticky top-[70px] z-30 bg-[#F8FAFC]/90 backdrop-blur-md">
         {CATEGORIES.map((cat) => {
           const isActive = activeCat === cat.id;
           return (
-            <motion.button
+            <button
               key={cat.id}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
               onClick={() => setActiveCat(cat.id)}
-              className={`flex items-center gap-2 px-6 py-3.5 rounded-2xl font-bold text-sm transition-all whitespace-nowrap shadow-sm border-2 ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
                 isActive 
-                  ? "bg-foreground text-background border-foreground shadow-md" 
-                  : "bg-card text-muted-foreground border-border/50 hover:border-primary/30 hover:bg-muted/30 hover:text-foreground"
+                  ? "bg-[#6C3BFF] text-white shadow-md" 
+                  : "bg-white text-slate-500 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:border-[#6C3BFF]/30 hover:text-slate-800"
               }`}
             >
-              <cat.icon className={`w-4 h-4 ${isActive ? "" : "opacity-70"}`} />
+              <cat.icon className={`w-3.5 h-3.5 ${isActive ? "" : "opacity-70"}`} />
               {cat.label}
-            </motion.button>
+            </button>
           );
         })}
       </div>
 
-      {/* ?? The Magic Grid */}
+      {/* The Magic Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-72 rounded-[2rem]" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-48 rounded-[24px]" />)}
         </div>
       ) : filteredSkills.length === 0 ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
-          <div className="w-24 h-24 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Compass className="w-10 h-10 text-muted-foreground/50" />
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 bg-white rounded-[24px] border border-gray-100 shadow-sm mt-4">
+          <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Compass className="w-8 h-8 text-slate-300" />
           </div>
-          <h2 className="text-3xl font-black mb-3">No skills found</h2>
-          <p className="text-muted-foreground text-lg">Try adjusting your search or switching categories.</p>
-          <Button variant="outline" className="mt-6 rounded-full" onClick={() => {setSearch(""); setActiveCat("all");}}>
+          <h2 className="text-lg font-black text-slate-800 mb-1">No skills found</h2>
+          <p className="text-slate-500 text-sm mb-5">Try adjusting your search terms.</p>
+          <Button size="sm" className="bg-slate-900 text-white rounded-full font-bold px-6" onClick={() => {setSearch(""); setActiveCat("all");}}>
             Clear Filters
           </Button>
         </motion.div>
       ) : (
-        <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <AnimatePresence>
             {filteredSkills.map((skill: any) => (
               <motion.div key={skill.id} variants={itemVariants} layout className="group h-full">
                 <Link href={`/skills/${skill.name.toLowerCase().replace(/\s+/g, '-')}`}>
-                  <div className="h-full cursor-pointer relative overflow-hidden rounded-[2rem] bg-card border-2 border-border/40 p-6 md:p-8 shadow-sm hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:border-primary/40 transition-all duration-300 flex flex-col group-hover:-translate-y-2">
+                  <div className="h-full cursor-pointer bg-white border border-gray-100 rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-md hover:border-[#6C3BFF]/30 transition-all duration-300 flex flex-col active:scale-[0.98]">
                     
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-black uppercase tracking-widest border border-primary/20">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="px-3 py-1 rounded-full bg-indigo-50 text-[#6C3BFF] text-[10px] font-black uppercase tracking-wider">
                         {skill.category || "Skill"}
                       </div>
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold border border-amber-500/20">
-                        <Star className="w-3.5 h-3.5 fill-amber-500" />
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-50 text-slate-600 text-[10px] font-bold border border-slate-100">
+                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
                         {skill.rating || "4.9"}
                       </div>
                     </div>
 
-                    <h3 className="text-2xl md:text-3xl font-black mb-3 group-hover:text-primary transition-colors leading-tight">
+                    <h3 className="text-xl font-black text-slate-800 mb-1.5 leading-tight group-hover:text-[#6C3BFF] transition-colors">
                       {skill.name}
                     </h3>
                     
-                    <p className="text-muted-foreground text-sm md:text-base font-medium leading-relaxed mb-8 flex-1">
+                    <p className="text-slate-500 text-xs font-medium leading-relaxed mb-4 flex-1 line-clamp-2">
                       {skill.description}
                     </p>
 
-                    <div className="pt-5 border-t border-border/60 flex items-center justify-between mt-auto">
-                      <div className="flex items-center gap-2">
-                        <div className="flex -space-x-3">
-                          {[1, 2, 3].map((i) => (
-                            <div key={i} className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-br from-primary to-accent border-2 border-card flex items-center justify-center shadow-sm relative z-10 hover:z-20 transition-transform hover:scale-110">
-                              <span className="text-[10px] text-white font-bold">{String.fromCharCode(64 + Math.floor(Math.random() * 26) + 1)}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <span className="text-xs font-bold text-muted-foreground ml-2">
-                          {skill.mentorCount || Math.floor(Math.random() * 20) + 5}+ Mentors
-                        </span>
-                      </div>
-                      
-                      <div className="w-10 h-10 rounded-full bg-muted group-hover:bg-primary flex items-center justify-center transition-colors shadow-sm">
-                        <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
+                    <div className="pt-3 border-t border-slate-50 flex items-center justify-between mt-auto">
+                      <span className="text-[11px] font-bold text-slate-400">
+                        {skill.mentorCount || Math.floor(Math.random() * 20) + 5}+ Mentors
+                      </span>
+                      <div className="w-8 h-8 rounded-full bg-slate-50 group-hover:bg-[#6C3BFF] flex items-center justify-center transition-colors">
+                        <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
                       </div>
                     </div>
                   </div>

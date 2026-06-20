@@ -1,373 +1,210 @@
-﻿import { Link } from "wouter";
+﻿import { useAuthStore } from "@/store/auth";
 import { useGetMe, useGetMySessions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
+import { Link } from "wouter";
 import { format } from "date-fns";
 import { motion, Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Gift, Wallet, Star, CheckCircle, Clock, BookOpen, Compass, ArrowRight, TrendingUp, Zap, User, Trophy, Target, Sparkles, Calendar, Flame, Award, Shield, Code2, Globe, Brain, Palette } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect } from "react";
-
-// 🔥 FIX 1: Defines TS Type for Badges
-type BadgeType = {
-  id: string;
-  icon: string;
-  label: string;
-  desc: string;
-  color: string;
-};
-
-// 🔥 FIX 2: Emoticon Icons + Descriptions (No ???)
-const BADGES: BadgeType[] = [
-  { id: "first_session", icon: "🎯", label: "First Session",   desc: "Completed your first session", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
-  { id: "streak_7",      icon: "🔥", label: "7-Day Streak",    desc: "Learned 7 days in a row", color: "from-orange-500/20 to-orange-600/10 border-orange-500/30" },
-  { id: "streak_30",     icon: "🏆", label: "30-Day Legend",   desc: "Keep going!", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
-  { id: "top_mentor",    icon: "👑", label: "Top Mentor",      desc: "Keep going!", color: "from-purple-500/20 to-purple-600/10 border-purple-500/30" },
-  { id: "verified",      icon: "✅", label: "Verified Expert", desc: "Keep going!", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
-  { id: "community",     icon: "🌟", label: "Community Star",  desc: "Keep going!", color: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30" },
-];
-
-function StreakWidget({ streak }: { streak: number }) {
-  const days = ["M","T","W","T","F","S","S"];
-  const today = new Date().getDay();
-  return (
-    <div className="card-premium">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Flame className="w-5 h-5 text-orange-500" />
-          <h3 className="font-bold">Learning Streak</h3>
-        </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 font-bold text-sm">
-          <Flame className="w-3.5 h-3.5" /> {streak} days
-        </div>
-      </div>
-      <div className="flex gap-2 mb-3">
-        {days.map((d, i) => {
-          const active = i < (streak % 7);
-          const isToday = i === (today === 0 ? 6 : today - 1);
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <div className={`w-full aspect-square rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-                active ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30" :
-                isToday ? "bg-orange-500/20 text-orange-500 border border-orange-500/30" :
-                "bg-muted text-muted-foreground"
-              }`}>
-                {active ? "🔥" : d}
-              </div>
-              <span className="text-[9px] text-muted-foreground">{d}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div className="text-xs text-muted-foreground text-center">
-        {streak >= 30 ? "🏆 30-Day Legend!" : streak >= 7 ? "🔥 On fire! Keep going!" : `${7 - (streak % 7)} days to next milestone`}
-      </div>
-    </div>
-  );
-}
+import { 
+  Search, Brain, HelpCircle, Coins, 
+  Calendar, ChevronRight, Clock, Flame, 
+  Star, Wallet, ArrowRight, BookOpen
+} from "lucide-react";
 
 export default function Dashboard() {
   const options = useApiOptions();
-  const { data: user, isLoading: userLoading } = useGetMe(options);
+  const { token } = useAuthStore();
+  const { data: user, isLoading: userLoading } = useGetMe({ ...options, query: { enabled: !!token, queryKey: [] } });
   const { data: sessions, isLoading: sessionsLoading } = useGetMySessions({ status: "accepted" }, options);
-  const streak = (user as any)?.currentStreak ?? 0;
-  
-  // 🔥 FIX 3: Safe Badges calculation based on the user object
-  const unlockedBadges: number[] = user && Array.isArray((user as any).badges) 
-    ? (user as any).badges.map((b: string) => BADGES.findIndex(bg => bg.label === b)).filter((i: number) => i !== -1) 
-    : [];
 
-  const upcomingSessions = sessions?.filter(s => new Date(s.scheduledDate) > new Date()).slice(0, 3) || [];
-
+  // Animations
   const container: Variants = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } },
   };
   const item: Variants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 22 } },
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
   };
 
   if (userLoading) {
     return (
-      <div className="py-8 space-y-6">
-        <Skeleton className="h-52 w-full rounded-3xl" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+      <div className="py-6 space-y-6">
+        <Skeleton className="h-48 w-full rounded-[24px]" />
+        <div className="grid grid-cols-2 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-[20px]" />)}
         </div>
+        <Skeleton className="h-24 w-full rounded-[20px]" />
       </div>
     );
   }
 
   if (!user) return null;
 
+  // Data processing
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const firstName = user.name.split(" ")[0];
+  const greeting = hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
+  const firstName = user.name?.split(" ")[0] || "Learner";
+  const streak = (user as any)?.currentStreak ?? 0;
   const trustLevel = user?.trustScore >= 90 ? "Expert" : user?.trustScore >= 70 ? "Advanced" : user?.trustScore >= 50 ? "Intermediate" : "Beginner";
-  const trustColor = user?.trustScore >= 90 ? "text-purple-500" : user?.trustScore >= 70 ? "text-blue-500" : user?.trustScore >= 50 ? "text-green-500" : "text-orange-500";
+  
+  const upcomingSessions = sessions?.filter((s: any) => new Date(s.scheduledDate) > new Date()).slice(0, 3) || [];
 
   return (
-    <motion.div initial="hidden" animate="show" variants={container} className="py-6 space-y-6">
-
-      {/* Hero welcome */}
-      <motion.div variants={item} className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700 p-6 md:p-8 text-white shadow-2xl shadow-primary/20">
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/5 blur-2xl pointer-events-none" />        <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <motion.span animate={{ rotate: [0, 20, -20, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-2xl">👋</motion.span>
-              <span className="text-white/70 text-sm font-medium">{greeting}</span>
+    <motion.div initial="hidden" animate="show" variants={container} className="space-y-6">
+      
+      {/* 1. HERO CARD (Clean Solid Gradient, No Glassmorphism) */}
+      <motion.div variants={item} className="bg-gradient-to-br from-[#6C3BFF] to-[#8B5CF6] rounded-[24px] p-6 text-white shadow-md relative overflow-hidden">
+        {/* Abstract background shape for premium feel */}
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-white opacity-5 rounded-full blur-2xl pointer-events-none"></div>
+        
+        <div className="relative z-10">
+          <p className="text-white/80 text-sm font-medium flex items-center gap-1.5 mb-1">
+            {greeting} 👋
+          </p>
+          <h1 className="text-3xl font-black capitalize leading-tight">
+            {firstName}
+          </h1>
+          
+          {/* Stats Bar */}
+          <div className="flex flex-wrap gap-3 mt-6">
+            <div className="bg-black/15 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold border border-white/10">
+              <Wallet className="w-3.5 h-3.5 text-white/90" />
+              {user.credits || 0} cr
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold mb-2">{firstName}!</h1>
-            <div className="flex flex-wrap gap-3 text-sm">
-              <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
-                <Wallet className="w-3.5 h-3.5" />
-                <span className="font-bold">{user?.credits} cr</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
-                <Star className="w-3.5 h-3.5 fill-yellow-300 text-yellow-300" />
-                <span className="font-bold">Trust: {user?.trustScore}</span>
-                <span className={`text-xs font-semibold ${trustColor} bg-white/20 px-1.5 rounded-full`}>{trustLevel}</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-orange-500/30 backdrop-blur-sm rounded-full px-3 py-1">
-                <Flame className="w-3.5 h-3.5 text-orange-300" />
-                <span className="font-bold">{streak} day streak</span>
-              </div>
+            <div className="bg-black/15 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold border border-white/10">
+              <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+              Trust {user.trustScore || 0}
+            </div>
+            <div className="bg-black/15 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold border border-white/10">
+              <Flame className="w-3.5 h-3.5 text-orange-400 fill-orange-400" />
+              {streak} Day Streak
             </div>
           </div>
-          <div className="flex gap-3">
-            <Link href="/explore">
-              <Button className="bg-white text-primary hover:bg-white/90 font-bold rounded-full shadow-lg">
-                <Compass className="w-4 h-4 mr-2" /> Find Mentors
-              </Button>
-            </Link>
-            <Link href="/profile">
-              <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 rounded-full">
-                <User className="w-4 h-4 mr-2" /> Profile
-              </Button>
-            </Link>
+
+          {/* Minimal Progress Bar */}
+          <div className="mt-5">
+            <div className="flex justify-between text-[10px] font-bold text-white/70 mb-1.5">
+              <span>Level Progress</span>
+              <span>75%</span>
+            </div>
+            <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }} 
+                animate={{ width: "75%" }} 
+                transition={{ duration: 1, ease: "easeOut" }}
+                className="h-full bg-white rounded-full"
+              />
+            </div>
           </div>
         </div>
       </motion.div>
 
-      {/* NEW: DAILY QUIZ BANNER */}
-      <motion.div variants={item}>
-        <Link href="/quiz">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-400 via-rose-500 to-red-500 p-1 cursor-pointer group shadow-lg hover:shadow-2xl transition-all">
-            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
-            <div className="bg-background/95 backdrop-blur-md rounded-[22px] px-6 py-5 flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-inner">
-                  <Brain className="w-7 h-7 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-black text-foreground text-xl flex items-center gap-2">
-                    Daily Skill Quiz <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
-                  </h3>
-                  <p className="text-sm text-muted-foreground">Answer 10 questions daily. Earn up to 20 Credits! 🏆</p>
-                </div>
-              </div>
-              <Button className="shrink-0 rounded-full font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hidden sm:flex">
-                Play Now <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
+      {/* 2. QUICK ACTIONS (2x2 Grid) */}
+      <motion.div variants={item} className="grid grid-cols-2 gap-4">
+        <Link href="/explore">
+          <motion.div whileTap={{ scale: 0.96 }} className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center text-center gap-2 cursor-pointer">
+            <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-[#6C3BFF]">
+              <Search className="w-6 h-6" />
             </div>
-          </div>
+            <span className="font-bold text-slate-800 text-sm">Find Mentor</span>
+          </motion.div>
+        </Link>
+
+        <Link href="/quiz">
+          <motion.div whileTap={{ scale: 0.96 }} className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center text-center gap-2 cursor-pointer">
+            <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-[#F59E0B]">
+              <Brain className="w-6 h-6" />
+            </div>
+            <span className="font-bold text-slate-800 text-sm">Start Quiz</span>
+          </motion.div>
+        </Link>
+
+        <Link href="/flash-board">
+          <motion.div whileTap={{ scale: 0.96 }} className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center text-center gap-2 cursor-pointer">
+            <div className="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center text-[#8B5CF6]">
+              <HelpCircle className="w-6 h-6" />
+            </div>
+            <span className="font-bold text-slate-800 text-sm">Ask Doubt</span>
+          </motion.div>
+        </Link>
+
+        <Link href="/buy-credits">
+          <motion.div whileTap={{ scale: 0.96 }} className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center text-center gap-2 cursor-pointer">
+            <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-[#22C55E]">
+              <Coins className="w-6 h-6" />
+            </div>
+            <span className="font-bold text-slate-800 text-sm">Earn Credits</span>
+          </motion.div>
         </Link>
       </motion.div>
 
-      {/* Stats grid */}
-      <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { icon: Wallet, label: "Credits", value: user?.credits, sub: "available", color: "text-primary", bg: "bg-primary/10" },
-          { icon: Star, label: "Trust Score", value: user?.trustScore, sub: trustLevel, color: "text-yellow-500", bg: "bg-yellow-500/10" },
-          { icon: BookOpen, label: "Sessions", value: sessions?.length || 0, sub: "total", color: "text-blue-500", bg: "bg-blue-500/10" },
-          { icon: Flame, label: "Streak", value: `${streak}d`, sub: "keep it up!", color: "text-orange-500", bg: "bg-orange-500/10" },
-        ].map((s, i) => (
-          <motion.div key={s.label} whileHover={{ scale: 1.04, y: -3 }}
-            className="card-premium text-center cursor-default">
-            <div className={`w-12 h-12 rounded-2xl ${s.bg} flex items-center justify-center mx-auto mb-3`}>
-              <s.icon className={`w-6 h-6 ${s.color}`} />
+      {/* 3. DAILY CHALLENGE (Compact Card, Not a Giant Banner) */}
+      <motion.div variants={item}>
+        <Link href="/quiz">
+          <motion.div whileTap={{ scale: 0.98 }} className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-500 flex-shrink-0">
+                <Flame className="w-5 h-5 fill-orange-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                  Daily Skill Quiz <span className="bg-[#F59E0B] text-white text-[9px] px-1.5 py-0.5 rounded-sm">LIVE</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">Answer 10 Qs. Earn 20 cr!</p>
+              </div>
             </div>
-            <div className={`text-2xl font-extrabold ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-muted-foreground font-medium mt-1">{s.label}</div>
-            <div className="text-[10px] text-muted-foreground">{s.sub}</div>
+            <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400">
+              <ChevronRight className="w-4 h-4" />
+            </div>
           </motion.div>
-        ))}
+        </Link>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Upcoming sessions */}
-          <motion.div variants={item} className="card-premium">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" /> Upcoming Sessions
-              </h2>
-              <Link href="/sessions">
-                <Button variant="ghost" size="sm" className="text-primary text-xs gap-1">
-                  View all <ArrowRight className="w-3 h-3" />
-                </Button>
-              </Link>
-            </div>
-            {upcomingSessions.length === 0 ? (
-              <div className="text-center py-10">
-                <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm mb-4">No upcoming sessions yet</p>
-                <Link href="/explore">
-                  <Button size="sm" className="rounded-full">Find a Mentor</Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {upcomingSessions.map((session: any) => (
-                  <motion.div key={session.id} whileHover={{ x: 4 }}
-                    className="flex items-center gap-4 p-3 rounded-xl bg-muted/40 border border-border/50">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <BookOpen className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{session.skill?.name || "Session"}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(session.scheduledDate), "MMM d, h:mm a")}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" className="rounded-full h-7 text-xs bg-green-500 hover:bg-green-600">
-                        <TrendingUp className="w-3 h-3 mr-1" /> Join
-                      </Button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-
-          {/* Badges */}
-
-          <motion.div variants={item} className="card-premium">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-500" /> Your Badges
-              </h2>
-              <span className="text-xs text-muted-foreground">{unlockedBadges.length}/{BADGES.length} earned</span>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              
-              {BADGES.map((badge, i) => {
-                const unlocked = unlockedBadges.includes(i);
-                return (
-                  <motion.div key={badge.id} whileHover={{ scale: 1.05 }}
-                    className={`p-3 rounded-xl border text-center cursor-default transition-all ${
-                      unlocked ? `bg-gradient-to-br ${badge.color}` : "bg-muted/30 border-border/30 opacity-40 grayscale"
-                    }`}>
-                    <div className="text-2xl mb-1">{badge.icon}</div>
-                    <div className="text-xs font-bold leading-tight">{badge.label}</div>
-                    {unlocked && <div className="text-[9px] text-muted-foreground mt-0.5">{badge.desc}</div>}
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-
-          {/* Portfolio */}
-          <motion.div variants={item} className="card-premium">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Award className="w-5 h-5 text-blue-500" /> Your Portfolio
-              </h2>
-              <Link href="/profile">
-                <Button variant="ghost" size="sm" className="text-xs text-primary gap-1">
-                  Edit <ArrowRight className="w-3 h-3" />
-                </Button>
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
-                <div className="text-xs text-muted-foreground mb-1">Skills I Teach</div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {((user as any).skillsTeach?.slice(0,3) || ["Add skills"]).map((s: string, i: number) => (
-                    <span key={i} className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-700 dark:text-green-400 text-xs font-medium">{s}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                <div className="text-xs text-muted-foreground mb-1">Skills I Learn</div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {((user as any).skillsLearn?.slice(0,3) || ["Add skills"]).map((s: string, i: number) => (
-                    <span key={i} className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-medium">{s}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
-              <div className="flex items-center gap-2">
-                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                <span className="text-sm font-medium">Rating: {user?.trustScore >= 80 ? "4.9" : user?.trustScore >= 60 ? "4.7" : "4.5"}/5</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm font-medium">Exchanges: {sessions?.length || 0}</span>
-              </div>
-            </div>
-          </motion.div>
+      {/* 4. CONTINUE LEARNING */}
+      <motion.div variants={item} className="pb-4">
+        <div className="flex justify-between items-center mb-3 px-1">
+          <h3 className="font-bold text-slate-800">Continue Learning</h3>
+          <Link href="/sessions" className="text-xs font-bold text-[#6C3BFF] hover:underline">View All</Link>
         </div>
-
-        {/* Right sidebar */}
-        <div className="space-y-6">
-          <motion.div variants={item}><StreakWidget streak={streak} /></motion.div>
-
-          {/* Quick actions */}
-          <motion.div variants={item} className="card-premium">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-primary" /> Quick Actions
-            </h3>
-            <div className="space-y-2">
-              {[
-                { href: "/quiz", icon: Brain, label: "Daily Quiz", color: "text-red-500", bg: "bg-red-500/10" },
-                { href: "/explore", icon: Compass, label: "Find a Mentor", color: "text-primary", bg: "bg-primary/10" },
-                { href: "/sessions", icon: BookOpen, label: "My Sessions", color: "text-blue-500", bg: "bg-blue-500/10" },
-                { href: "/wallet", icon: Wallet, label: "View Wallet", color: "text-green-500", bg: "bg-green-500/10" },
-                { href: "/ai", icon: Sparkles, label: "Ask SkillAI", color: "text-purple-500", bg: "bg-purple-500/10" },
-              ].map(a => (
-                <Link key={a.href} href={a.href}>
-                  <motion.div whileHover={{ x: 4 }}
-                    className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer group">
-                    <div className={`w-8 h-8 rounded-lg ${a.bg} flex items-center justify-center`}>
-                      <a.icon className={`w-4 h-4 ${a.color}`} />
-                    </div>
-                    <span className="text-sm font-medium group-hover:text-primary transition-colors">{a.label}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </motion.div>
-                </Link>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Credit tips */}
-          <motion.div variants={item} className="card-premium bg-gradient-to-br from-primary/10 to-accent/5 border-primary/20">
-            <h3 className="font-bold mb-3 flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" /> Earn More Credits
-            </h3>
-            <div className="space-y-2 text-sm">
-              {[
-                { action: "Play Daily Quiz", credits: "+20", done: false },
-                { action: "Teach a session", credits: "+10", done: (sessions?.length || 0) > 0 },
-                { action: "Complete profile", credits: "+5", done: !!user.bio },
-                { action: "7-day streak", credits: "+20", done: streak >= 7 },
-              ].map(t => (
-                <div key={t.action} className={`flex items-center justify-between ${t.done ? "opacity-50 line-through" : ""}`}>
-                  <div className="flex items-center gap-2">
-                    {t.done ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <Target className="w-3.5 h-3.5 text-muted-foreground" />}
-                    <span className="text-muted-foreground">{t.action}</span>
+        
+        {upcomingSessions.length === 0 ? (
+          <div className="bg-white p-6 rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] text-center">
+            <BookOpen className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+            <p className="text-slate-500 text-sm font-medium mb-3">No upcoming sessions</p>
+            <Link href="/explore">
+              <Button size="sm" className="bg-[#6C3BFF] text-white rounded-full h-8 px-4 text-xs font-bold">
+                Book a Session
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {upcomingSessions.map((session: any) => (
+              <div key={session.id} className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between">
+                <div className="flex gap-3 items-center">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-[#6C3BFF]">
+                    <Calendar className="w-5 h-5" />
                   </div>
-                  <span className="font-bold text-primary text-xs">{t?.credits}</span>
+                  <div>
+                    <p className="font-bold text-slate-800 text-sm truncate max-w-[150px]">
+                      {session.skill?.name || "Learning Session"}
+                    </p>
+                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5 font-medium">
+                      <Clock className="w-3 h-3" /> {format(new Date(session.scheduledDate), "MMM d, h:mm a")}
+                    </p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </div>
+                <Button size="sm" className="bg-[#6C3BFF] text-white rounded-full h-8 text-xs font-bold">
+                  Join
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+
     </motion.div>
   );
 }

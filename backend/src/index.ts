@@ -1,8 +1,12 @@
-﻿import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
+dotenv.config();
 
-// Import all your routers
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import express from "express";
+import cors from "cors";
+
+// Import routers
 import discoverRouter from "./routes/discover.js";
 import authRouter from "./routes/auth.js";
 import adminRouter from "./routes/admin.js";
@@ -21,18 +25,25 @@ import walletRouter from "./routes/wallet.js";
 import verificationRouter from "./routes/verification.js";
 import quizRouter from "./routes/quiz.js";
 import platformRouter from "./routes/platform.js";
-
-// Import your new combined Cron Jobs
 import { startCronJobs } from "./utils/cronJobs.js";
 
-dotenv.config();
+// 🔥 SENTRY INIT (Fixed for v10)
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  integrations: [
+    nodeProfilingIntegration(),
+    Sentry.expressIntegration(),
+  ],
+  tracesSampleRate: 1.0,
+});
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
+// Middlewares
+app.use(cors({ origin: "*", credentials: true }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ limit: "1mb", extended: true }));
 
 // Routes
 app.use("/api/health", healthRouter);
@@ -54,9 +65,11 @@ app.use("/api/verification", verificationRouter);
 app.use("/api/quiz", quizRouter);
 app.use("/api/platform", platformRouter);
 
+// 🔥 Sentry Error Handler (No Handlers property used)
+Sentry.setupExpressErrorHandler(app);
+
 // Start Server & Initialize Cron Jobs
 app.listen(PORT, () => {
-  // Yeh function tumhari cronJobs.ts file se call ho raha hai
   startCronJobs(); 
   console.log(`🚀 Server running on port ${PORT}`);
   console.log("⏰ Retention & Session Cron Engines are Active!");

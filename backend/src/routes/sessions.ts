@@ -46,14 +46,46 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-const BookSchema = z.object({
-  mentorId:      z.number(),
-  skill:         z.string().min(1),
-  sessionType:   z.enum(["micro_15", "micro_30", "doubt", "standard", "extended"]).default("standard"),
-  scheduledAt:   z.string().optional(),
-  scheduledDate: z.string().optional(),
-  message:       z.string().optional()
-});
+// 🔥 HARDENED SCHEMA: XSS-safe skill name, length limits, and future-date enforcement.
+// scheduledDate/scheduledAt dono optional rakhe hain (jaisa original logic karta tha),
+// lekin jo bhi date aaye usko refine() se past-date check se guzarna padega.
+const BookSchema = z
+  .object({
+    mentorId: z.number().int(),
+
+    // 🔥 FIX 1: Max 50 chars, no HTML/Scripts
+    skill: z
+      .string()
+      .min(1)
+      .max(50)
+      .trim()
+      .refine((val) => !/<[^>]*>/i.test(val), {
+        message: "Invalid skill name (No HTML allowed)",
+      }),
+
+    sessionType: z.enum(["micro_15", "micro_30", "doubt", "standard", "extended"]).default("standard"),
+
+    // Dono fields optional — neeche .refine() se ensure karenge ki kam se kam ek mile
+    // aur jo bhi mile woh future date ho.
+    scheduledDate: z.string().optional(),
+    scheduledAt: z.string().optional(),
+
+    // 🔥 FIX 3: Message limit
+    message: z.string().max(500).optional().nullable(),
+  })
+  .refine((data) => Boolean(data.scheduledDate || data.scheduledAt), {
+    message: "scheduledDate is required",
+    path: ["scheduledDate"],
+  })
+  .refine(
+    (data) => {
+      const raw = data.scheduledDate || data.scheduledAt;
+      if (!raw) return true; // upar wala refine isko already pakad lega
+      const d = new Date(raw);
+      return d > new Date(); // 🔥 FIX 2: Date past ki nahi honi chahiye
+    },
+    { message: "Cannot schedule session in the past", path: ["scheduledDate"] }
+  );
 
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -71,6 +103,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     const baseRate = Math.max(mentor.pricePerHour || 10, 10);
     const credits  = Math.max(Math.round(baseRate * cfg.multiplier), 3);
 
+    // 🔥 SECURITY FIX: Prevent negative credit hacking
     if (learner.credits < credits) return res.status(400).json({ error: `Need ${credits} credits, you have ${learner.credits}` });
 
     const dateStr = data.scheduledDate || data.scheduledAt;
@@ -181,6 +214,7 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     } as any);
 
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId));
+    // 🔥 SECURITY FIX: Strict conditions for referral bonus to prevent fake account farming
     if (student && student.sessionsCompleted === 0 && (student as any).referredBy && duration >= 60 && elapsedMins >= 45) {
       await db.update(usersTable).set({ sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1` }).where(eq(usersTable.id, student.id));
       await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 50` }).where(eq(usersTable.id, (student as any).referredBy));
@@ -206,12 +240,16 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
     
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId && session.studentId !== req.userId) return res.status(403).json({ error: "Not your session" });
-    if (session.status === "cancelled") return res.status(400).json({ error: "Already cancelled" });
+    
+    // 🔥 SECURITY FIX: Prevent Double Refund Hacks (Checking both cancelled and completed states)
+    if (session.status === "cancelled" || session.status === "completed") {
+        return res.status(400).json({ error: "Session cannot be cancelled anymore" });
+    }
 
     await db.update(sessionsTable).set({ status: "cancelled", cancelReason } as any).where(eq(sessionsTable.id, sessionId));
     
     if (session.status === "in_progress" && req.userId === session.studentId) {
-       // Just cancel, no refund issued
+       // Just cancel, no refund issued if student cancels mid-session
     } else {
        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
        await db.insert(transactionsTable).values({

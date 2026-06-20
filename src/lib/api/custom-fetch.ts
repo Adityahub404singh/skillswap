@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
 };
@@ -256,7 +257,18 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+    const apiError = new ApiError(response, errorData, requestInfo);
+
+    // 🔥 Sentry ko batao ki API call fail hui hai
+    Sentry.captureException(apiError, {
+      extra: {
+        url: requestInfo.url,
+        method: requestInfo.method,
+        status: response.status,
+      },
+    });
+
+    throw apiError;
   }
 
   return (await parseSuccessBody(response, responseType, requestInfo)) as T;

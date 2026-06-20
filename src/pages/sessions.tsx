@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+ï»¿import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -10,12 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, CheckCircle2, AlertTriangle, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, BookOpen, GraduationCap, Coins, Filter, Zap, Lock, Key, Info, User, Compass, Timer, ArrowRightLeft } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, Star, CalendarDays, Loader2, Video, Users, Plus, BookOpen, GraduationCap, Coins, Filter, Lock, Key, User, Compass, Timer, ArrowRightLeft } from "lucide-react";
 
 type SessionTab    = "learning" | "teaching";
 type StatusFilter  = "all" | "requested" | "accepted" | "in_progress" | "completed" | "cancelled";
 
-// ?? HELPER: Live Countdown Logic
+// LIVE COUNTDOWN LOGIC
 const getCountdown = (targetDateStr: string) => {
   const target = new Date(targetDateStr).getTime();
   const now = new Date().getTime();
@@ -50,7 +50,7 @@ export default function Sessions() {
   const [otpInput,      setOtpInput]      = useState("");
   const [groupForm,     setGroupForm]     = useState({ skill: "", scheduledDate: "", creditsAmount: "20", maxStudents: "10", message: "" });
 
-  // ?? LIVE TIMER TICKER (Updates countdown every minute)
+  // LIVE TIMER TICKER
   const [, setTick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 60000);
@@ -153,7 +153,6 @@ export default function Sessions() {
     }
   };
 
-  // Derived Data
   const myId = (user as any)?.id;
 
   const sessions = (allSessions || []).filter((s: any) => {
@@ -173,16 +172,16 @@ export default function Sessions() {
 
   const getStatusBadge = (status: string) => {
     const cfg: Record<string, { label: string; icon: any; cls: string }> = {
-      requested:   { label: "Pending",     icon: Clock,        cls: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-      accepted:    { label: "Upcoming",    icon: CalendarDays, cls: "bg-blue-500/10 text-blue-600 border-blue-500/20 shadow-sm" },
-      in_progress: { label: "Live Now",    icon: Video,        cls: "bg-indigo-600 text-white border-indigo-600 animate-pulse shadow-md" },
-      completed:   { label: "Completed",   icon: CheckCircle2, cls: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-      cancelled:   { label: "Cancelled",   icon: XCircle,      cls: "bg-red-500/10 text-red-600 border-red-500/20" },
+      requested:   { label: "Pending",     icon: Clock,        cls: "bg-amber-50 text-amber-600 border-amber-100" },
+      accepted:    { label: "Upcoming",    icon: CalendarDays, cls: "bg-blue-50 text-blue-600 border-blue-100" },
+      in_progress: { label: "Live Now",    icon: Video,        cls: "bg-indigo-600 text-white border-indigo-600 animate-pulse shadow-sm" },
+      completed:   { label: "Completed",   icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-600 border-emerald-100" },
+      cancelled:   { label: "Cancelled",   icon: XCircle,      cls: "bg-red-50 text-red-600 border-red-100" },
     };
     const c = cfg[status] || cfg["requested"];
     const Icon = c.icon;
     return (
-      <span className={`px-3 py-1 text-[11px] font-black tracking-wider uppercase rounded-full border flex items-center gap-1.5 ${c.cls}`}>
+      <span className={`px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase rounded-full border flex items-center gap-1.5 ${c.cls}`}>
         <Icon className="w-3.5 h-3.5" /> {c.label}
       </span>
     );
@@ -197,56 +196,55 @@ export default function Sessions() {
   ];
 
   return (
-    <div className="py-8 max-w-5xl mx-auto space-y-8 px-4 font-sans relative overflow-hidden">
+    <div className="space-y-6 pb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      {/* ?? Premium Unicorn Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-[120px] opacity-20 animate-pulse pointer-events-none"></div>
-
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 p-8 rounded-[2rem] text-white shadow-xl relative overflow-hidden z-10">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-[80px] pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      {/* Header (Clean Solid Gradient) */}
+      <div className="bg-gradient-to-br from-[#6C3BFF] to-[#8B5CF6] p-6 rounded-[24px] text-white shadow-md relative overflow-hidden">
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-white opacity-5 rounded-full blur-2xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-black mb-2 flex items-center gap-3 tracking-tight">
-              <CalendarDays className="w-8 h-8 text-yellow-300 drop-shadow-md" /> My Sessions
+            <h1 className="text-3xl font-black mb-1 flex items-center gap-2">
+              <CalendarDays className="w-7 h-7 text-white/90" /> My Sessions
             </h1>
-            <p className="text-white/80 font-medium text-lg">Manage your teaching and learning schedule.</p>
+            <p className="text-white/80 font-medium text-sm">Manage your teaching and learning schedule.</p>
           </div>
           {tab === "teaching" && (
-            <Button onClick={() => setGroupModal(true)} className="rounded-full bg-white text-indigo-600 hover:bg-gray-50 font-black px-6 shadow-xl hover:scale-105 transition-all h-12">
-              <Plus className="w-5 h-5 mr-2" /> Create Group Class
+            <Button onClick={() => setGroupModal(true)} className="rounded-full bg-white text-[#6C3BFF] hover:bg-slate-50 font-bold px-6 shadow-sm h-10 w-full md:w-auto">
+              <Plus className="w-4 h-4 mr-1.5" /> Group Class
             </Button>
           )}
         </div>
       </div>
 
       {/* Tabs & Filters */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
-        <div className="flex p-1.5 bg-slate-100 rounded-2xl w-full sm:w-fit border border-slate-200">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        {/* Main Tabs */}
+        <div className="flex p-1 bg-white border border-gray-100 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.02)] w-full sm:w-fit">
           <button
             onClick={() => { setTab("learning"); setStatusFilter("all"); }}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-black rounded-xl transition-all ${tab === "learning" ? "bg-white shadow-md text-indigo-600" : "text-slate-500 hover:text-slate-800"}`}>
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-6 py-2 text-xs font-bold rounded-full transition-all ${tab === "learning" ? "bg-[#6C3BFF] text-white shadow-md" : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"}`}>
             <BookOpen className="w-4 h-4" /> Learning
           </button>
           <button
             onClick={() => { setTab("teaching"); setStatusFilter("all"); }}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-black rounded-xl transition-all ${tab === "teaching" ? "bg-white shadow-md text-pink-600" : "text-slate-500 hover:text-slate-800"}`}>
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-6 py-2 text-xs font-bold rounded-full transition-all ${tab === "teaching" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"}`}>
             <GraduationCap className="w-4 h-4" /> Teaching
           </button>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 hide-scrollbar w-full md:w-auto">
-          <Filter className="w-4 h-4 text-slate-400 flex-shrink-0 mr-1" />
+        {/* Status Filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1 hide-scrollbar w-full md:w-auto">
+          <Filter className="w-4 h-4 text-slate-400 flex-shrink-0 mr-1 hidden sm:block" />
           {STATUS_FILTERS.map(f => (
             <button key={f.value} onClick={() => setStatusFilter(f.value)}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap border-2 ${
+              className={`px-4 py-2 rounded-full text-[11px] font-bold transition-all whitespace-nowrap border ${
                 statusFilter === f.value
-                  ? "bg-slate-800 text-white border-slate-800 shadow-md"
-                  : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-slate-800"
+                  ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                  : "bg-white border-gray-100 text-slate-500 hover:border-[#6C3BFF]/30 hover:text-slate-800"
               }`}>
               {f.label}
               {f.value !== "all" && counts[f.value] > 0 && (
-                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${statusFilter === f.value ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{counts[f.value]}</span>
+                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${statusFilter === f.value ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{counts[f.value]}</span>
               )}
             </button>
           ))}
@@ -254,20 +252,20 @@ export default function Sessions() {
       </div>
 
       {/* Sessions Grid */}
-      <div className="space-y-5 relative z-10">
+      <div className="space-y-4">
         {isLoading ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-[#6C3BFF]" />
           </div>
         ) : sessions.length === 0 ? (
-          <div className="p-16 text-center rounded-[2rem] border-2 border-dashed border-slate-200 bg-white/50 backdrop-blur-sm">
-            <CalendarDays className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-2xl font-black mb-2 text-slate-800">No sessions found</h3>
-            <p className="text-slate-500 text-base font-medium mb-6">
+          <div className="p-12 text-center rounded-[24px] border border-gray-100 bg-white shadow-sm">
+            <CalendarDays className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+            <h3 className="text-xl font-black mb-1 text-slate-800">No sessions found</h3>
+            <p className="text-slate-500 text-sm font-medium mb-5">
               {tab === "learning" ? "Time to learn something new! Book your first session." : "You have no teaching sessions yet. Share your profile!"}
             </p>
             {tab === "learning" && (
-              <a href="/explore" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-pink-500 text-white rounded-full text-sm font-bold shadow-lg hover:shadow-indigo-500/30 hover:scale-105 transition-all">
+              <a href="/explore" className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#6C3BFF] text-white rounded-full text-xs font-bold shadow-md hover:bg-[#5b32d6] transition-all">
                 <Compass className="w-4 h-4" /> Discover Mentors
               </a>
             )}
@@ -281,90 +279,90 @@ export default function Sessions() {
 
               return (
                 <motion.div key={session.id}
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.05 }}
-                  className="bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-lg border border-slate-100 overflow-hidden group hover:shadow-xl hover:border-indigo-100 transition-all">
+                  initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ delay: i * 0.05 }}
+                  className="bg-white rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 overflow-hidden group hover:border-[#6C3BFF]/20 transition-all">
 
-                  <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+                  <div className="p-5 sm:p-6 flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
                     
                     {/* User Info & Skill */}
-                    <div className="flex items-start gap-5 flex-1 min-w-0 w-full">
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0 shadow-inner group-hover:scale-105 transition-transform ${
-                        isGroupSession ? "bg-gradient-to-br from-cyan-500 to-blue-600" :
-                        tab === "learning" ? "bg-gradient-to-br from-indigo-500 to-purple-600" : "bg-gradient-to-br from-pink-500 to-orange-400"
+                    <div className="flex items-start gap-4 flex-1 min-w-0 w-full">
+                      <div className={`w-14 h-14 rounded-[16px] flex items-center justify-center text-[#6C3BFF] font-bold text-xl flex-shrink-0 shadow-inner group-hover:scale-105 transition-transform ${
+                        isGroupSession ? "bg-cyan-50 border border-cyan-100" :
+                        tab === "learning" ? "bg-indigo-50 border border-indigo-100" : "bg-purple-50 border border-purple-100"
                       }`}>
-                        {isGroupSession ? <Users className="w-7 h-7" /> :
-                          otherUser?.avatar ? <img src={otherUser.avatar} className="w-full h-full rounded-full object-cover" alt="" /> : (otherUser?.name?.charAt(0)?.toUpperCase() ?? "?")}
+                        {isGroupSession ? <Users className="w-6 h-6" /> :
+                          otherUser?.avatar ? <img src={otherUser.avatar} className="w-full h-full rounded-[16px] object-cover" alt="" /> : (otherUser?.name?.charAt(0)?.toUpperCase() ?? "?")}
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-3 mb-2">
-                          <h3 className="font-black text-xl text-slate-800 truncate">{session.skill}</h3>
+                        <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+                          <h3 className="font-black text-lg text-slate-800 truncate">{session.skill}</h3>
                           {getStatusBadge(session.status)}
                         </div>
 
-                        <p className="text-sm font-medium text-slate-500 mb-3 flex items-center gap-2">
-                          <User className="w-4 h-4 opacity-50" />
+                        <p className="text-xs font-medium text-slate-500 mb-3 flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5" />
                           <>{tab === "learning" ? "Mentor: " : "Student: "} <span className="text-slate-800 font-bold">{otherName}</span></>
                         </p>
 
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                            <CalendarDays className="w-3.5 h-3.5 text-indigo-500" />
-                            {format(new Date(session.scheduledDate), "EEE, MMM d • h:mm a")}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                            <CalendarDays className="w-3 h-3 text-[#6C3BFF]" />
+                            {format(new Date(session.scheduledDate), "EEE, MMM d â€¢ h:mm a")}
                           </span>
-                          <span className="text-xs font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                            <Coins className="w-3.5 h-3.5" />{session.creditsAmount} cr
-                            {session.negotiatedPrice ? <span className="text-emerald-600 ml-1 font-semibold">(Negotiated)</span> : null}
+                          <span className="text-[11px] font-bold text-[#6C3BFF] bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                            <Coins className="w-3 h-3" />{session.creditsAmount} cr
+                            {session.negotiatedPrice ? <span className="text-emerald-600 ml-1">(Negotiated)</span> : null}
                           </span>
                           
-                          {/* ?? LIVE COUNTDOWN */}
+                          {/* LIVE COUNTDOWN */}
                           {session.status === "accepted" && (
-                            <span className="text-xs font-black text-pink-600 bg-pink-50 border border-pink-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm">
-                              <Timer className="w-3.5 h-3.5" /> {getCountdown(session.scheduledDate)}
+                            <span className="text-[11px] font-bold text-[#F59E0B] bg-orange-50 border border-orange-100 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                              <Timer className="w-3 h-3" /> {getCountdown(session.scheduledDate)}
                             </span>
                           )}
                         </div>
 
                         {session.message && (
-                          <div className="mt-4 bg-slate-50 rounded-xl p-3 text-sm italic text-slate-500 border-l-4 border-indigo-300">
+                          <div className="mt-3 bg-slate-50 rounded-xl p-3 text-xs font-medium text-slate-500 border border-slate-100">
                             "{session.message}"
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* ?? ACTION BUTTONS BASED ON STATUS */}
-                    <div className="flex flex-col items-end gap-3 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-slate-100 shrink-0">
+                    {/* ACTION BUTTONS */}
+                    <div className="flex flex-col items-end gap-2 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-100 shrink-0">
                       
                       {/* TEACHING: Requested */}
                       {tab === "teaching" && session.status === "requested" && (
                         <div className="flex gap-2 w-full md:w-auto">
-                          <Button variant="outline" className="flex-1 md:flex-none text-blue-600 border-blue-200 hover:bg-blue-50 font-bold rounded-xl" onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
+                          <Button variant="outline" size="sm" className="flex-1 md:flex-none text-blue-600 border-blue-100 hover:bg-blue-50 font-bold rounded-full text-xs" onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
                             Negotiate
                           </Button>
-                          <Button className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-500/20" onClick={() => acceptMut.mutate({ sessionId: session.id })}>
+                          <Button size="sm" className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full shadow-sm text-xs" onClick={() => acceptMut.mutate({ sessionId: session.id })}>
                             Accept
                           </Button>
-                          <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-50 rounded-xl" onClick={() => cancelMut.mutate({ sessionId: session.id })}>
-                            <XCircle className="w-5 h-5" />
+                          <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full h-8 w-8" onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                            <XCircle className="w-4 h-4" />
                           </Button>
                         </div>
                       )}
 
                       {/* TEACHING: Accepted (Needs OTP to start) */}
                       {tab === "teaching" && session.status === "accepted" && (
-                        <div className="flex flex-col items-end gap-2 w-full md:w-auto">
-                          <Button className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl shadow-lg shadow-indigo-500/30" onClick={() => setOtpModal(session)}>
-                            <Lock className="w-4 h-4 mr-2" /> Start Session (OTP)
+                        <div className="flex flex-col items-end gap-1.5 w-full md:w-auto">
+                          <Button size="sm" className="w-full md:w-auto bg-[#6C3BFF] hover:bg-[#5b32d6] text-white font-bold rounded-full shadow-sm text-xs h-8" onClick={() => setOtpModal(session)}>
+                            <Lock className="w-3 h-3 mr-1.5" /> Verify OTP to Start
                           </Button>
-                          <button className="text-xs font-bold text-red-500 hover:underline" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel Class</button>
+                          <button className="text-[10px] font-bold text-red-400 hover:text-red-600 px-2" onClick={() => cancelMut.mutate({ sessionId: session.id })}>Cancel Class</button>
                         </div>
                       )}
 
                       {/* LEARNING: Requested */}
                       {tab === "learning" && session.status === "requested" && (
                         <div className="flex gap-2 w-full md:w-auto">
-                          <Button variant="outline" className="flex-1 md:flex-none text-red-500 border-red-200 hover:bg-red-50 font-bold rounded-xl" onClick={() => cancelMut.mutate({ sessionId: session.id })}>
+                          <Button variant="outline" size="sm" className="flex-1 md:flex-none text-red-500 border-red-100 hover:bg-red-50 font-bold rounded-full text-xs h-8" onClick={() => cancelMut.mutate({ sessionId: session.id })}>
                             Cancel Request
                           </Button>
                         </div>
@@ -372,15 +370,15 @@ export default function Sessions() {
 
                       {/* LEARNING: Accepted (Shows OTP & Join Link) */}
                       {tab === "learning" && session.status === "accepted" && (
-                        <div className="flex flex-col items-end gap-3 w-full md:w-auto bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                          <div className="flex flex-col items-end w-full">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Share OTP with Mentor</span>
-                            <span className="font-mono font-black text-indigo-600 tracking-[0.2em] text-xl bg-indigo-100 px-3 py-1 rounded-lg border border-indigo-200">{session.sessionOtp || "123456"}</span>
+                        <div className="flex flex-col items-end gap-2 w-full md:w-auto bg-slate-50 p-3 rounded-[16px] border border-gray-100">
+                          <div className="flex items-center justify-between w-full gap-4">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">Your OTP:</span>
+                            <span className="font-mono font-black text-[#6C3BFF] tracking-widest text-sm bg-white px-2 py-0.5 rounded border border-gray-200">{session.sessionOtp || "123456"}</span>
                           </div>
                           {session.meetLink && (
-                            <a href={session.meetLink} target="_blank" rel="noopener noreferrer" className="w-full">
-                              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg shadow-blue-500/30">
-                                <Video className="w-4 h-4 mr-2" /> Join Meeting
+                            <a href={session.meetLink} target="_blank" rel="noopener noreferrer" className="w-full mt-1">
+                              <Button size="sm" className="w-full bg-[#6C3BFF] hover:bg-[#5b32d6] text-white font-bold rounded-full shadow-sm text-xs h-8">
+                                <Video className="w-3 h-3 mr-1.5" /> Join Meet
                               </Button>
                             </a>
                           )}
@@ -389,21 +387,21 @@ export default function Sessions() {
 
                       {/* BOTH: In Progress (Mark Complete) */}
                       {session.status === "in_progress" && (
-                         <Button className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl shadow-lg shadow-emerald-500/30 animate-pulse" onClick={() => completeMut.mutate({ sessionId: session.id })}>
-                           <CheckCircle2 className="w-5 h-5 mr-2" /> Mark as Done
+                         <Button size="sm" className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full shadow-sm animate-pulse text-xs h-8" onClick={() => completeMut.mutate({ sessionId: session.id })}>
+                           <CheckCircle2 className="w-3 h-3 mr-1.5" /> Mark as Done
                          </Button>
                       )}
 
                       {/* LEARNING: Completed (Rate) */}
                       {tab === "learning" && session.status === "completed" && !session.teacherRating && (
-                        <Button variant="outline" className="w-full md:w-auto border-orange-400 text-orange-500 hover:bg-orange-50 font-bold rounded-xl shadow-sm" onClick={() => setRatingId(session.id)}>
-                          <Star className="w-4 h-4 mr-2" /> Rate Experience
+                        <Button variant="outline" size="sm" className="w-full md:w-auto border-orange-200 text-orange-500 hover:bg-orange-50 font-bold rounded-full shadow-sm text-xs h-8" onClick={() => setRatingId(session.id)}>
+                          <Star className="w-3 h-3 mr-1.5" /> Rate Mentor
                         </Button>
                       )}
                       {session.status === "completed" && session.teacherRating && (
-                        <div className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-1.5 w-full md:w-auto justify-center">
-                          <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-                          <span className="font-black text-amber-600">{session.teacherRating} / 5</span>
+                        <div className="px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-full flex items-center gap-1 w-full md:w-auto justify-center">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          <span className="font-bold text-amber-600 text-xs">{session.teacherRating}/5</span>
                         </div>
                       )}
 
@@ -417,23 +415,23 @@ export default function Sessions() {
       </div>
 
       {/* ==========================================
-          ALL FULLY INTACT MODALS (NO CUTS)
+          MODALS (Cleaned & Rounded 24px)
           ========================================== */}
 
       {/* 1. OTP Dialog */}
       <Dialog open={!!otpModal} onOpenChange={o => !o && setOtpModal(null)}>
-        <DialogContent className="sm:max-w-md rounded-[2rem] p-8 border-0 shadow-2xl">
+        <DialogContent className="sm:max-w-md rounded-[24px] p-6 border border-gray-100 shadow-xl bg-white">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-center gap-2 text-2xl font-black text-slate-800"><Key className="w-6 h-6 text-indigo-600" /> Start Session</DialogTitle>
-            <DialogDescription className="text-center font-medium text-slate-500 mt-2">Enter the 6-digit OTP provided by the student to unlock credits and start.</DialogDescription>
+            <DialogTitle className="flex items-center justify-center gap-2 text-xl font-black text-slate-800"><Key className="w-5 h-5 text-[#6C3BFF]" /> Start Session</DialogTitle>
+            <DialogDescription className="text-center font-medium text-slate-500 mt-1 text-xs">Enter the 6-digit OTP from student to unlock credits.</DialogDescription>
           </DialogHeader>
-          <div className="py-6 flex flex-col items-center justify-center">
-            <Input type="text" maxLength={6} placeholder="• • • • • •" value={otpInput} onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
-              className="text-center text-4xl tracking-[0.5em] font-mono h-20 w-full bg-slate-50 border-2 border-slate-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 rounded-2xl shadow-inner" />
+          <div className="py-4 flex flex-col items-center justify-center">
+            <Input type="text" maxLength={6} placeholder="â€¢ â€¢ â€¢ â€¢ â€¢ â€¢" value={otpInput} onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
+              className="text-center text-3xl tracking-[0.5em] font-mono h-16 w-full bg-slate-50 border border-slate-200 focus-visible:ring-[#6C3BFF] focus-visible:border-[#6C3BFF] rounded-2xl" />
           </div>
-          <DialogFooter className="gap-3 sm:gap-0">
-            <Button variant="outline" className="rounded-xl font-bold border-slate-200 h-12" onClick={() => setOtpModal(null)}>Cancel</Button>
-            <Button onClick={startSession} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 h-12" disabled={otpInput.length < 6}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-full font-bold border-slate-200 h-10 text-xs" onClick={() => setOtpModal(null)}>Cancel</Button>
+            <Button onClick={startSession} className="bg-[#6C3BFF] hover:bg-[#5b32d6] text-white rounded-full font-bold shadow-sm h-10 text-xs" disabled={otpInput.length < 6}>
               Verify OTP
             </Button>
           </DialogFooter>
@@ -442,23 +440,23 @@ export default function Sessions() {
 
       {/* 2. Rating Dialog */}
       <Dialog open={!!ratingId} onOpenChange={o => !o && setRatingId(null)}>
-        <DialogContent className="sm:max-w-md rounded-[2rem] border-0 shadow-2xl p-8">
+        <DialogContent className="sm:max-w-md rounded-[24px] border border-gray-100 shadow-xl bg-white p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black text-center text-slate-800">Rate your mentor</DialogTitle>
+            <DialogTitle className="text-xl font-black text-center text-slate-800">Rate your mentor</DialogTitle>
           </DialogHeader>
-          <div className="py-6 space-y-6">
-            <div className="flex justify-center gap-3">
+          <div className="py-4 space-y-4">
+            <div className="flex justify-center gap-2">
               {[1,2,3,4,5].map(star => (
-                <button key={star} onClick={() => setRatingVal(star)} className="transition-transform hover:scale-110 active:scale-95">
-                  <Star className={`w-12 h-12 ${star <= ratingVal ? "fill-orange-400 text-orange-400 drop-shadow-md" : "text-slate-200"}`} />
+                <button key={star} onClick={() => setRatingVal(star)} className="transition-transform active:scale-95">
+                  <Star className={`w-10 h-10 ${star <= ratingVal ? "fill-orange-400 text-orange-400" : "text-slate-200"}`} />
                 </button>
               ))}
             </div>
-            <Textarea placeholder="How was the session? (Optional)" value={reviewText} onChange={e => setReviewText(e.target.value)} className="resize-none h-28 rounded-2xl border-2 border-slate-200 focus-visible:ring-indigo-500 p-4 text-base font-medium shadow-inner" />
+            <Textarea placeholder="How was the session? (Optional)" value={reviewText} onChange={e => setReviewText(e.target.value)} className="resize-none h-24 rounded-2xl border border-slate-200 focus-visible:ring-[#6C3BFF] p-3 text-sm font-medium bg-slate-50" />
           </div>
           <DialogFooter>
-            <Button onClick={handleRate} disabled={rateMut.isPending} className="w-full h-14 rounded-2xl font-black text-lg bg-gradient-to-r from-orange-400 to-pink-500 text-white shadow-lg shadow-orange-500/30 hover:scale-[1.02] transition-transform">
-              {rateMut.isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : "Submit Review"}
+            <Button onClick={handleRate} disabled={rateMut.isPending} className="w-full h-12 rounded-full font-bold text-sm bg-slate-900 text-white shadow-sm">
+              {rateMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Review"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -466,60 +464,54 @@ export default function Sessions() {
 
       {/* 3. Group Class Dialog */}
       <Dialog open={groupModal} onOpenChange={setGroupModal}>
-        <DialogContent className="sm:max-w-md rounded-[2rem] border-0 shadow-2xl p-8">
+        <DialogContent className="sm:max-w-md rounded-[24px] border border-gray-100 shadow-xl bg-white p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2">
-              <Users className="w-6 h-6 text-indigo-600" /> Create Group Class
+            <DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2">
+              <Users className="w-5 h-5 text-[#6C3BFF]" /> Create Group Class
             </DialogTitle>
-            <DialogDescription className="font-medium text-slate-500">Host a class for multiple students at once.</DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4">
+          <div className="py-2 space-y-3">
             <div>
-              <label className="text-xs font-black text-slate-400 uppercase mb-1 block">Topic / Skill</label>
-              <Input placeholder="e.g. Advanced React Patterns" value={groupForm.skill} onChange={e => setGroupForm({...groupForm, skill: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-medium" />
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Topic / Skill</label>
+              <Input placeholder="e.g. Advanced React Patterns" value={groupForm.skill} onChange={e => setGroupForm({...groupForm, skill: e.target.value})} className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm font-medium" />
             </div>
             <div>
-              <label className="text-xs font-black text-slate-400 uppercase mb-1 block">Date & Time</label>
-              <Input type="datetime-local" value={groupForm.scheduledDate} onChange={e => setGroupForm({...groupForm, scheduledDate: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-medium" />
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Date & Time</label>
+              <Input type="datetime-local" value={groupForm.scheduledDate} onChange={e => setGroupForm({...groupForm, scheduledDate: e.target.value})} className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm font-medium" />
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <div className="flex-1">
-                <label className="text-xs font-black text-slate-400 uppercase mb-1 block">Cost (Credits)</label>
-                <Input type="number" placeholder="20" value={groupForm.creditsAmount} onChange={e => setGroupForm({...groupForm, creditsAmount: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-medium" />
+                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Cost (Credits)</label>
+                <Input type="number" placeholder="20" value={groupForm.creditsAmount} onChange={e => setGroupForm({...groupForm, creditsAmount: e.target.value})} className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm font-medium" />
               </div>
               <div className="flex-1">
-                <label className="text-xs font-black text-slate-400 uppercase mb-1 block">Max Students</label>
-                <Input type="number" placeholder="10" value={groupForm.maxStudents} onChange={e => setGroupForm({...groupForm, maxStudents: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-medium" />
+                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Max Students</label>
+                <Input type="number" placeholder="10" value={groupForm.maxStudents} onChange={e => setGroupForm({...groupForm, maxStudents: e.target.value})} className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm font-medium" />
               </div>
-            </div>
-            <div>
-              <label className="text-xs font-black text-slate-400 uppercase mb-1 block">Details (Optional)</label>
-              <Textarea placeholder="What will be covered in this class?" value={groupForm.message} onChange={e => setGroupForm({...groupForm, message: e.target.value})} className="resize-none h-20 rounded-xl bg-slate-50 border-slate-200 font-medium" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGroupModal(false)} className="rounded-xl h-12 font-bold">Cancel</Button>
-            <Button onClick={createGroupSession} className="rounded-xl h-12 font-bold bg-indigo-600 hover:bg-indigo-700 text-white">Create Class</Button>
+          <DialogFooter className="mt-2 gap-2">
+            <Button variant="outline" onClick={() => setGroupModal(false)} className="rounded-full h-10 text-xs font-bold w-full">Cancel</Button>
+            <Button onClick={createGroupSession} className="rounded-full h-10 text-xs font-bold w-full bg-[#6C3BFF] hover:bg-[#5b32d6] text-white">Create Class</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* 4. Negotiate Dialog */}
       <Dialog open={!!negotiateModal} onOpenChange={o => !o && setNegotiateModal(null)}>
-        <DialogContent className="sm:max-w-md rounded-[2rem] border-0 shadow-2xl p-8">
+        <DialogContent className="sm:max-w-sm rounded-[24px] border border-gray-100 shadow-xl bg-white p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2">
-  <ArrowRightLeft className="w-6 h-6 text-indigo-600" /> Negotiate Price
-</DialogTitle>
-            <DialogDescription className="font-medium text-slate-500">Propose a new credit amount for this session.</DialogDescription>
+            <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
+              <ArrowRightLeft className="w-5 h-5 text-[#6C3BFF]" /> Negotiate Price
+            </DialogTitle>
           </DialogHeader>
-          <div className="py-6">
-            <label className="text-xs font-black text-slate-400 uppercase mb-2 block">Proposed Credits</label>
-            <Input type="number" placeholder="Enter amount..." value={proposedPrice} onChange={e => setProposedPrice(e.target.value)} className="h-14 text-lg rounded-xl bg-slate-50 border-2 border-slate-200 font-bold text-slate-800 focus-visible:ring-indigo-500" />
+          <div className="py-4">
+            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Proposed Credits</label>
+            <Input type="number" placeholder="Enter amount..." value={proposedPrice} onChange={e => setProposedPrice(e.target.value)} className="h-12 text-base rounded-xl bg-slate-50 border border-slate-200 font-bold text-slate-800" />
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" className="rounded-xl h-12 font-bold" onClick={() => setNegotiateModal(null)}>Cancel</Button>
-            <Button onClick={negotiatePrice} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 font-bold shadow-lg shadow-indigo-500/30">
+            <Button variant="outline" className="rounded-full h-10 text-xs font-bold" onClick={() => setNegotiateModal(null)}>Cancel</Button>
+            <Button onClick={negotiatePrice} className="bg-slate-900 text-white rounded-full h-10 text-xs font-bold">
               Send Proposal
             </Button>
           </DialogFooter>

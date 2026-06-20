@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { db } from "../db.js";
-import { sql } from "drizzle-orm"; // 🔥 Raw SQL Drizzle import
+import { sql } from "drizzle-orm"; 
+import { requireAuth, type AuthRequest } from "../middlewares/auth.js"; // 🔥 Security Added
 
 const router = Router();
 
-// 💬 POST: Naya message bhejo (["/", ""] dono lagaye taaki routing fail na ho)
-router.post(["/", ""], async (req: any, res) => {
+// 💬 POST: Naya message bhejo
+router.post(["/", ""], requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.user?.id || 1;
+        const userId = req.userId!; // 🔥 FIX: Strictly secure
         const { receiverId, content } = req.body;
 
         await db.execute(sql`
@@ -21,11 +22,11 @@ router.post(["/", ""], async (req: any, res) => {
         res.status(500).json({ error: "Failed to send message" });
     }
 });
-// Add this inside backend/src/index.ts ke andar, baaki routes ke neeche:
-router.get("/conversations", async (req: any, res) => {
+
+// GET: Conversations
+router.get("/conversations", requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.user?.id || 1;
-        // Fetch users who have chatted with me
+        const userId = req.userId!; // 🔥 FIX
         const convos = await db.execute(sql`
             SELECT DISTINCT u.id, u.name, u.avatar, m.content as lastMessage, m.created_at
             FROM users u
@@ -39,11 +40,12 @@ router.get("/conversations", async (req: any, res) => {
         res.status(500).json({ error: "Failed to load chats" });
     }
 });
+
 // 💬 GET: Puraani Chat History nikaalo
-router.get("/:otherUserId", async (req: any, res) => {
+router.get("/:otherUserId", requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.user?.id || 1;
-        const otherUserId = parseInt(req.params.otherUserId);
+        const userId = req.userId!; // 🔥 FIX
+       const otherUserId = parseInt(req.params.otherUserId as string);
 
         const chatHistoryResult = await db.execute(sql`
             SELECT * FROM messages 
@@ -58,6 +60,5 @@ router.get("/:otherUserId", async (req: any, res) => {
         res.status(500).json({ error: "Failed to fetch messages" });
     }
 });
-
 
 export default router;

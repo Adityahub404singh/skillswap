@@ -17,8 +17,8 @@ import { SplashScreen } from "@capacitor/splash-screen";
 
 import LoadingScreen from "@/components/loading-screen";
 import NotFound from "@/pages/not-found";
-import Matches from "./pages/matches";
-import Chat from "./pages/chat";
+import Matches from "@/pages/matches";
+import Chat from "@/pages/chat";
 import Onboarding, { ONBOARDING_KEY } from "@/pages/onboarding";
 import PublicPortfolio from "@/pages/public-portfolio";
 import NotificationsPage from "@/pages/notifications";
@@ -29,12 +29,12 @@ import Dashboard from "@/pages/dashboard";
 import Explore from "@/pages/explore";
 import MentorProfile from "@/pages/mentor-profile";
 import BookSession from "@/pages/book-session";
-import Sessions from "./pages/sessions";
+import Sessions from "@/pages/sessions";
 import Wallet from "@/pages/wallet";
 import AIChat from "@/pages/ai-chat";
 import AdminPanel from "@/pages/admin";
 import Profile from "@/pages/profile";
-import Discover from "./pages/discover";
+import Discover from "@/pages/discover";
 import Invite from "@/pages/invite";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
@@ -114,13 +114,25 @@ function Router() {
       <ScrollToTop />
       <Layout>
         <Switch>
+          {/* Public Routes */}
           <Route path="/" component={Landing} />
           <Route path="/login" component={Login} />
-          <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/register" component={Register} />
-          <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
+          <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/explore" component={Explore} />
           <Route path="/mentor/:id" component={MentorProfile} />
+          <Route path="/admin" component={AdminPanel} />
+          <Route path="/privacy-policy" component={PrivacyPolicy} />
+          <Route path="/privacy" component={PrivacyPolicy} />
+          <Route path="/skills/:skill" component={SkillPage} />
+          <Route path="/leaderboard" component={Leaderboard} />
+          <Route path="/premium" component={Subscription} />
+          <Route path="/verify-email" component={VerifyEmail} />
+          <Route path="/terms" component={Terms} />
+          <Route path="/u/:slug" component={PublicPortfolio} />
+
+          {/* 🔥 PROTECTED ROUTES (Fixed Security Issue) */}
+          <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
           <Route path="/book/:mentorId"><ProtectedRoute component={BookSession} /></Route>
           <Route path="/sessions"><ProtectedRoute component={Sessions} /></Route>
           <Route path="/wallet"><ProtectedRoute component={Wallet} /></Route>
@@ -128,21 +140,15 @@ function Router() {
           <Route path="/buy-credits"><ProtectedRoute component={BuyCredits} /></Route>
           <Route path="/flash-board"><ProtectedRoute component={FlashBoard} /></Route>
           <Route path="/ai"><ProtectedRoute component={AIChat} /></Route>
-          <Route path="/admin" component={AdminPanel} />
-          <Route path="/matches" component={Matches} />
           <Route path="/profile"><ProtectedRoute component={Profile} /></Route>
-          <Route path="/privacy-policy" component={PrivacyPolicy} />
-          <Route path="/privacy" component={PrivacyPolicy} />
-          <Route path="/skills/:skill" component={SkillPage} />
-          <Route path="/leaderboard" component={Leaderboard} />
-          <Route path="/premium" component={Subscription} />
-          <Route path="/chat/:id" component={Chat} />
-          <Route path="/verify-email" component={VerifyEmail} />
-          <Route path="/discover" component={Discover} />
-          <Route path="/terms" component={Terms} />
           <Route path="/quiz"><ProtectedRoute component={Quiz} /></Route>
-          <Route path="/u/:slug" component={PublicPortfolio} />
           <Route path="/notifications"><ProtectedRoute component={NotificationsPage} /></Route>
+          
+          {/* 🚨 These were unprotected before, now they are safe! */}
+          <Route path="/matches"><ProtectedRoute component={Matches} /></Route>
+          <Route path="/chat/:id"><ProtectedRoute component={Chat} /></Route>
+          <Route path="/discover"><ProtectedRoute component={Discover} /></Route>
+
           <Route component={NotFound} />
         </Switch>
       </Layout>
@@ -191,7 +197,7 @@ function App() {
         // 3. Native Deep Links & Push
         setupDeepLinks();
         
-        // 🔥 FIREBASE PUSH ENABLED (Kyunki tumne json file dal di hai)
+        // 🔥 FIREBASE PUSH ENABLED
         if (savedToken) setupPushNotifications();
         
       } catch (err) {

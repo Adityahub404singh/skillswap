@@ -2,7 +2,7 @@
 import { db } from "../db.js";
 import { feedbacksTable, subscribersTable } from "../schema/index.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm"; // 🔥 FIX: Imported eq here
 
 const router = Router();
 
@@ -10,10 +10,10 @@ const router = Router();
 router.post("/subscribe", async (req, res) => {
     try {
         const { email } = req.body;
-        // Basic check if email exists to avoid 500 error on duplicate
+        // 🔥 FIX: Correct Drizzle syntax used here
         const existing = await db.select().from(subscribersTable).where(
-          (table) => table.email === email
-        ).catch(() => []); // Ignore errors if not strictly enforced yet
+          eq(subscribersTable.email, email) 
+        ).catch(() => []); 
         
         if (existing && existing.length === 0) {
             await db.insert(subscribersTable).values({ email });
@@ -29,7 +29,7 @@ router.post("/subscribe", async (req, res) => {
 router.post("/feedback", async (req: AuthRequest, res) => {
     try {
         const { rating, text } = req.body;
-        const userId = req.userId; // Will be undefined if not logged in (which is fine)
+        const userId = req.userId;
         await db.insert(feedbacksTable).values({
             userId,
             rating,
@@ -45,7 +45,6 @@ router.post("/feedback", async (req: AuthRequest, res) => {
 // 3. ADMIN: Get All Feedbacks
 router.get("/admin/feedbacks", requireAuth, async (req, res) => {
     try {
-        // Simple fetch for now, you can add user details mapping later if needed
         const feedbacks = await db.select().from(feedbacksTable).orderBy(desc(feedbacksTable.createdAt));
         res.json(feedbacks);
     } catch (err) { res.status(500).json({ error: "Failed to fetch feedbacks" }); }

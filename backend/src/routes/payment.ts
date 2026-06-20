@@ -52,6 +52,15 @@ router.post("/verify", requireAuth, async (req: AuthRequest, res) => {
 
     if (expectedSignature !== razorpay_signature) return res.status(400).json({ error: "Invalid payment signature" });
 
+    // 🔥 SECURITY FIX: Check if payment is already processed!
+    const existingTx = await db.select().from(transactionsTable).where(
+      sql`${transactionsTable.description} LIKE ${`%${razorpay_payment_id}%`}`
+    ).limit(1);
+
+    if (existingTx.length > 0) {
+      return res.status(400).json({ error: "Payment already processed!" });
+    }
+
     const order = await razorpay.orders.fetch(razorpay_order_id);
     const amountPaid = (order.amount as number) / 100;
     
@@ -61,7 +70,6 @@ router.post("/verify", requireAuth, async (req: AuthRequest, res) => {
     const userId = req.userId!;
     await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${verifiedCredits}` }).where(eq(usersTable.id, userId));
 
-    // 🚨 BUG FIXED HERE: Added missing db.insert command
     await db.insert(transactionsTable).values({
       userId, amount: verifiedCredits, type: "purchase",
       description: `Credits purchased securely (Payment ID: ${razorpay_payment_id})`,
