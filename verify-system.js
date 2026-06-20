@@ -1,7 +1,9 @@
 // verify-system.js
 // Run this file using: node verify-system.js
 
-const API_BASE = "http://localhost:3001/api"; // Apne port ke hisaab se change kar lena
+// Pehle: const API_BASE = "http://localhost:3001/api";
+// Ab ye karo:
+const API_BASE = "http://127.0.0.1:3001/api";// Apne port ke hisaab se change kar lena
 
 // 🧠 SMART Helper function fetch ke liye
 async function apiCall(endpoint, method = "GET", body = null, token = null, expectFail = false) {
@@ -128,11 +130,16 @@ async function runMasterTest() {
     console.log("");
 
     // ==========================================
+    // // ==========================================
     // TEST 6: BOOKING & CANCELLATION REFUND (ESCROW TEST)
     // ==========================================
     console.log("🧪 TEST 6: Booking & Escrow Refund (Cancellation)...");
+    
+    // ✅ Future date sirf ek baar yahan define kar di
+    const tomorrow = new Date(Date.now() + 86400000); 
+
     const cancelTestBook = await apiCall("/sessions", "POST", {
-        mentorId: mentorId, skill: "React", sessionType: "standard", scheduledDate: new Date(Date.now() + 86400000).toISOString()
+        mentorId: mentorId, skill: "React", sessionType: "standard", scheduledDate: tomorrow.toISOString()
     }, studentToken);
     
     const preRefundBalance = (await apiCall("/wallet", "GET", null, studentToken)).data.balance;
@@ -150,9 +157,12 @@ async function runMasterTest() {
     // TEST 7: DISPUTE & ADMIN RESOLUTION
     // ==========================================
     console.log("🧪 TEST 7: Dispute Resolution System...");
+    
+    // ✅ tomorrow reuse kiya (No 'const' here!)
     const disputeBook = await apiCall("/sessions", "POST", {
-        mentorId: mentorId, skill: "React", sessionType: "standard", scheduledDate: new Date().toISOString()
+        mentorId: mentorId, skill: "React", sessionType: "standard", scheduledDate: tomorrow.toISOString() 
     }, studentToken);
+    
     disputeSessionId = disputeBook.data.id;
     
     await apiCall(`/sessions/${disputeSessionId}/accept`, "POST", {}, mentorToken);
@@ -167,11 +177,17 @@ async function runMasterTest() {
     // TEST 8: RATING & REVIEWS
     // ==========================================
     console.log("🧪 TEST 8: Ratings & Reviews System...");
+
+    // ✅ tomorrow reuse kiya (No 'const' here!)
     const ratingBook = await apiCall("/sessions", "POST", {
-        mentorId: mentorId, skill: "React", sessionType: "micro_15", scheduledDate: new Date().toISOString()
+        mentorId: mentorId, 
+        skill: "React", 
+        sessionType: "micro_15", 
+        scheduledDate: tomorrow.toISOString() 
     }, studentToken);
+
     await apiCall(`/admin/sessions/${ratingBook.data.id}/resolve`, "POST", { action: "pay_mentor" }, adminToken);
-    
+
     const rateRes = await apiCall(`/sessions/${ratingBook.data.id}/rate`, "POST", { rating: 5, review: "Amazing mentor!" }, studentToken);
     console.log(rateRes.status === 200 ? "✅ Student rated the session 5 stars!" : "❌ Rating failed.");
     console.log("");
@@ -184,8 +200,6 @@ async function runMasterTest() {
     await apiCall(`/sessions/${flashRes.data.id}/claim-flash`, "POST", {}, mentorToken);
     console.log("✅ Flash board doubt posted by student and claimed by mentor successfully.");
     console.log("");
-
-    // ==========================================
     // TEST 10: STREAKS, QUIZ & LEADERBOARD
     // ==========================================
     console.log("🧪 TEST 10: Gamification (Quiz, Streaks, Leaderboard)...");

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence, PanInfo, useAnimation } from "framer-motion";
-import { X, Heart, Info, BadgeCheck, Star, Linkedin, Sparkles, Zap, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
+import { X, Heart, Info, BadgeCheck, Star, Sparkles, Zap, ChevronDown, MessageCircle, Calendar } from "lucide-react";
 import { Link } from "wouter"; 
 import confetti from "canvas-confetti";
 import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
@@ -21,7 +21,10 @@ export default function Discover() {
     
     const fetchProfiles = async () => {
       try {
-        const response = await fetch("/api/discover/profiles");
+        const token = localStorage.getItem("skillswap_token");
+        const response = await fetch("/api/discover/profiles", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
         if (!response.ok) throw new Error("Network error");
         const data = await response.json();
         
@@ -74,9 +77,13 @@ export default function Discover() {
     setExpandedCardId(null); // Close if expanded
     
     try {
+     const token = localStorage.getItem("skillswap_token");
       const response = await fetch("/api/discover/swipe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
         body: JSON.stringify({ swipedOnId: id, action }),
       });
       const result = await response.json();
@@ -93,6 +100,8 @@ export default function Discover() {
           colors: ['#6C3BFF', '#ec4899', '#f59e0b', '#ffffff'],
           disableForReducedMotion: true 
         });
+        
+        // 🔥 Trigger the Match Modal Pop-up!
         setMatchModal(swipedProfile); 
       }
     } catch (error) {
@@ -251,40 +260,59 @@ export default function Discover() {
           })}
         </AnimatePresence>
 
-        {/* Match Modal */}
+        {/* ========================================= */}
+        {/* 🎉 MATCH MODAL - CHAT OR BOOK FLOW */}
+        {/* ========================================= */}
         <AnimatePresence>
           {matchModal && (
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4"
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4"
             >
               <motion.div 
                 initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }}
                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="bg-white rounded-[24px] p-6 max-w-[300px] w-full text-center shadow-2xl border border-white"
+                className="bg-white rounded-[32px] p-8 max-w-[340px] w-full text-center shadow-2xl border border-white"
               >
-                <h2 className="text-3xl font-black text-slate-800 mb-1">
-                  It's a Match! 🎉
-                </h2>
-                <p className="text-slate-500 text-sm font-medium mb-6">You and <span className="text-slate-800 font-bold">{matchModal.name}</span> connected.</p>
-                
                 <div className="flex justify-center mb-6">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-[#6C3BFF] rounded-full blur-md opacity-30"></div>
-                    <img src={matchModal.image} className="w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover relative z-10" alt="Match" />
+                    <div className="absolute inset-0 bg-[#6C3BFF] rounded-full blur-xl opacity-40 animate-pulse"></div>
+                    <img src={matchModal.image} className="w-28 h-28 rounded-full border-4 border-white shadow-lg object-cover relative z-10" alt="Match" />
+                    <div className="absolute -bottom-2 -right-2 bg-pink-500 text-white p-2 rounded-full border-2 border-white z-20 shadow-md">
+                      <Heart className="w-4 h-4 fill-white" />
+                    </div>
                   </div>
                 </div>
 
+                <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">
+                  It's a Match!
+                </h2>
+                <p className="text-slate-500 text-sm font-medium mb-8">
+                  You and <span className="text-slate-800 font-bold">{matchModal.name}</span> have connected. Start a conversation or book a session directly!
+                </p>
+                
+                {/* Flow Decision Buttons: Chat OR Book */}
                 <div className="space-y-3">
-                  <Link href={`/book/${matchModal.id}`}>
-                    <button className="w-full bg-[#6C3BFF] hover:bg-[#5b32d6] text-white font-bold py-3.5 rounded-[16px] active:scale-95 transition-all shadow-md">
-                      Book a Session
+                  <Link href={`/chat/${matchModal.id}`}>
+                    <button className="w-full bg-[#6C3BFF] hover:bg-[#5b32d6] text-white font-bold py-4 rounded-[20px] shadow-lg shadow-[#6C3BFF]/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+                      <MessageCircle className="w-5 h-5" /> Chat Now
                     </button>
                   </Link>
-                  <button onClick={() => setMatchModal(null)} className="w-full bg-slate-50 text-slate-500 hover:bg-slate-100 font-bold py-3.5 rounded-[16px] active:scale-95 transition-all">
-                    Keep Swiping
-                  </button>
+
+                  <Link href={`/book/${matchModal.id}`}>
+                    <button className="w-full bg-indigo-50 text-[#6C3BFF] border border-indigo-100 hover:bg-indigo-100 font-bold py-4 rounded-[20px] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2">
+                      <Calendar className="w-5 h-5" /> Book Session
+                    </button>
+                  </Link>
                 </div>
+
+                {/* Keep Swiping Option */}
+                <button 
+                  onClick={() => setMatchModal(null)} 
+                  className="mt-6 w-full text-slate-400 hover:text-slate-600 font-bold text-[11px] uppercase tracking-widest transition-colors"
+                >
+                  Skip for now
+                </button>
               </motion.div>
             </motion.div>
           )}

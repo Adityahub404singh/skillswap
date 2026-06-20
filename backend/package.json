@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.100.1",
     "@capacitor/android": "^8.4.0",
     "@capacitor/core": "^8.4.0",
+    "@capacitor/push-notifications": "^8.1.1",
     "@sentry/node": "10.59.0",
     "@sentry/profiling-node": "10.59.0",
     "@sentry/react": "10.59.0",

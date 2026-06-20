@@ -284,17 +284,15 @@ export function Layout({ children }: { children: ReactNode }) {
           </nav>
         </div>
       )}
-      
-      {/* 🚀 RESPONSIVE FOOTER LOGIC */}
-      {!token ? (
-        // Bina login ke sab jagah dikhega
-        <Footer />
-      ) : (
-        // Login ke baad sirf Laptop/Desktop par dikhega, Mobile par bottom nav ke karan hide rahega
-        <div className="hidden md:block mt-auto border-t border-gray-100 bg-white">
-          <Footer />
-        </div>
-      )}
+    {/* 🚀 RESPONSIVE FOOTER LOGIC - Ab sirf Landing Page par dikhega */}
+{isLandingPage && (
+  <div className="mt-auto border-t border-gray-100 bg-white">
+    <Footer />
+  </div>
+)}
+
     </div>
   );
 }
+
+export default Layout;

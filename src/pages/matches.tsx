@@ -38,9 +38,14 @@ export default function Matches() {
     const fetchAllData = async () => {
       setLoading(true);
       try {
+        // 🔥 FIX: token nikalo aur Authorization header attach karo —
+        // pehle yeh fetch calls bina token ke jaa rahi thi, isliye 401 aata tha
+        const token = localStorage.getItem("skillswap_token");
+        const authHeaders = { Authorization: `Bearer ${token}` };
+
         const [mRes, cRes] = await Promise.all([
-          fetch("/api/discover/matches"),
-          fetch("/api/chat/conversations")
+          fetch("/api/discover/matches", { headers: authHeaders }),
+          fetch("/api/chat/conversations", { headers: authHeaders })
         ]);
         const mData = await mRes.json();
         const cData = await cRes.json();

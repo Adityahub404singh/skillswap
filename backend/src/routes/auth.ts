@@ -1,7 +1,7 @@
 ﻿import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "../db.js";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { signToken } from "../utils/jwt.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
@@ -65,12 +65,24 @@ router.post("/register", async (req, res) => {
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
     if (existing.length > 0) return res.status(409).json({ error: "Conflict", message: "Email already in use" });
 
+    // 🔥 FIX 1: Strict Referral Code parsing (Trailing digits only)
     let referrerId: number | null = null;
     if (body.referralCode) {
       try {
-        const potentialRefId = parseInt(body.referralCode.replace(/[^0-9]/g, ""));
-        const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, potentialRefId)).limit(1);
-        if (referrer) referrerId = referrer.id;
+        const code = body.referralCode as string;
+        const match = code.match(/(\d+)$/);
+        const potentialRefId = match ? parseInt(match[1]) : NaN;
+        
+        if (!isNaN(potentialRefId) && potentialRefId > 0) {
+          const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, potentialRefId)).limit(1);
+          if (referrer) {
+            const expectedCode = `${referrer.name!.replace(/\s+/g, "").toLowerCase()}${referrer.id}`;
+            // Case-insensitive exact match
+            if (expectedCode === code.toLowerCase()) {
+              referrerId = referrer.id;
+            }
+          }
+        }
       } catch (e) { console.error("Bad referral code", e); }
     }
 
@@ -85,12 +97,30 @@ router.post("/register", async (req, res) => {
       referredBy: referrerId ?? undefined,
     }).returning();
 
+    // Welcome bonus transaction
     await db.insert(transactionsTable).values({
       userId: user.id,
       amount: 200,
       type: "bonus",
       description: "Welcome bonus - 200 credits!",
-    });
+    } as any);
+
+    // 🔥 FIX 2: Give Referrer the Bonus IMMEDIATELY
+    if (referrerId) {
+      const REFERRAL_BONUS = 50;
+      await db.update(usersTable)
+        .set({ credits: sql`${usersTable.credits} + ${REFERRAL_BONUS}` })
+        .where(eq(usersTable.id, referrerId));
+
+      await db.insert(transactionsTable).values({
+        userId: referrerId,
+        amount: REFERRAL_BONUS,
+        type: "referral", // Optional: Change to "earned" if "referral" is not in your DB enum
+        description: `Referral bonus — ${body.name} joined using your code!`,
+      } as any);
+      
+      console.log(`✅ Referral bonus ${REFERRAL_BONUS}cr sent to user ${referrerId}`);
+    }
 
     const token = signToken({ userId: user.id, email: user.email });
     res.status(201).json({ token, user: formatUser(user) });

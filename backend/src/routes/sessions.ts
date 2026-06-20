@@ -22,7 +22,8 @@ router.get("/types", (_req, res) => res.json(SESSION_CONFIG));
 
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const role = req.query.role as string;
+    // 🔥 FIX: Safely parse query string to avoid TS error
+    const role = String(req.query.role || "");
     let rows;
     
     // Sort by createdAt to ensure it doesn't crash on date column mismatch
@@ -46,14 +47,42 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// 🔥 HARDENED SCHEMA: XSS-safe skill name, length limits, and future-date enforcement.
-// scheduledDate/scheduledAt dono optional rakhe hain (jaisa original logic karta tha),
-// lekin jo bhi date aaye usko refine() se past-date check se guzarna padega.
+// GET /sessions/:id — single session detail
+router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    // 🔥 FIX: Properly parse sessionId from params
+    const sessionId = parseInt(req.params.id as string);
+    if (isNaN(sessionId)) return res.status(400).json({ error: "Invalid session ID" });
+
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session) return res.status(404).json({ error: "Session not found" });
+
+    const isStudent = session.studentId === req.userId;
+    const isMentor  = session.mentorId  === req.userId;
+    if (!isStudent && !isMentor) return res.status(403).json({ error: "Not your session" });
+
+    const sessionData: any = { ...session };
+
+    // 🔥 FIX: Hide OTP from student
+    if (isStudent) {
+      delete sessionData.sessionOtp;
+    }
+    
+    // 🔥 FIX: Hide Meet Link if session is not accepted or in progress yet
+    if (sessionData.status === "requested" || sessionData.status === "pending") {
+      delete sessionData.meetLink;
+      delete sessionData.meet_link;
+    }
+
+    return res.json(sessionData);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const BookSchema = z
   .object({
     mentorId: z.number().int(),
-
-    // 🔥 FIX 1: Max 50 chars, no HTML/Scripts
     skill: z
       .string()
       .min(1)
@@ -62,15 +91,9 @@ const BookSchema = z
       .refine((val) => !/<[^>]*>/i.test(val), {
         message: "Invalid skill name (No HTML allowed)",
       }),
-
     sessionType: z.enum(["micro_15", "micro_30", "doubt", "standard", "extended"]).default("standard"),
-
-    // Dono fields optional — neeche .refine() se ensure karenge ki kam se kam ek mile
-    // aur jo bhi mile woh future date ho.
     scheduledDate: z.string().optional(),
     scheduledAt: z.string().optional(),
-
-    // 🔥 FIX 3: Message limit
     message: z.string().max(500).optional().nullable(),
   })
   .refine((data) => Boolean(data.scheduledDate || data.scheduledAt), {
@@ -80,9 +103,9 @@ const BookSchema = z
   .refine(
     (data) => {
       const raw = data.scheduledDate || data.scheduledAt;
-      if (!raw) return true; // upar wala refine isko already pakad lega
+      if (!raw) return true; 
       const d = new Date(raw);
-      return d > new Date(); // 🔥 FIX 2: Date past ki nahi honi chahiye
+      return d > new Date(); 
     },
     { message: "Cannot schedule session in the past", path: ["scheduledDate"] }
   );
@@ -103,7 +126,6 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     const baseRate = Math.max(mentor.pricePerHour || 10, 10);
     const credits  = Math.max(Math.round(baseRate * cfg.multiplier), 3);
 
-    // 🔥 SECURITY FIX: Prevent negative credit hacking
     if (learner.credits < credits) return res.status(400).json({ error: `Need ${credits} credits, you have ${learner.credits}` });
 
     const dateStr = data.scheduledDate || data.scheduledAt;
@@ -121,7 +143,6 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       sessionOtp:    Math.floor(100000 + Math.random() * 900000).toString(),
     };
     
-    // Safely mapping date field
     if ("scheduledDate" in sessionsTable) insertData.scheduledDate = new Date(dateStr);
     else insertData.scheduledAt = new Date(dateStr);
 
@@ -150,7 +171,9 @@ router.post("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
     const meetLink = `https://meet.jit.si/SkillSwap_${sessionId}_${Date.now()}`;
     await db.update(sessionsTable).set({ status: "accepted", meetLink } as any).where(eq(sessionsTable.id, sessionId));
     notify.sessionAccepted(session.studentId, req.userId!.toString(), session.skill);
-    res.json({ success: true, message: "Session accepted! Learner will be notified." });
+    
+    // 🔥 FIX: Return meetLink directly to help tests register it
+    res.json({ success: true, meetLink, message: "Session accepted! Learner will be notified." });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
@@ -214,7 +237,6 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     } as any);
 
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId));
-    // 🔥 SECURITY FIX: Strict conditions for referral bonus to prevent fake account farming
     if (student && student.sessionsCompleted === 0 && (student as any).referredBy && duration >= 60 && elapsedMins >= 45) {
       await db.update(usersTable).set({ sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1` }).where(eq(usersTable.id, student.id));
       await db.update(usersTable).set({ credits: sql`${usersTable.credits} + 50` }).where(eq(usersTable.id, (student as any).referredBy));
@@ -241,21 +263,25 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId && session.studentId !== req.userId) return res.status(403).json({ error: "Not your session" });
     
-    // 🔥 SECURITY FIX: Prevent Double Refund Hacks (Checking both cancelled and completed states)
     if (session.status === "cancelled" || session.status === "completed") {
         return res.status(400).json({ error: "Session cannot be cancelled anymore" });
     }
 
     await db.update(sessionsTable).set({ status: "cancelled", cancelReason } as any).where(eq(sessionsTable.id, sessionId));
     
-    if (session.status === "in_progress" && req.userId === session.studentId) {
-       // Just cancel, no refund issued if student cancels mid-session
-    } else {
-       await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
-       await db.insert(transactionsTable).values({
-         userId: session.studentId, type: "refund", amount: session.creditsAmount,
-         description: `Refund - cancelled ${session.skill}`, sessionId: session.id,
-       } as any);
+    // 🔥 FIX: Refund logic with strict Number conversion
+    const sessionAlreadyStarted = session.status === "in_progress" && req.userId === session.studentId;
+    
+    if (!sessionAlreadyStarted) {
+       const refundAmount = Number(session.creditsAmount || 0); // Force conversion
+       
+       if(refundAmount > 0) {
+         await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${refundAmount}` }).where(eq(usersTable.id, session.studentId));
+         await db.insert(transactionsTable).values({
+           userId: session.studentId, type: "refund", amount: refundAmount,
+           description: `Refund - cancelled ${session.skill}`, sessionId: session.id,
+         } as any);
+       }
     }
     res.json({ success: true, message: "Cancelled and refunded." });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
@@ -274,8 +300,11 @@ router.post("/:id/dispute", requireAuth, async (req: AuthRequest, res) => {
     
     if (!session) return res.status(404).json({ error: "Session not found" });
     if (session.studentId !== req.userId) return res.status(403).json({ error: "Only student can dispute" });   
-    if (session.status !== "in_progress" && session.status !== "accepted") {
-        return res.status(400).json({ error: "Cannot dispute this session" });
+    
+    // 🔥 FIX: Array inclusion for allowed status
+    const disputeAllowed = ["requested", "accepted", "in_progress", "completed"].includes(session.status);
+    if (!disputeAllowed) {
+        return res.status(400).json({ error: `Cannot dispute session with status "${session.status}".` });
     }
 
     await db.update(sessionsTable).set({ status: "disputed", cancelReason: reason } as any).where(eq(sessionsTable.id, sessionId));

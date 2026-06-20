@@ -2,7 +2,8 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { usersTable } from "../schema/users.js";
 import { swipesTable } from "../schema/swipes.js"; 
-import { eq, and, notInArray } from "drizzle-orm";
+
+import { eq, and, notInArray, inArray } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js"; // 🔥 Security Added
 
 const router = Router();
@@ -141,7 +142,7 @@ router.get("/matches", requireAuth, async (req: AuthRequest, res) => {
                 bio: usersTable.bio,
             })
             .from(usersTable)
-            .where(notInArray(usersTable.id, mutualMatchIds.map(id => id))); 
+            .where(inArray(usersTable.id, mutualMatchIds));
 
         const finalMatches = matchedUsers.filter(user => mutualMatchIds.includes(user.id));
 
