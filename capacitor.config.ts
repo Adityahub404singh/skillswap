@@ -15,6 +15,15 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: false,
     },
+    // 🔥 Google Sign-In — Android native flow ke liye
+    // serverClientId hamesha WEB Client ID hota hai (Android Client ID nahi),
+    // taaki backend isi ek audience se ID token verify kar sake — web aur
+    // native Android, dono se aane wale tokens isi se match honge.
+    GoogleAuth: {
+      scopes: ['profile', 'email'],
+      serverClientId: '882869665084-vcorqrsj98rsq8hb986cuglfuaslqqgf.apps.googleusercontent.com',
+      forceCodeForRefreshToken: true,
+    },
   },
 };
 

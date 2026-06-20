@@ -36,5 +36,6 @@ export const usersTable = pgTable("users", {
   premiumExpiresAt:   timestamp("premium_expires_at"),
   notificationLastSent: timestamp("notification_last_sent"),
   referredBy:         integer("referred_by"),
-  earnedBalance:      integer("earned_balance").default(0),         
+  earnedBalance:      integer("earned_balance").default(0),
+  googleId:           text("google_id"),
 });

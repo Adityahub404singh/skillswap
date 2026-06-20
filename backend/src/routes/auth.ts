@@ -1,5 +1,7 @@
 ﻿import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
+import { OAuth2Client } from "google-auth-library";
+import crypto from "crypto";
 import { db } from "../db.js";
 import { eq, sql } from "drizzle-orm";
 import { signToken } from "../utils/jwt.js";
@@ -162,7 +164,7 @@ router.post("/register", async (req, res) => {
       console.log(`🔑 DEV OTP for ${body.email}: ${otp}`); // local debug only
     }
 
-    // 🔥 FIX: Remove `token` from response so users cannot bypass verification.
+    // 🔥 FIX: Token register pe nahi diya jaata — verify-email se hi token milega
     res.status(201).json({
       user: formatUser(user),
       requiresVerification: true,
@@ -289,6 +291,77 @@ router.post("/login", async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// POST /auth/google  { idToken }
+// Works for BOTH web (GIS) and Android native (Capacitor plugin) —
+// both produce an ID token whose audience is the WEB client ID, since
+// the Android client only exists to verify the app's signing cert with
+// Google Play Services; the actual token is always verified against the
+// web client ID on the backend.
+// ─────────────────────────────────────────
+const googleClient = new OAuth2Client();
+
+router.post("/google", async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) return res.status(400).json({ error: "idToken is required" });
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID!,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload?.email) {
+      return res.status(401).json({ error: "Invalid Google token — no email found" });
+    }
+
+    const { email, name, sub: googleId, picture } = payload;
+
+    let [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+
+    if (!user) {
+      // Naya user — Google se signup, koi OTP step nahi (Google ne already verify kiya)
+      const randomPassword = crypto.randomBytes(32).toString("hex");
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+      const [newUser] = await db.insert(usersTable).values({
+        name: name || email.split("@")[0],
+        email,
+        passwordHash,
+        avatar: picture,
+        credits: 200,
+        isEmailVerifiedStatus: true,
+        googleId,
+      }).returning();
+
+      await db.insert(transactionsTable).values({
+        userId: newUser.id, amount: 200, type: "bonus",
+        description: "Welcome bonus - 200 credits!",
+      } as any);
+
+      user = newUser;
+      console.log(`✅ New user via Google: ${email}`);
+    } else if (!user.isEmailVerifiedStatus || !user.googleId) {
+      // Existing user (purane email/password se bana) — Google se link + auto-verify
+      await db.update(usersTable)
+        .set({
+          isEmailVerifiedStatus: true,
+          googleId: user.googleId || googleId,
+          emailVerifyToken: null,
+        })
+        .where(eq(usersTable.email, email));
+      [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    }
+
+    const token = signToken({ userId: user.id, email: user.email });
+    res.json({ token, user: formatUser(user) });
+  } catch (err: any) {
+    console.error("Google auth error:", err);
+    res.status(401).json({ error: "Google sign-in failed", message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────
 // POST /auth/forgot-password  { email }
 // (phoneVerifyToken column reuse — reset OTP ke liye, since alag column nahi hai)
 // ─────────────────────────────────────────
@@ -358,7 +431,7 @@ router.get("/referral", requireAuth, async (req: AuthRequest, res) => {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
     if (!user) return res.status(404).json({ error: "Not Found" });
     const referralCode = `${user.name!.replace(/\s+/g, "").toLowerCase()}${user.id}`;
-    const referralLink = (process.env.FRONTEND_URL || "https://skillswap.app") + "/register?ref=" + referralCode;
+    const referralLink = (process.env.FRONTEND_URL || "https://skillswap-india.vercel.app") + "/register?ref=" + referralCode;
     res.json({ referralCode, referralLink });
   } catch (err) {
     res.status(401).json({ error: "Unauthorized" });
