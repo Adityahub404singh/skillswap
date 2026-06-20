@@ -13,12 +13,11 @@ router.get("/stats", requireAuth, requireAdmin, async (_req, res) => {
     const sessions = await db.select().from(sessionsTable);
     const txs = await db.select().from(transactionsTable);
 
-    // Calculate 15% from all completed sessions
+    // 🔥 FIX: creditsAmount use kiya (Schema ke hisaab se)
     const completed = sessions.filter(s => s.status === "completed");
     const sessionRevenue = completed.reduce((sum, s) => sum + Math.round(s.creditsAmount * 0.15), 0);
     
-    // 🔥 FIX: 15% se match karo — wallet.ts ke /withdraw route mein bhi 15% fee hai,
-    // pehle yahan 20% tha jo actual revenue se zyada dikhata tha (inconsistent)
+    // 15% withdrawal fee logic
     const withdrawals = txs.filter(t => t.type === "withdrawal_pending" || t.type === "withdrawal_completed" || t.type === "withdrawal_complete");
     const withdrawalRevenue = withdrawals.reduce((sum, t) => sum + Math.round(Math.abs(t.amount) * 0.15), 0);
 
@@ -48,8 +47,7 @@ router.get("/transactions", requireAuth, requireAdmin, async (_req, res) => {
   res.json(await db.select().from(transactionsTable).orderBy(desc(transactionsTable.createdAt)));
 });
 
-// 🔥 NEW: GET /api/admin/pending-withdrawals
-// Sirf pending withdrawal requests dikhata hai — Admin dashboard ka "Withdrawal Requests" box isi se populate hoga
+// GET /api/admin/pending-withdrawals
 router.get("/pending-withdrawals", requireAuth, requireAdmin, async (_req, res) => {
   try {
     const pending = await db.select()
@@ -63,12 +61,12 @@ router.get("/pending-withdrawals", requireAuth, requireAdmin, async (_req, res) 
   }
 });
 
-// 🔥 NEW: GET /api/admin/user/:id/history
-// User ki poori history — Sessions + Transactions ek saath (Admin panel "View History" button ke liye)
+// GET /api/admin/user/:id/history
 router.get("/user/:id/history", requireAuth, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id as string);
 
+    // 🔥 FIX: mentorId aur studentId use kiya
     const [sessions, transactions] = await Promise.all([
       db.select().from(sessionsTable).where(or(eq(sessionsTable.mentorId, userId), eq(sessionsTable.studentId, userId))).orderBy(desc(sessionsTable.createdAt)),
       db.select().from(transactionsTable).where(eq(transactionsTable.userId, userId)).orderBy(desc(transactionsTable.createdAt)),
@@ -80,7 +78,7 @@ router.get("/user/:id/history", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/admin/users/:id/credits (Add/Deduct credits manually)
+// POST /api/admin/users/:id/credits
 router.post("/users/:id/credits", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const userId = parseInt(req.params.id as string);
@@ -93,7 +91,6 @@ router.post("/users/:id/credits", requireAuth, requireAdmin, async (req: AuthReq
     await db.update(usersTable).set({ credits: user.credits + amount }).where(eq(usersTable.id, userId));
     await db.insert(transactionsTable).values({
       userId, type: "bonus", amount,
-      // 🔥 Audit log style description — kaunse admin ne kab credit diya
       description: `Admin ID ${req.userId} ${amount >= 0 ? "added" : "deducted"} ${Math.abs(amount)} cr. Reason: ${reason || "Admin credit grant"}`,
     });
 
@@ -110,7 +107,7 @@ router.patch("/sessions/:id/cancel", requireAuth, requireAdmin, async (req, res)
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// DELETE /api/admin/users/:id - ban user
+// DELETE /api/admin/users/:id
 router.delete("/users/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
@@ -143,9 +140,7 @@ router.patch("/users/:id/verify", requireAuth, requireAdmin, async (req, res) =>
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ✅ APPROVE WITHDRAWAL ROUTE
-// 🔥 FIX: requireAdmin add kiya tha missing — bina iske koi bhi logged-in user
-// dusre ke withdrawal approve kar sakta tha!
+// APPROVE WITHDRAWAL ROUTE
 router.post("/transactions/:id/approve", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
     try {
         const txId = parseInt(req.params.id as string);
@@ -155,7 +150,6 @@ router.post("/transactions/:id/approve", requireAuth, requireAdmin, async (req: 
             return res.status(400).json({ error: "Invalid or already processed transaction" });
         }
 
-        // 🔥 Audit Log: kis admin ne approve kiya, woh description mein record hota hai
         await db.update(transactionsTable)
             .set({ type: "withdrawal_completed", description: `${tx.description} (Approved by Admin ID ${req.userId})` })
             .where(eq(transactionsTable.id, txId));
@@ -166,7 +160,7 @@ router.post("/transactions/:id/approve", requireAuth, requireAdmin, async (req: 
     }
 });
 
-// ❌ REJECT WITHDRAWAL & REFUND ROUTE
+// REJECT WITHDRAWAL & REFUND ROUTE
 router.post("/transactions/:id/reject", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
     try {
         const txId = parseInt(req.params.id as string);
@@ -180,7 +174,7 @@ router.post("/transactions/:id/reject", requireAuth, requireAdmin, async (req: A
     } catch (err: any) { res.status(500).json({ error: "Server error" }); }
 });
 
-// ⚖️ RESOLVE DISPUTE / FORCE CANCEL SESSION
+// RESOLVE DISPUTE / FORCE CANCEL SESSION
 router.post("/sessions/:id/resolve", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
     try {
         const sessionId = parseInt(req.params.id as string);
@@ -189,10 +183,12 @@ router.post("/sessions/:id/resolve", requireAuth, requireAdmin, async (req: Auth
         if (!session) return res.status(404).json({ error: "Session not found" });
 
         if (action === "refund_student") {
+            // 🔥 FIX: studentId aur creditsAmount use kiya
             await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
             await db.insert(transactionsTable).values({ userId: session.studentId, type: "refund", amount: session.creditsAmount, description: `Admin ID ${req.userId} Refund for session #${sessionId}` });
             await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Admin force cancelled & refunded." }).where(eq(sessionsTable.id, sessionId));
         } else if (action === "pay_mentor") {
+            // 🔥 FIX: mentorId aur creditsAmount use kiya
             const platformFee = Math.round(session.creditsAmount * 0.15);
             const mentorEarnings = session.creditsAmount - platformFee;
             await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${mentorEarnings}` }).where(eq(usersTable.id, session.mentorId));

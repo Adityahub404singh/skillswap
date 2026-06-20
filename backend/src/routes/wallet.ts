@@ -45,7 +45,7 @@ router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 3. SECURE WITHDRAWAL LOGIC (7-Day Lock Active + 15% Platform Fee)
+// 3. 🔒 BULLETPROOF WITHDRAWAL LOGIC
 router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
     try {
         const { amount, upiId } = req.body;
@@ -56,40 +56,48 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
         const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
         if (user.credits < amount) return res.status(400).json({ error: "Insufficient balance." });
 
-        // 🚨 FRAUD FIX: Fetch only "Earned" credits
-        const earnedTx = await db.select().from(transactionsTable)
-            .where(sql`${transactionsTable.userId} = ${req.userId} AND ${transactionsTable.type} = 'earned'`);
-        
-        // 🔒 PRODUCTION MODE ON: 7-Day Maturity Lock calculation active
+        // 🔥 FRAUD FIX: Check "Unmatured" credits instead of all-time matured
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
         const now = Date.now();
 
-        const maturedEarned = earnedTx
-            .filter(tx => (now - new Date(tx.createdAt).getTime()) >= SEVEN_DAYS_MS)
+        const recentEarnedTx = await db.select().from(transactionsTable)
+            .where(sql`${transactionsTable.userId} = ${req.userId} AND ${transactionsTable.type} = 'earned'`);
+        
+        // Calculate credits earned in the last 7 days (These are locked)
+        const unmaturedCredits = recentEarnedTx
+            .filter(tx => (now - new Date(tx.createdAt).getTime()) < SEVEN_DAYS_MS)
             .reduce((sum, tx) => sum + tx.amount, 0);
         
-        if (maturedEarned < amount) {
+        // Max amount user can actually withdraw right now
+        const withdrawableBalance = Math.max(0, user.credits - unmaturedCredits);
+        
+        if (amount > withdrawableBalance) {
             return res.status(403).json({ 
-                error: `Credits take 7 days to clear. Your matured withdrawable balance is only ${maturedEarned} cr.` 
+                error: `Credits take 7 days to clear. Your withdrawable balance is only ${withdrawableBalance} cr.` 
             });
         }
 
-        // Deduct full amount from user wallet
-        await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${amount}` }).where(eq(usersTable.id, req.userId!));
-        
-        // 💸 15% WITHDRAWAL CUT LOGIC (Your Platform Profit)
+        // 💸 15% WITHDRAWAL CUT LOGIC (Platform Profit)
         const platformCut = Math.round(amount * 0.15);
         const finalPayout = amount - platformCut;
 
-        // Save transaction with 15% fee details
-        await db.insert(transactionsTable).values({
-            userId: req.userId!, 
-            type: "withdrawal_pending", 
-            amount: -amount,
-            description: `Payout: Rs ${finalPayout} (15% fee: ${platformCut} cr). UPI: ${upiId}`
+        // 🔥 ATOMIC TRANSACTION: Ensuring DB doesn't deduct money if transaction log fails
+        await db.transaction(async (tx) => {
+            // 1. Deduct full amount from user wallet
+            await tx.update(usersTable)
+              .set({ credits: sql`${usersTable.credits} - ${amount}` })
+              .where(eq(usersTable.id, req.userId!));
+            
+            // 2. Save transaction with 15% fee details
+            await tx.insert(transactionsTable).values({
+                userId: req.userId!, 
+                type: "withdrawal_pending", 
+                amount: -amount,
+                description: `Payout: Rs ${finalPayout} (15% fee: ${platformCut} cr). UPI: ${upiId}`
+            });
         });
 
-        res.json({ success: true, message: `Withdrawal requested! 15% fee applied. Rs ${finalPayout} will be credited to your UPI within 24-48 hours.` });
+        res.json({ success: true, message: `Withdrawal requested! Rs ${finalPayout} will be credited to your UPI within 24-48 hours.` });
     } catch (err: any) {
         res.status(500).json({ error: "Server error. Please try again." });
     }
