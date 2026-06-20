@@ -5,8 +5,9 @@ import { eq, sql } from "drizzle-orm";
 import { signToken } from "../utils/jwt.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-import { usersTable } from "../schema/users.js"; 
+import { usersTable } from "../schema/users.js";
 import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
+import { generateOtp, sendVerificationEmail, sendPasswordResetEmail } from "../lib/mailer.js";
 
 const transactionsTable = pgTable("transactions", {
   id: serial("id").primaryKey(),
@@ -19,10 +20,25 @@ const transactionsTable = pgTable("transactions", {
 });
 
 const router: IRouter = Router();
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 min
+
+// 🔥 ANTI-SPAM: List of common disposable email domains
+const DISPOSABLE_DOMAINS = [
+  "tempmail.com", "10minutemail.com", "guerrillamail.com", "yopmail.com",
+  "mailinator.com", "temp-mail.org", "throwawaymail.com", "fakemail.net",
+  "getnada.com", "dispostable.com", "sharklasers.com", "tempmailaddress.com"
+];
 
 const registerSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  // 🔥 UPDATED: Blocks fake emails before they even hit the database
+  email: z.string().email("Invalid email").refine(
+    (val) => {
+      const domain = val.split('@')[1];
+      return !DISPOSABLE_DOMAINS.includes(domain?.toLowerCase());
+    },
+    { message: "Temporary or disposable emails are not allowed for registration." }
+  ),
   password: z.string().min(6),
   skillsTeach: z.array(z.string()).default([]),
   skillsLearn: z.array(z.string()).default([]),
@@ -56,37 +72,57 @@ function formatUser(user: any) {
     createdAt: user.createdAt,
     currentStreak: user.currentStreak,
     isPremium: user.isPremiumUser,
+    isVerified: !!user.isEmailVerifiedStatus,
   };
 }
 
+// ─────────────────────────────────────────
+// OTP helpers — "otp:expiryTimestamp" string format
+// Existing emailVerifyToken / phoneVerifyToken columns reuse — no migration needed ✓
+// ─────────────────────────────────────────
+function makeOtpToken(otp: string): string {
+  return `${otp}:${Date.now() + OTP_TTL_MS}`;
+}
+
+function parseOtpToken(val: string | null | undefined): { otp: string; expiresAt: number; expired: boolean } | null {
+  if (!val) return null;
+  const idx = val.lastIndexOf(":");
+  if (idx === -1) return null;
+  const otp = val.slice(0, idx);
+  const expiresAt = parseInt(val.slice(idx + 1));
+  if (!otp || isNaN(expiresAt)) return null;
+  return { otp, expiresAt, expired: Date.now() > expiresAt };
+}
+
+// ─────────────────────────────────────────
+// POST /auth/register
+// ─────────────────────────────────────────
 router.post("/register", async (req, res) => {
   try {
     const body = registerSchema.parse(req.body);
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
     if (existing.length > 0) return res.status(409).json({ error: "Conflict", message: "Email already in use" });
 
-    // 🔥 FIX 1: Strict Referral Code parsing (Trailing digits only)
+    // Referral code — trailing digits + full code verify
     let referrerId: number | null = null;
     if (body.referralCode) {
       try {
         const code = body.referralCode as string;
         const match = code.match(/(\d+)$/);
         const potentialRefId = match ? parseInt(match[1]) : NaN;
-        
         if (!isNaN(potentialRefId) && potentialRefId > 0) {
           const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, potentialRefId)).limit(1);
           if (referrer) {
             const expectedCode = `${referrer.name!.replace(/\s+/g, "").toLowerCase()}${referrer.id}`;
-            // Case-insensitive exact match
-            if (expectedCode === code.toLowerCase()) {
-              referrerId = referrer.id;
-            }
+            if (expectedCode === code.toLowerCase()) referrerId = referrer.id;
           }
         }
       } catch (e) { console.error("Bad referral code", e); }
     }
 
     const passwordHash = await bcrypt.hash(body.password, 10);
+    const otp = generateOtp();
+
     const [user] = await db.insert(usersTable).values({
       name: body.name,
       email: body.email,
@@ -95,35 +131,43 @@ router.post("/register", async (req, res) => {
       skillsLearnV2: body.skillsLearn,
       credits: 200,
       referredBy: referrerId ?? undefined,
+      isEmailVerifiedStatus: false,
+      emailVerifyToken: makeOtpToken(otp),
     }).returning();
 
-    // Welcome bonus transaction
+    // Welcome bonus
     await db.insert(transactionsTable).values({
-      userId: user.id,
-      amount: 200,
-      type: "bonus",
+      userId: user.id, amount: 200, type: "bonus",
       description: "Welcome bonus - 200 credits!",
     } as any);
 
-    // 🔥 FIX 2: Give Referrer the Bonus IMMEDIATELY
+    // Referral bonus to referrer
     if (referrerId) {
       const REFERRAL_BONUS = 50;
       await db.update(usersTable)
         .set({ credits: sql`${usersTable.credits} + ${REFERRAL_BONUS}` })
         .where(eq(usersTable.id, referrerId));
-
       await db.insert(transactionsTable).values({
-        userId: referrerId,
-        amount: REFERRAL_BONUS,
-        type: "referral", // Optional: Change to "earned" if "referral" is not in your DB enum
+        userId: referrerId, amount: REFERRAL_BONUS, type: "referral",
         description: `Referral bonus — ${body.name} joined using your code!`,
       } as any);
-      
       console.log(`✅ Referral bonus ${REFERRAL_BONUS}cr sent to user ${referrerId}`);
     }
 
-    const token = signToken({ userId: user.id, email: user.email });
-    res.status(201).json({ token, user: formatUser(user) });
+    try {
+      await sendVerificationEmail(body.email, body.name, otp);
+      console.log(`✅ Verification OTP sent to ${body.email}`);
+    } catch (emailErr) {
+      console.error("📛 EMAIL SEND ERROR (register):", emailErr);
+      console.log(`🔑 DEV OTP for ${body.email}: ${otp}`); // local debug only
+    }
+
+    // 🔥 FIX: Remove `token` from response so users cannot bypass verification.
+    res.status(201).json({
+      user: formatUser(user),
+      requiresVerification: true,
+      message: "Account created! Check your email for OTP.",
+    });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: "Bad Request", message: err.message });
     console.error(err);
@@ -131,13 +175,110 @@ router.post("/register", async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────
+// POST /auth/verify-email  { email, otp }
+// ─────────────────────────────────────────
+router.post("/verify-email", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: "Email and OTP required" });
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (user.isEmailVerifiedStatus) return res.status(400).json({ error: "Already verified" });
+
+    const parsed = parseOtpToken(user.emailVerifyToken);
+    if (!parsed) return res.status(400).json({ error: "No OTP found. Request a new one." });
+    if (parsed.expired) return res.status(400).json({ error: "OTP expired. Request a new one." });
+    if (parsed.otp !== otp.toString()) return res.status(400).json({ error: "Invalid OTP. Check your email." });
+
+    await db.update(usersTable)
+      .set({ isEmailVerifiedStatus: true, emailVerifyToken: null })
+      .where(eq(usersTable.email, email));
+
+    const [updated] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+    const token = signToken({ userId: updated.id, email: updated.email! });
+    res.json({ success: true, token, user: formatUser(updated), message: "Email verified! Welcome 🎉" });
+  } catch (err: any) {
+    console.error("Verify email error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────
+// POST /auth/resend-otp  { email }
+// ─────────────────────────────────────────
+router.post("/resend-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email required" });
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (user.isEmailVerifiedStatus) return res.status(400).json({ error: "Already verified" });
+
+    // Cooldown — agar 1 min se kam time hua hai last OTP ko, wait karwao
+    const existing = parseOtpToken(user.emailVerifyToken);
+    if (existing && !existing.expired) {
+      const remainingMs = existing.expiresAt - Date.now();
+      if (remainingMs > OTP_TTL_MS - 60 * 1000) {
+        return res.status(429).json({ error: "Wait a minute before requesting another OTP." });
+      }
+    }
+
+    const otp = generateOtp();
+    await db.update(usersTable)
+      .set({ emailVerifyToken: makeOtpToken(otp) })
+      .where(eq(usersTable.email, email));
+
+    try {
+      await sendVerificationEmail(email, user.name!, otp);
+      console.log(`✅ OTP resent to ${email}`);
+    } catch (emailErr) {
+      console.error("📛 EMAIL SEND ERROR (resend-otp):", emailErr);
+      console.log(`🔑 DEV OTP for ${email}: ${otp}`);
+    }
+
+    res.json({ success: true, message: "OTP resent! Check your email." });
+  } catch (err: any) {
+    console.error("Resend OTP error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────
+// POST /auth/login
+// ─────────────────────────────────────────
 router.post("/login", async (req, res) => {
   try {
     const body = loginSchema.parse(req.body);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.email, body.email)).limit(1);
     if (!user) return res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" });
-    const valid = await bcrypt.compare(body.password, user.passwordHash);
+
+    const valid = await bcrypt.compare(body.password, user.passwordHash!);
     if (!valid) return res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" });
+
+    if (!user.isEmailVerifiedStatus) {
+      const otp = generateOtp();
+      await db.update(usersTable)
+        .set({ emailVerifyToken: makeOtpToken(otp) })
+        .where(eq(usersTable.email, body.email));
+      try {
+        await sendVerificationEmail(body.email, user.name!, otp);
+        console.log(`✅ OTP sent to ${body.email} (unverified login attempt)`);
+      } catch (emailErr) {
+        console.error("📛 EMAIL SEND ERROR (login/unverified):", emailErr);
+        console.log(`🔑 DEV OTP for ${body.email}: ${otp}`);
+      }
+
+      return res.status(403).json({
+        error: "Email not verified",
+        message: "Please verify your email. A new OTP has been sent.",
+        requiresVerification: true,
+        email: body.email,
+      });
+    }
+
     const token = signToken({ userId: user.id, email: user.email });
     res.json({ token, user: formatUser(user) });
   } catch (err) {
@@ -147,6 +288,71 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────
+// POST /auth/forgot-password  { email }
+// (phoneVerifyToken column reuse — reset OTP ke liye, since alag column nahi hai)
+// ─────────────────────────────────────────
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    if (user) {
+      const otp = generateOtp();
+      await db.update(usersTable)
+        .set({ phoneVerifyToken: makeOtpToken(otp) })
+        .where(eq(usersTable.email, email));
+      try {
+        await sendPasswordResetEmail(email, user.name!, otp);
+        console.log(`✅ Reset OTP sent to ${email}`);
+      } catch (emailErr) {
+        console.error("📛 EMAIL SEND ERROR (forgot-password):", emailErr);
+        console.log(`🔑 DEV RESET OTP for ${email}: ${otp}`);
+      }
+    }
+    // Email exist kare ya na kare — same response (enumeration-safe)
+    res.json({ message: "If that email is registered, a reset OTP has been sent." });
+  } catch (err: any) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────
+// POST /auth/reset-password  { email, otp, newPassword }
+// ─────────────────────────────────────────
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: "email, otp, and newPassword are required" });
+    }
+    if (newPassword.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const parsed = parseOtpToken(user.phoneVerifyToken);
+    if (!parsed) return res.status(400).json({ error: "No reset OTP found. Request a new one." });
+    if (parsed.expired) return res.status(400).json({ error: "OTP expired. Request a new one." });
+    if (parsed.otp !== otp.toString()) return res.status(400).json({ error: "Invalid OTP." });
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await db.update(usersTable)
+      .set({ passwordHash, phoneVerifyToken: null })
+      .where(eq(usersTable.email, email));
+
+    res.json({ success: true, message: "Password reset! You can now login." });
+  } catch (err: any) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────
+// GET /auth/referral
+// ─────────────────────────────────────────
 router.get("/referral", requireAuth, async (req: AuthRequest, res) => {
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
@@ -156,31 +362,6 @@ router.get("/referral", requireAuth, async (req: AuthRequest, res) => {
     res.json({ referralCode, referralLink });
   } catch (err) {
     res.status(401).json({ error: "Unauthorized" });
-  }
-});
-
-// 🔥 10x Feature: Forgot Password Route
-router.post("/forgot-password", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
-
-    const users = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-    const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    
-    if (users[0]) {
-      // Mocking email dispatch in terminal
-      console.log(`\n======================================================`);
-      console.log(`📧 [MOCK EMAIL DISPATCHED] To: ${email}`);
-      console.log(`Subject: Reset Your SkillSwap Password`);
-      console.log(`Body: Click here to reset -> http://localhost:5173/reset-password?token=${resetToken}`);
-      console.log(`======================================================\n`);
-    }
-
-    res.json({ message: "If that email is registered, a reset link has been sent." });
-  } catch (err: any) {
-    console.error("Forgot Password Error:", err);
-    res.status(500).json({ error: err.message });
   }
 });
 

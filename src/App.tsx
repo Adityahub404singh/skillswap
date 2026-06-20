@@ -39,6 +39,7 @@ import Invite from "@/pages/invite";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/ResetPassword"; // 🔥 ADDED THIS IMPORT
 import SkillPage from "@/pages/skill-page";
 import Leaderboard from "@/pages/leaderboard";
 import Subscription from "@/pages/subscription";
@@ -119,6 +120,7 @@ function Router() {
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
           <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} /> {/* 🔥 ADDED THIS ROUTE */}
           <Route path="/explore" component={Explore} />
           <Route path="/mentor/:id" component={MentorProfile} />
           <Route path="/admin" component={AdminPanel} />

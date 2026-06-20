@@ -17,24 +17,31 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 2. 🔥 GLOBAL FETCH OVERRIDE
-// Yeh har us request ko jo '/api' se shuru hoti hai, 
-// automatically tumhare Render backend par bhej dega (Android WebView compatibility).
-const originalFetch = window.fetch;
-window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-  let url = input;
-  
-  if (typeof url === 'string' && url.startsWith('/api')) {
-    const backendUrl = "https://skillswap-b59w.onrender.com";
-    url = backendUrl + url;
-  }
-  
-  // 'mode: cors' ensure karta hai ki Android WebView requests ko block na kare
-  return originalFetch(url, {
-    ...init,
-    mode: 'cors' 
-  });
-};
+// 2. 🔥 GLOBAL FETCH OVERRIDE — ONLY for native Android/Capacitor builds
+// Web (dev ya Vercel prod) mein relative '/api' paths already kaam karte hain:
+//   - Dev: vite.config.ts ka proxy → localhost:3001
+//   - Prod web: vercel.json ka rewrite → Render backend
+// Sirf Capacitor WebView mein '/api' relative path fail hota hai kyuki wahan
+// koi dev-server proxy nahi hota — isliye sirf wahi absolute URL force karte hain.
+const isNativeApp = !!(window as any).Capacitor?.isNativePlatform?.();
+
+if (isNativeApp) {
+  const originalFetch = window.fetch;
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    let url = input;
+
+    if (typeof url === 'string' && url.startsWith('/api')) {
+      const backendUrl = "https://skillswap-b59w.onrender.com";
+      url = backendUrl + url;
+    }
+
+    // 'mode: cors' ensure karta hai ki Android WebView requests ko block na kare
+    return originalFetch(url, {
+      ...init,
+      mode: 'cors',
+    });
+  };
+}
 
 // 3. SENTRY INIT
 Sentry.init({

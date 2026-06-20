@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, ArrowLeft, Loader2, CheckCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast"; // 🔥 Added toast hook
+import { useToast } from "@/hooks/use-toast";
 
 const schema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -18,7 +18,7 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [sentEmail, setSentEmail] = useState("");
   const [, setLocation] = useLocation();
-  const { toast } = useToast(); // 🔥 Initialize toast
+  const { toast } = useToast();
 
   const { register, handleSubmit, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
@@ -32,22 +32,14 @@ export default function ForgotPassword() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: data.email }),
       });
-      
+
       const resData = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(resData.error || "Failed to send reset link");
-      }
+      if (!res.ok) throw new Error(resData.error || "Failed to send reset OTP");
 
       setSentEmail(data.email);
       setSent(true);
     } catch (err: any) {
-      // 🔥 Now it shows an error if email doesn't exist!
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: err.message,
-      });
+      toast({ variant: "destructive", title: "Error", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -67,7 +59,7 @@ export default function ForgotPassword() {
                   <Mail className="w-8 h-8 text-primary" />
                 </div>
                 <h1 className="text-2xl font-bold">Forgot Password?</h1>
-                <p className="text-sm text-muted-foreground">No worries! Enter your email and we will send you a reset link.</p>
+                <p className="text-sm text-muted-foreground">No worries! Enter your email and we'll send you a 6-digit OTP to reset your password.</p>
               </div>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="space-y-1">
@@ -79,7 +71,7 @@ export default function ForgotPassword() {
                   {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
                 </div>
                 <Button type="submit" className="w-full rounded-full h-11 font-semibold" disabled={loading}>
-                  {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : "Send Reset Link"}
+                  {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : "Send Reset OTP"}
                 </Button>
               </form>
               <p className="text-center text-xs text-muted-foreground">
@@ -94,21 +86,25 @@ export default function ForgotPassword() {
               </div>
               <h2 className="text-xl font-bold">Check your email!</h2>
               <p className="text-sm text-muted-foreground">
-                We sent a password reset link to<br />
-                <span className="font-semibold text-foreground">{sentEmail}</span>
+                If an account exists for<br />
+                <span className="font-semibold text-foreground">{sentEmail}</span>,<br />
+                we've sent a 6-digit OTP.
               </p>
               <div className="bg-muted/50 rounded-xl p-4 text-sm text-muted-foreground text-left space-y-1">
                 <p className="font-medium text-foreground mb-2">Next steps:</p>
                 <p>1. Check your inbox (and spam folder)</p>
-                <p>2. Click the reset link in the email</p>
-                <p>3. Create your new password</p>
-                <p>4. Link expires in 15 minutes</p>
+                <p>2. Enter the OTP on the next screen</p>
+                <p>3. Set your new password</p>
+                <p>4. OTP expires in 10 minutes</p>
               </div>
+              <Button
+                className="w-full rounded-full"
+                onClick={() => setLocation(`/reset-password?email=${encodeURIComponent(sentEmail)}`)}
+              >
+                Enter OTP
+              </Button>
               <Button variant="outline" className="w-full rounded-full" onClick={() => setSent(false)}>
                 Try a different email
-              </Button>
-              <Button className="w-full rounded-full" onClick={() => setLocation("/login")}>
-                Back to Login
               </Button>
             </div>
           )}

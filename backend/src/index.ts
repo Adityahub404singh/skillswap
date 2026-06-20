@@ -1,5 +1,4 @@
-﻿import dotenv from "dotenv";
-dotenv.config();
+﻿import "dotenv/config";
 
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
@@ -40,8 +39,31 @@ Sentry.init({
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middlewares
-app.use(cors({ origin: "*", credentials: true }));
+// ─────────────────────────────────────────
+// CORS — wildcard "*" + credentials:true is INVALID per browser spec.
+// Browsers reject that combo silently, so we whitelist explicit origins.
+// FRONTEND_URL env var lets prod (Vercel) and Render stay in sync without
+// hardcoding the domain here.
+// ─────────────────────────────────────────
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000", // agar kabhi alag dev port use kiya
+  process.env.FRONTEND_URL, // e.g. https://skillswap.vercel.app — set in Render + local .env
+].filter(Boolean) as string[];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // origin undefined hota hai server-to-server calls / curl / Postman mein — allow karo
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`❌ CORS blocked origin: ${origin}`);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: true }));
 
@@ -70,7 +92,7 @@ Sentry.setupExpressErrorHandler(app);
 
 // Start Server & Initialize Cron Jobs
 app.listen(PORT, () => {
-  startCronJobs(); 
+  startCronJobs();
   console.log(`🚀 Server running on port ${PORT}`);
   console.log("⏰ Retention & Session Cron Engines are Active!");
 });
