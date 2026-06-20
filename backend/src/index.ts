@@ -51,10 +51,16 @@ const allowedOrigins = [
   process.env.FRONTEND_URL, // e.g. https://skillswap.vercel.app — set in Render + local .env
 ].filter(Boolean) as string[];
 
+// Vercel preview deployments har baar naya random URL banate hain
+// (e.g. skillswap-yyks-iv4462u3r-bmaditya-7561s-projects.vercel.app),
+// isliye fixed list ke saath-saath pattern match bhi rakhte hain taaki
+// preview links bhi automatically allow ho jayein bina manual env update ke.
+const vercelPreviewPattern = /^https:\/\/skillswap-[a-z0-9-]+\.vercel\.app$/;
+
 app.use(cors({
   origin: (origin, callback) => {
     // origin undefined hota hai server-to-server calls / curl / Postman mein — allow karo
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
       callback(null, true);
     } else {
       console.warn(`❌ CORS blocked origin: ${origin}`);
