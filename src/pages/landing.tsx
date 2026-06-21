@@ -1,5 +1,5 @@
 ﻿import { Link } from "wouter";
-import { motion, useScroll, useTransform, useMotionValue, useSpring, AnimatePresence } from "framer-motion";
+import { motion, useScroll, useTransform, useMotionValue, useSpring, useReducedMotion, AnimatePresence } from "framer-motion";
 import { 
   ArrowRight, BookOpen, Users, Star, ShieldCheck, Zap, Sparkles, 
   Globe, Play, CheckCircle, Code2, Palette, Languages, Brain, Trophy, 
@@ -7,6 +7,7 @@ import {
   Activity, ChevronDown, Check, Github, Twitter, Linkedin, Instagram, Heart 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Capacitor } from "@capacitor/core";
 import { useRef, useEffect, useState } from "react";
 
 // ==========================================
@@ -211,6 +212,13 @@ export default function Landing() {
   const [activeT, setActiveT] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
+  // 🔥 Smoothness guard — Android WebView (Capacitor) aur reduced-motion users
+  // ke liye heavy blurred-blob + particle animations off kar dete hain. Web pe
+  // (jab isNative false aur reduceMotion false ho) sab kuch EXACTLY pehle jaisa rahega.
+  const reduceMotionPref = useReducedMotion();
+  const isNative = Capacitor.isNativePlatform();
+  const lightweightMode = isNative || !!reduceMotionPref;
+
   // Auto-rotate testimonials
   useEffect(() => {
     const t = setInterval(() => setActiveT(i => (i + 1) % TESTIMONIALS.length), 5000);
@@ -219,24 +227,29 @@ export default function Landing() {
 
   return (
     <div ref={ref} className="relative flex flex-col -mx-4 sm:-mx-6 lg:-mx-8 overflow-hidden bg-slate-50 font-sans">
-      <MouseGlow />
+      {!lightweightMode && <MouseGlow />}
 
       {/* ==========================================
           HERO SECTION (Light & Clean)
           ========================================== */}
       <section className="relative min-h-[calc(100vh-80px)] flex flex-col px-6 sm:px-6 lg:px-8 overflow-hidden pb-12 pt-10">
         
-        {/* Light Particles */}
+        {/* Light Particles — lighter on native/reduced-motion to keep Android WebView buttery smooth */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-          {PARTICLES.map((p, i) => (
-            <motion.div key={i} className="absolute rounded-full"
-              style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size, background: p.color }}
-              animate={{ y: [-20, 20, -20], x: [-10, 10, -10], opacity: [0.4, 0.8, 0.4] }}
-              transition={{ duration: p.dur, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }} />
-          ))}
+          {(lightweightMode ? PARTICLES.slice(0, 10) : PARTICLES).map((p, i) =>
+            lightweightMode ? (
+              <div key={i} className="absolute rounded-full"
+                style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size, background: p.color, opacity: 0.5 }} />
+            ) : (
+              <motion.div key={i} className="absolute rounded-full"
+                style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size, background: p.color }}
+                animate={{ y: [-20, 20, -20], x: [-10, 10, -10], opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: p.dur, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }} />
+            )
+          )}
         </div>
 
-        {/* Ambient Light Blobs (Matching App Colors) */}
+        {/* Ambient Light Blobs (Matching App Colors) — static (no scale/rotate loop) in lightweight mode */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none mix-blend-multiply opacity-70">
           {[
             { cls: "absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-violet-200 blur-[100px]", dur: 8 },
@@ -244,8 +257,8 @@ export default function Landing() {
             { cls: "absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] rounded-full bg-blue-100 blur-[100px]", dur: 9 },
           ].map((b, i) => (
             <motion.div key={i} className={b.cls}
-              animate={{ scale: [1, 1.1, 1], rotate: [0, i % 2 === 0 ? 5 : -5, 0] }}
-              transition={{ duration: b.dur, repeat: Infinity, ease: "easeInOut", delay: i * 2 }} />
+              animate={lightweightMode ? undefined : { scale: [1, 1.1, 1], rotate: [0, i % 2 === 0 ? 5 : -5, 0] }}
+              transition={lightweightMode ? undefined : { duration: b.dur, repeat: Infinity, ease: "easeInOut", delay: i * 2 }} />
           ))}
         </div>
 

@@ -7,6 +7,7 @@ import {
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/auth";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 const formatTime = (dateString: string) => {
@@ -21,6 +22,67 @@ const formatTime = (dateString: string) => {
   if (diff < 604800)    return date.toLocaleDateString([], { weekday: "short" });
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 };
+
+function getInitials(name?: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+// ─── avatar (circle, used in "New Connections" strip) ────────────────────────
+function ConnectionAvatar({ name, src }: { name?: string; src?: string }) {
+  const [errored, setErrored] = useState(false);
+  const showImage = !!src && !errored;
+  return (
+    <div className="relative w-16 h-16 rounded-full ring-2 ring-transparent hover:ring-[#6C3BFF]/30 p-0.5 transition-all">
+      {showImage ? (
+        <img
+          src={src}
+          alt={name}
+          onError={() => setErrored(true)}
+          className="w-full h-full rounded-full object-cover shadow-sm"
+        />
+      ) : (
+        <div
+          className="w-full h-full rounded-full flex items-center justify-center text-white font-black text-lg shadow-sm"
+          style={{ background: "linear-gradient(140deg, #6C3BFF 0%, #8b5cf6 55%, #a855f7 100%)" }}
+        >
+          {getInitials(name)}
+        </div>
+      )}
+      <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
+    </div>
+  );
+}
+
+// ─── avatar (rounded square, used in "Recent Messages" list) ─────────────────
+function ChatAvatar({ name, src, isOnline }: { name?: string; src?: string; isOnline?: boolean }) {
+  const [errored, setErrored] = useState(false);
+  const showImage = !!src && !errored;
+  return (
+    <div className="relative shrink-0">
+      {showImage ? (
+        <img
+          src={src}
+          alt={name}
+          onError={() => setErrored(true)}
+          className="w-14 h-14 rounded-[16px] object-cover shadow-sm group-hover:shadow-md transition-shadow"
+        />
+      ) : (
+        <div
+          className="w-14 h-14 rounded-[16px] flex items-center justify-center text-white font-black text-lg shadow-sm group-hover:shadow-md transition-shadow"
+          style={{ background: "linear-gradient(140deg, #6C3BFF 0%, #8b5cf6 55%, #a855f7 100%)" }}
+        >
+          {getInitials(name)}
+        </div>
+      )}
+      {isOnline && (
+        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
+      )}
+    </div>
+  );
+}
 
 // ─── skeleton ────────────────────────────────────────────────────────────────
 const SkeletonCard = () => (
@@ -39,6 +101,7 @@ const SkeletonCard = () => (
 // ─── main ────────────────────────────────────────────────────────────────────
 export default function Matches() {
   const token = useAuthStore(s => s.token);
+  const { toast } = useToast();
 
   const [searchQuery,    setSearchQuery]    = useState("");
   const [newMatches,     setNewMatches]     = useState<any[]>([]);
@@ -74,6 +137,25 @@ export default function Matches() {
 
   // unread count
   const unreadCount = conversations.filter(c => c.unread > 0).length;
+
+  // 🔥 Optimistic local update — no "mark all read" backend endpoint exists yet,
+  // so this clears the UI badge immediately. When that endpoint is added, call
+  // it here before/alongside this local update so it persists across reloads.
+  const handleMarkAllRead = () => {
+    setConversations(prev => prev.map(c => ({ ...c, unread: 0 })));
+    setShowMenu(false);
+    toast({ title: "All caught up! 🎉", description: "Every conversation marked as read." });
+  };
+
+  const handleArchive = () => {
+    setShowMenu(false);
+    toast({ title: "Coming soon 🚀", description: "Chat archiving is on its way." });
+  };
+
+  const handleDeleteHistory = () => {
+    setShowMenu(false);
+    toast({ title: "Coming soon 🚀", description: "Delete history is on its way." });
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -111,14 +193,23 @@ export default function Matches() {
                     transition={{ duration: 0.15 }}
                     className="absolute right-0 top-10 mt-1 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50"
                   >
-                    <button className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-[#6C3BFF] flex items-center gap-2 transition-colors">
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-[#6C3BFF] flex items-center gap-2 transition-colors"
+                    >
                       <CheckCircle2 className="w-4 h-4" /> Mark all read
                     </button>
-                    <button className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-amber-500 flex items-center gap-2 transition-colors">
+                    <button
+                      onClick={handleArchive}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-amber-500 flex items-center gap-2 transition-colors"
+                    >
                       <Archive className="w-4 h-4" /> Archive chats
                     </button>
                     <div className="border-t border-gray-50 my-1" />
-                    <button className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors">
+                    <button
+                      onClick={handleDeleteHistory}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                    >
                       <Trash2 className="w-4 h-4" /> Delete history
                     </button>
                   </motion.div>
@@ -173,14 +264,7 @@ export default function Matches() {
               <Link key={m.id} href={`/chat/${m.id}`}>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}
                   className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0 w-[72px]">
-                  <div className="relative w-16 h-16 rounded-full ring-2 ring-transparent hover:ring-[#6C3BFF]/30 p-0.5 transition-all">
-                    <img
-                      src={m.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=6C3BFF&color=fff&bold=true`}
-                      alt={m.name}
-                      className="w-full h-full rounded-full object-cover shadow-sm"
-                    />
-                    <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
-                  </div>
+                  <ConnectionAvatar name={m.name} src={m.avatar} />
                   <span className="text-[11px] font-bold text-slate-600 truncate w-full text-center">
                     {m.name?.split(" ")[0]}
                   </span>
@@ -238,18 +322,7 @@ export default function Matches() {
                   transition={{ delay: idx * 0.04 }}
                   className="flex items-center gap-4 px-4 sm:px-5 py-4 hover:bg-slate-50 cursor-pointer transition-colors group"
                 >
-                  {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <img
-                      src={c.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=6C3BFF&color=fff&bold=true`}
-                      alt={c.name}
-                      className="w-14 h-14 rounded-[16px] object-cover shadow-sm group-hover:shadow-md transition-shadow"
-                    />
-                    {/* Online dot */}
-                    {c.isOnline && (
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
-                    )}
-                  </div>
+                  <ChatAvatar name={c.name} src={c.avatar} isOnline={c.isOnline} />
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
@@ -259,7 +332,7 @@ export default function Matches() {
                       </h3>
                       <span className="text-[10px] font-semibold text-slate-400 whitespace-nowrap flex items-center gap-1">
                         <Clock className="w-2.5 h-2.5" />
-                        {formatTime(c.created_at || c.lastMessageAt)}
+                        {formatTime(c.lastMessageAt || c.created_at)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
