@@ -24,9 +24,12 @@ export default function NotFound() {
           <Link href="/"><Button className="w-full sm:w-auto rounded-full h-12 px-8 font-bold"><Home className="w-4 h-4 mr-2" /> Go Home</Button></Link>
           <Link href="/explore"><Button variant="outline" className="w-full sm:w-auto rounded-full h-12 px-8 font-bold"><Compass className="w-4 h-4 mr-2" /> Explore Skills</Button></Link>
         </motion.div>
-        <a href="javascript:history.back()" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1">
+        <button
+          onClick={() => window.history.back()}
+          className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1 mx-auto bg-transparent border-none cursor-pointer"
+        >
           <ArrowLeft className="w-3.5 h-3.5" /> Go back
-        </a>
+        </button>
       </div>
     </div>
   );

@@ -358,7 +358,7 @@ export default function Discover() {
             teaches:     Array.isArray(skills) ? skills : [],
             sessions:    u.sessionsCompleted || 0,
             rating:      Number(u.averageRating || 0),
-            price:       u.pricePerHour || 50,
+            credit:       u.pricePerHour || 50,
             location:    u.location || "Remote, IN",
             linkedinUrl: u.linkedinUrl,
             hasPhoto:    !!u.avatar,
