@@ -70,6 +70,44 @@ router.post("/swipe", requireAuth, async (req: AuthRequest, res) => {
         const userId = req.userId!; // 🔥 FIX
         const { swipedOnId, action } = req.body;
 
+        // 🔥 FIX 1: Basic validation — fake/garbage data block
+        if (!swipedOnId || typeof swipedOnId !== "number") {
+            return res.status(400).json({ error: "Invalid swipedOnId" });
+        }
+        if (!["like", "pass"].includes(action)) {
+            return res.status(400).json({ error: "Invalid action" });
+        }
+
+        // 🔥 FIX 2: Self-swipe block
+        if (swipedOnId === userId) {
+            return res.status(400).json({ error: "Cannot swipe on yourself" });
+        }
+
+        // 🔥 FIX 3: Fake ID block — target user really exist karta hai check karo
+        const [targetUser] = await db
+            .select({ id: usersTable.id })
+            .from(usersTable)
+            .where(eq(usersTable.id, swipedOnId));
+
+        if (!targetUser) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        // 🔥 FIX 4: Duplicate swipe block — spam/garbage rows prevent karo
+        const existing = await db
+            .select()
+            .from(swipesTable)
+            .where(
+                and(
+                    eq(swipesTable.swiperId, userId),
+                    eq(swipesTable.swipedOnId, swipedOnId)
+                )
+            );
+
+        if (existing.length > 0) {
+            return res.status(400).json({ error: "Already swiped on this user" });
+        }
+
         await db.insert(swipesTable).values({
             swiperId: userId,
             swipedOnId: swipedOnId,

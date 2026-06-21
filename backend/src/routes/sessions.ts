@@ -22,11 +22,9 @@ router.get("/types", (_req, res) => res.json(SESSION_CONFIG));
 
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    // 🔥 FIX: Safely parse query string to avoid TS error
     const role = String(req.query.role || "");
     let rows;
-    
-    // Sort by createdAt to ensure it doesn't crash on date column mismatch
+
     if (role === "mentor") {
       rows = await db.select().from(sessionsTable).where(eq(sessionsTable.mentorId, req.userId!)).orderBy(desc(sessionsTable.createdAt));
     } else if (role === "student") {
@@ -41,16 +39,15 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       return { ...session, mentor: mentor || null, student: student || null };
     }));
     res.json(enriched);
-  } catch (err: any) { 
+  } catch (err: any) {
     console.error("GET /sessions error:", err);
-    res.status(500).json({ error: err.message }); 
+    res.status(500).json({ error: err.message });
   }
 });
 
 // GET /sessions/:id — single session detail
 router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
-    // 🔥 FIX: Properly parse sessionId from params
     const sessionId = parseInt(req.params.id as string);
     if (isNaN(sessionId)) return res.status(400).json({ error: "Invalid session ID" });
 
@@ -63,12 +60,10 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
 
     const sessionData: any = { ...session };
 
-    // 🔥 FIX: Hide OTP from student
     if (isStudent) {
       delete sessionData.sessionOtp;
     }
-    
-    // 🔥 FIX: Hide Meet Link if session is not accepted or in progress yet
+
     if (sessionData.status === "requested" || sessionData.status === "pending") {
       delete sessionData.meetLink;
       delete sessionData.meet_link;
@@ -103,9 +98,9 @@ const BookSchema = z
   .refine(
     (data) => {
       const raw = data.scheduledDate || data.scheduledAt;
-      if (!raw) return true; 
+      if (!raw) return true;
       const d = new Date(raw);
-      return d > new Date(); 
+      return d > new Date();
     },
     { message: "Cannot schedule session in the past", path: ["scheduledDate"] }
   );
@@ -142,7 +137,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       message:       data.message ?? null,
       sessionOtp:    Math.floor(100000 + Math.random() * 900000).toString(),
     };
-    
+
     if ("scheduledDate" in sessionsTable) insertData.scheduledDate = new Date(dateStr);
     else insertData.scheduledAt = new Date(dateStr);
 
@@ -171,8 +166,7 @@ router.post("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
     const meetLink = `https://meet.jit.si/SkillSwap_${sessionId}_${Date.now()}`;
     await db.update(sessionsTable).set({ status: "accepted", meetLink } as any).where(eq(sessionsTable.id, sessionId));
     notify.sessionAccepted(session.studentId, req.userId!.toString(), session.skill);
-    
-    // 🔥 FIX: Return meetLink directly to help tests register it
+
     res.json({ success: true, meetLink, message: "Session accepted! Learner will be notified." });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
@@ -182,11 +176,11 @@ router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
     const sessionId = parseInt(req.params.id as string);
     const { otp } = req.body;
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    
+
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can start" });
     if (session.status !== "accepted") return res.status(400).json({ error: "Session must be accepted first" });
-    
+
     if ((session as any).sessionOtp && (session as any).sessionOtp !== otp) {
         return res.status(400).json({ error: "Invalid OTP! Ask student for correct code." });
     }
@@ -194,6 +188,44 @@ router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
     await db.update(sessionsTable).set({ status: "in_progress", startedAt: new Date() } as any).where(eq(sessionsTable.id, sessionId));
     res.json({ success: true, message: "Session officially started!" });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// 🆕 HEARTBEAT — tracks real active time during the call
+router.post("/:id/heartbeat", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+
+    if (!session) return res.status(404).json({ error: "Not found" });
+
+    const isStudent = session.studentId === req.userId;
+    const isMentor = session.mentorId === req.userId;
+    if (!isStudent && !isMentor) return res.status(403).json({ error: "Not your session" });
+
+    if (session.status !== "in_progress") {
+      return res.status(400).json({ error: "Session not active" });
+    }
+
+    const now = new Date();
+    const lastBeat = (session as any).lastHeartbeatAt;
+    let increment = 0;
+
+    if (lastBeat) {
+      const gapSeconds = (now.getTime() - new Date(lastBeat).getTime()) / 1000;
+      if (gapSeconds <= 60) {
+        increment = gapSeconds / 60;
+      }
+    }
+
+    await db.update(sessionsTable).set({
+      lastHeartbeatAt: now,
+      activeMinutes: sql`${sessionsTable.activeMinutes} + ${increment}`,
+    } as any).where(eq(sessionsTable.id, sessionId));
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
@@ -210,11 +242,19 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
 
     const duration = (session as any).duration || 60;
     const requiredMins = duration * 0.8;
-    const elapsedMins = (new Date().getTime() - new Date(startedAt).getTime()) / 60000;
-    
-    if (elapsedMins < requiredMins) {
-      return res.status(400).json({ 
-        error: `Wait! Only ${Math.round(elapsedMins)} mins passed. You must complete at least ${Math.round(requiredMins)} mins before marking as done.` 
+    const wallClockMins = (new Date().getTime() - new Date(startedAt).getTime()) / 60000;
+    const activeMins = (session as any).activeMinutes || 0;
+    const elapsedMins = Math.min(wallClockMins, activeMins);
+
+    if (wallClockMins < requiredMins) {
+      return res.status(400).json({
+        error: `Wait! Only ${Math.round(wallClockMins)} mins passed. You must complete at least ${Math.round(requiredMins)} mins before marking as done.`
+      });
+    }
+
+    if (activeMins < requiredMins * 0.5) {
+      return res.status(400).json({
+        error: `Heartbeat check failed: sirf ${Math.round(activeMins)} active minutes detect hue. Call window khuli nahi thi shayad.`
       });
     }
 
@@ -259,22 +299,21 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
     const sessionId   = parseInt(req.params.id as string);
     const cancelReason = req.body.reason ?? "Cancelled";
     const [session]   = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    
+
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId && session.studentId !== req.userId) return res.status(403).json({ error: "Not your session" });
-    
+
     if (session.status === "cancelled" || session.status === "completed") {
         return res.status(400).json({ error: "Session cannot be cancelled anymore" });
     }
 
     await db.update(sessionsTable).set({ status: "cancelled", cancelReason } as any).where(eq(sessionsTable.id, sessionId));
-    
-    // 🔥 FIX: Refund logic with strict Number conversion
+
     const sessionAlreadyStarted = session.status === "in_progress" && req.userId === session.studentId;
-    
+
     if (!sessionAlreadyStarted) {
-       const refundAmount = Number(session.creditsAmount || 0); // Force conversion
-       
+       const refundAmount = Number(session.creditsAmount || 0);
+
        if(refundAmount > 0) {
          await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${refundAmount}` }).where(eq(usersTable.id, session.studentId));
          await db.insert(transactionsTable).values({
@@ -297,11 +336,10 @@ router.post("/:id/dispute", requireAuth, async (req: AuthRequest, res) => {
     }
 
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    
+
     if (!session) return res.status(404).json({ error: "Session not found" });
-    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only student can dispute" });   
-    
-    // 🔥 FIX: Array inclusion for allowed status
+    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only student can dispute" });
+
     const disputeAllowed = ["requested", "accepted", "in_progress", "completed"].includes(session.status);
     if (!disputeAllowed) {
         return res.status(400).json({ error: `Cannot dispute session with status "${session.status}".` });
@@ -381,7 +419,7 @@ router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
       .where(eq(sessionsTable.mentorId, session.mentorId));
 
     const ratedSessions = allMentorSessions.filter((s: any) => s.rating !== null && s.rating > 0);
-    
+
     let newAvgRating = rating;
     if (ratedSessions.length > 0) {
       const sum = ratedSessions.reduce((acc: number, curr: any) => acc + (curr.rating || 0), 0);

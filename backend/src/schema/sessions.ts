@@ -1,4 +1,4 @@
-﻿import { pgTable, text, serial, integer, timestamp, real, varchar,boolean } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, serial, integer, timestamp, real, varchar, boolean } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 export const sessionsTable = pgTable("sessions", {
@@ -34,6 +34,8 @@ export const sessionsTable = pgTable("sessions", {
   paymentStatus:  text("payment_status"),     // ← add kiya
   disputeReason:  text("dispute_reason"),     // ← add kiya
   scheduledAt:    timestamp("scheduled_at"),  // ← add kiya
+  activeMinutes:   real("active_minutes").default(0),       // 🆕 heartbeat tracking
+  lastHeartbeatAt: timestamp("last_heartbeat_at"),           // 🆕 heartbeat tracking
 });
 
 export const insertSessionSchema = z.object({

@@ -61,6 +61,23 @@ export default function Sessions() {
   const { data: user } = useGetMe(options);
   const { data: allSessions, isLoading } = useGetMySessions({ role: tab === "learning" ? "student" : "mentor" }, options);
 
+  // 🆕 HEARTBEAT — sends a ping every 30s for sessions currently in_progress
+  useEffect(() => {
+    const liveSessions = (allSessions || []).filter((s: any) => s.status === "in_progress");
+    if (liveSessions.length === 0) return;
+
+    const interval = setInterval(() => {
+      liveSessions.forEach((s: any) => {
+        fetch(`/api/sessions/${s.id}/heartbeat`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+      });
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [allSessions, token]);
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
     queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
