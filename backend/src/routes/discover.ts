@@ -3,7 +3,7 @@ import { db } from "../db.js";
 import { usersTable } from "../schema/users.js";
 import { swipesTable } from "../schema/swipes.js"; 
 
-import { eq, and, notInArray, inArray } from "drizzle-orm";
+import { eq, and, notInArray, inArray, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js"; // 🔥 Security Added
 
 const router = Router();
@@ -34,6 +34,7 @@ router.get("/profiles", requireAuth, async (req: AuthRequest, res) => {
             })
             .from(usersTable)
             .where(notInArray(usersTable.id, swipedIds))
+            .orderBy(desc(usersTable.id))
             .limit(10);
 
         const safeProfiles = newProfiles.map(user => {

@@ -14,6 +14,7 @@ import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
 import { SplashScreen } from "@capacitor/splash-screen";
+import { InstallButton } from "@/components/InstallButton";
 
 import LoadingScreen from "@/components/loading-screen";
 import NotFound from "@/pages/not-found";
@@ -232,6 +233,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter>
+             <InstallButton />
             <Router />
           </WouterRouter>
           <Toaster />

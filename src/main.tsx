@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import * as Sentry from "@sentry/react";
+import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 
 // 1. 🔥 FORCE UNREGISTER SERVICE WORKER
 // Android app mein Service Worker ki zarurat nahi hoti, yeh API calls ko hijack kar sakta hai.
@@ -41,6 +42,18 @@ if (isNativeApp) {
       mode: 'cors',
     });
   };
+
+  // 🔥 GoogleAuth native plugin ko explicitly initialize karna ZAROORI hai —
+  // bina iske GoogleAuth.signIn() call karte waqt native crash hota hai
+  // ("keeps stopping"). capacitor.config.ts ke plugin config se yeh alag
+  // hai — woh sirf strings.xml generate karta hai, runtime init nahi karta.
+  GoogleAuth.initialize({
+    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+    scopes: ["profile", "email"],
+    grantOfflineAccess: true,
+  }).catch((err) => {
+    console.error("GoogleAuth initialize failed:", err);
+  });
 }
 
 // 3. SENTRY INIT
