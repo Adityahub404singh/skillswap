@@ -23,14 +23,14 @@ export default function Notifications() {
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   useEffect(() => {
-    fetch("/api/notifications", { headers })
+    fetch(`${import.meta.env.VITE_API_URL || ""}/api/notifications`, { headers })
       .then(r => r.json())
       .then(data => { setNotifs(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
   const markAllRead = async () => {
-    await fetch("/api/notifications/read-all", { method: "PATCH", headers });
+    await fetch(`${import.meta.env.VITE_API_URL || ""}/api/notifications/read-all`, { method: "PATCH", headers });
     setNotifs(p => p.map(n => ({ ...n, isRead: true })));
   };
 
@@ -120,3 +120,7 @@ export default function Notifications() {
     </div>
   );
 }
+
+
+
+

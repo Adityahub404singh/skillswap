@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, sql, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
@@ -12,15 +12,9 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
         const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
         if (!user) return res.status(404).json({ error: "User not found" });
 
-        const transactions = await db.select().from(transactionsTable).where(eq(transactionsTable.userId, req.userId!));
-
-        const totalEarned = transactions
-            .filter(tx => tx.type === "earned")
-            .reduce((sum, tx) => sum + tx.amount, 0);
-
-        const totalSpent = transactions
-            .filter(tx => tx.type === "spent" || tx.type === "withdrawal_pending" || tx.amount < 0)
-            .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        const [stats] = await db.execute(sql`SELECT COALESCE(SUM(CASE WHEN type = 'earned' THEN amount ELSE 0 END), 0) as total_earned, COALESCE(SUM(CASE WHEN type IN ('spent', 'withdrawal_pending') OR amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_spent FROM transactions WHERE user_id = ${req.userId}`);
+        const totalEarned = Number(stats?.total_earned || 0);
+        const totalSpent = Number(stats?.total_spent || 0);
 
         res.json({
             balance: user.credits,
@@ -32,7 +26,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 2. FETCH TRANSACTION HISTORY (🔥 EXPERT FIX: Added LIMIT 100 to prevent bandwidth leak)
+// 2. FETCH TRANSACTION HISTORY (?? EXPERT FIX: Added LIMIT 100 to prevent bandwidth leak)
 router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
     try {
         const history = await db.select()
@@ -46,7 +40,7 @@ router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 3. 🔒 BULLETPROOF WITHDRAWAL LOGIC
+// 3. ?? BULLETPROOF WITHDRAWAL LOGIC
 router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
     try {
         const { amount, upiId } = req.body;
@@ -57,7 +51,7 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
         const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
         if (user.credits < amount) return res.status(400).json({ error: "Insufficient balance." });
 
-        // 🔥 FRAUD FIX: Check "Unmatured" credits instead of all-time matured
+        // ?? FRAUD FIX: Check "Unmatured" credits instead of all-time matured
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
         const now = Date.now();
 
@@ -78,11 +72,11 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
             });
         }
 
-        // 💸 15% WITHDRAWAL CUT LOGIC (Platform Profit)
+        // ?? 15% WITHDRAWAL CUT LOGIC (Platform Profit)
         const platformCut = Math.round(amount * 0.15);
         const finalPayout = amount - platformCut;
 
-        // 🔥 ATOMIC TRANSACTION: Ensuring DB doesn't deduct money if transaction log fails
+        // ?? ATOMIC TRANSACTION: Ensuring DB doesn't deduct money if transaction log fails
         await db.transaction(async (tx) => {
             // 1. Deduct full amount from user wallet
             await tx.update(usersTable)
@@ -105,3 +99,4 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+

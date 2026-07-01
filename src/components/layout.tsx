@@ -1,4 +1,4 @@
-﻿import Footer from "@/components/footer";
+import Footer from "@/components/footer";
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/store/auth";
@@ -25,7 +25,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   
-  const [aiMessages, setAiMessages] = useState([{ role: "ai", text: "Hi! I'm SkillAI ✨ How can I help you learn today?" }]);
+  const [aiMessages, setAiMessages] = useState([{ role: "ai", text: "Hi! I'm SkillAI ? How can I help you learn today?" }]);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPulse, setAiPulse] = useState(true);
@@ -45,17 +45,17 @@ export function Layout({ children }: { children: ReactNode }) {
       // Ek extra check: agar token string mein hi ghalat hai toh mat call karo
       if (!token || token === "null" || token === "undefined") return [];
       
-      const res = await fetch("/api/notifications", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/notifications`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    // 🔥 FIX 1: Safely check for real token
+    // ?? FIX 1: Safely check for real token
     enabled: !!token && token !== "null" && token !== "undefined",
-    // 🔥 FIX 2: Stop React Query from looping/retrying when API gives 401 Error
+    // ?? FIX 2: Stop React Query from looping/retrying when API gives 401 Error
     retry: false, 
-    // 🔥 FIX 3: Stop fetching again just because user clicked on the screen
+    // ?? FIX 3: Stop fetching again just because user clicked on the screen
     refetchOnWindowFocus: false, 
-    // 🔥 FIX 4: Polling disabled
+    // ?? FIX 4: Polling disabled
     refetchInterval: false, 
   });
   
@@ -80,7 +80,7 @@ export function Layout({ children }: { children: ReactNode }) {
     setAiLoading(true);
     
     try {
-      const res = await fetch("/api/ai/chat", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ message: msg, history: currentHistory }),
@@ -102,10 +102,10 @@ export function Layout({ children }: { children: ReactNode }) {
     } catch (err) { console.error(err); } 
   };
 
-  // 🔥 FIX: Added 'icon:' before BookOpen
+  // ?? FIX: Added 'icon:' before BookOpen
  const navLinks = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-    { href: "/discover", label: "Discover", icon: Sparkles }, // 🚀 YE NAYI LINE ADD HUI HAI
+    { href: "/discover", label: "Discover", icon: Sparkles }, // ?? YE NAYI LINE ADD HUI HAI
     { href: "/explore", label: "Search", icon: Compass }, // Iska naam thoda chhota kar diya
     { href: "/sessions", label: "Sessions", icon: BookOpen },
     { href: "/matches", label: "Chats", icon: MessageCircle },
@@ -115,7 +115,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] relative overflow-x-hidden">
       
-      {/* 🚀 RESPONSIVE HEADER */}
+      {/* ?? RESPONSIVE HEADER */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 relative">
@@ -130,7 +130,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </span>
             </Link>
 
-            {/* 🚀 LAPTOP/DESKTOP NAVIGATION (Center aligned, hidden on mobile) */}
+            {/* ?? LAPTOP/DESKTOP NAVIGATION (Center aligned, hidden on mobile) */}
             {token && (
               <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
                 {navLinks.map((link) => {
@@ -205,7 +205,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
               {feedbackSent ? (
                 <div className="p-6 text-center">
-                  <div className="text-4xl mb-2">🎉</div>
+                  <div className="text-4xl mb-2">??</div>
                   <p className="font-bold text-green-600">Thanks for your feedback!</p>
                 </div>
               ) : (
@@ -274,7 +274,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* 🚀 MOBILE BOTTOM NAVIGATION (Hidden on laptop/desktop) */}
+      {/* ?? MOBILE BOTTOM NAVIGATION (Hidden on laptop/desktop) */}
       {token && (
         <div className="md:hidden fixed bottom-0 w-full bg-white border-t border-gray-100 shadow-[0_-5px_20px_rgba(0,0,0,0.03)] z-50 pb-safe">
           <nav className="flex justify-around items-center h-[65px] px-2">
@@ -292,7 +292,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </nav>
         </div>
       )}
-    {/* 🚀 RESPONSIVE FOOTER LOGIC - Ab sirf Landing Page par dikhega */}
+    {/* ?? RESPONSIVE FOOTER LOGIC - Ab sirf Landing Page par dikhega */}
 {isLandingPage && (
   <div className="mt-auto border-t border-gray-100 bg-white">
     <Footer />
@@ -304,3 +304,6 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default Layout;
+
+
+

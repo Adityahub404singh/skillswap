@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
@@ -15,12 +15,12 @@ import { User, Save, Plus, X, Award, Star, Trophy, CheckCircle, Flame, Copy, Che
 const ALL_SKILLS = ["Python","JavaScript","React","DSA","Web Dev","AI/ML","Design","English","Maths","Node.js","TypeScript","Java","C++","Chess","Music","Spanish","Photography","Marketing","Next.js","MongoDB","DevOps","Figma","Flutter","AWS"];
 
 const BADGES = [
-  { icon: "🎯", label: "First Session",  color: "bg-blue-50 border-blue-100 text-blue-600" },
-  { icon: "🔥", label: "7-Day Streak",   color: "bg-orange-50 border-orange-100 text-orange-600" },
-  { icon: "⭐", label: "30-Day Legend",  color: "bg-yellow-50 border-yellow-100 text-yellow-700" },
-  { icon: "👑", label: "Top Mentor",     color: "bg-purple-50 border-purple-100 text-purple-600" },
-  { icon: "✅", label: "Verified Expert", color: "bg-green-50 border-green-100 text-green-600" },
-  { icon: "🌟", label: "Community Star",  color: "bg-cyan-50 border-cyan-100 text-cyan-600" },
+  { icon: "??", label: "First Session",  color: "bg-blue-50 border-blue-100 text-blue-600" },
+  { icon: "??", label: "7-Day Streak",   color: "bg-orange-50 border-orange-100 text-orange-600" },
+  { icon: "?", label: "30-Day Legend",  color: "bg-yellow-50 border-yellow-100 text-yellow-700" },
+  { icon: "??", label: "Top Mentor",     color: "bg-purple-50 border-purple-100 text-purple-600" },
+  { icon: "?", label: "Verified Expert", color: "bg-green-50 border-green-100 text-green-600" },
+  { icon: "??", label: "Community Star",  color: "bg-cyan-50 border-cyan-100 text-cyan-600" },
 ];
 
 export default function Profile() {
@@ -72,7 +72,7 @@ export default function Profile() {
     if (!token) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/users/me", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/users/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -89,7 +89,7 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Update failed");
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
-      toast({ title: "Profile Updated! 🎉", description: "Your changes have been saved." });
+      toast({ title: "Profile Updated! ??", description: "Your changes have been saved." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Save failed", description: e.message });
     }
@@ -117,7 +117,7 @@ export default function Profile() {
   };
 
   const copyPortfolio = () => {
-    const text = `🚀 SkillSwap Portfolio — ${user?.name}\n⭐ Trust Score: ${user?.trustScore}/100\n📚 Skills I Teach: ${skillsTeach.join(", ") || "—"}\n🎯 Skills I Learn: ${skillsLearn.join(", ") || "—"}\n🏆 Badges: ${unlockedBadges.map(i => BADGES[i].label).join(", ") || "—"}\n🔗 https://skillswap-india.vercel.app`;
+    const text = `?? SkillSwap Portfolio � ${user?.name}\n? Trust Score: ${user?.trustScore}/100\n?? Skills I Teach: ${skillsTeach.join(", ") || "�"}\n?? Skills I Learn: ${skillsLearn.join(", ") || "�"}\n?? Badges: ${unlockedBadges.map(i => BADGES[i].label).join(", ") || "�"}\n?? https://skillswap-india.vercel.app`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -151,7 +151,7 @@ export default function Profile() {
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-black">{user.name}</h1>
-            <p className="text-white/80 text-sm mt-0.5 line-clamp-1">{user.bio || "No bio yet — add one below!"}</p>
+            <p className="text-white/80 text-sm mt-0.5 line-clamp-1">{user.bio || "No bio yet � add one below!"}</p>
             <div className="flex flex-wrap gap-2 mt-3">
               <span className="flex items-center gap-1.5 bg-black/15 border border-white/10 rounded-full px-3 py-1 text-xs font-bold">
                 <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" /> Trust: {user.trustScore}
@@ -281,7 +281,7 @@ export default function Profile() {
               {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving changes...</> : <><Save className="w-4 h-4 mr-2" /> Save Profile</>}
             </Button>
             
-            {/* 🔥 Logout Button Moved Here */}
+            {/* ?? Logout Button Moved Here */}
             <Button onClick={handleLogout} variant="outline" className="w-full rounded-full h-14 font-bold text-sm text-red-500 border-red-100 hover:bg-red-50 hover:text-red-600">
               <LogOut className="w-4 h-4 mr-2" /> Log out securely
             </Button>
@@ -345,3 +345,6 @@ export default function Profile() {
     </motion.div>
   );
 }
+
+
+

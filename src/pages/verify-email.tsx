@@ -45,7 +45,7 @@ export default function VerifyEmail() {
 
     setStatus("verifying");
     try {
-      const res = await fetch("/api/auth/verify-email", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/auth/verify-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
@@ -75,7 +75,7 @@ export default function VerifyEmail() {
     if (!email) return;
     setResending(true);
     try {
-      const res = await fetch("/api/auth/resend-otp", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/auth/resend-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -189,3 +189,6 @@ export default function VerifyEmail() {
     </div>
   );
 }
+
+
+

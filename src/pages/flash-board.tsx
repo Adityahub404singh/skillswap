@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +20,7 @@ export default function FlashBoard() {
 
   const fetchDoubts = async () => {
     try {
-      const res = await fetch("/api/sessions/flash/board", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/sessions/flash/board`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -45,7 +45,7 @@ export default function FlashBoard() {
     }
     setPosting(true);
     try {
-      const res = await fetch("/api/sessions/flash/post", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/sessions/flash/post`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ skill, message, creditsAmount: 10 }),
@@ -169,4 +169,8 @@ export default function FlashBoard() {
     </div>
   );
 }
+
+
+
+
 

@@ -67,7 +67,7 @@ export default function Wallet() {
 
     setWithdrawLoading(true);
     try {
-      const res  = await fetch("/api/wallet/withdraw", {
+      const res  = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/wallet/withdraw`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ amount, upiId }),
@@ -440,3 +440,7 @@ export default function Wallet() {
     </motion.div>
   );
 }
+
+
+
+

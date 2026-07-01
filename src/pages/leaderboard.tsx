@@ -20,7 +20,7 @@ export default function Leaderboard() {
   const { data: rawData = [], isLoading } = useQuery({
     queryKey: ["/api/gamification/leaderboard"],
     queryFn: async () => {
-      const res = await fetch("/api/gamification/leaderboard", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/gamification/leaderboard`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error("Failed to fetch");
@@ -125,3 +125,7 @@ export default function Leaderboard() {
     </div>
   );
 }
+
+
+
+

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -45,7 +45,7 @@ export default function Login() {
         await Preferences.set({ key: 'skillswap_token', value: data.token });
         localStorage.setItem("skillswap_token", data.token);
         setToken(data.token);
-        toast({ title: "Welcome back! 👋", description: "Successfully logged in." });
+        toast({ title: "Welcome back! ??", description: "Successfully logged in." });
         setLocation("/dashboard");
       },
       onError: (error: any, variables: any) => {
@@ -73,13 +73,13 @@ export default function Login() {
 
   const onSubmit = (data: LoginForm) => loginMutation.mutate({ data });
 
-  // ─────────────────────────────────────────
-  // Google ID token ko backend pe bhejna — web aur native dono se yahi call hota hai
-  // ─────────────────────────────────────────
+  // -----------------------------------------
+  // Google ID token ko backend pe bhejna � web aur native dono se yahi call hota hai
+  // -----------------------------------------
   const loginWithGoogleIdToken = async (idToken: string) => {
     try {
       setGoogleLoading(true);
-      const res = await fetch("/api/auth/google", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
@@ -90,7 +90,7 @@ export default function Login() {
       await Preferences.set({ key: 'skillswap_token', value: data.token });
       localStorage.setItem("skillswap_token", data.token);
       setToken(data.token);
-      toast({ title: "Welcome! 👋", description: "Signed in with Google." });
+      toast({ title: "Welcome! ??", description: "Signed in with Google." });
       setLocation("/dashboard");
     } catch (err: any) {
       toast({
@@ -103,13 +103,13 @@ export default function Login() {
     }
   };
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // WEB ONLY: Google Identity Services ko ek baar initialize karo, aur
   // official button ko invisible overlay ke roop mein render karo apne
   // custom button ke upar. prompt()/One-Tap use NAHI kar rahe kyuki woh
   // sirf browser mein already-signed-in Google session ho tab kaam karta
-  // hai — incognito ya fresh browser mein silently fail ho jaata hai.
-  // ─────────────────────────────────────────
+  // hai � incognito ya fresh browser mein silently fail ho jaata hai.
+  // -----------------------------------------
   useEffect(() => {
     if (isNative) return; // native flow alag hai, neeche handle hota hai
     if (gisInitializedRef.current) return;
@@ -146,10 +146,10 @@ export default function Login() {
     return () => { cancelled = true; };
   }, []);
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // NATIVE ONLY (Android APK): native plugin seedha system Google
-  // Sign-In dialog kholta hai — yeh flow GIS overlay se bilkul alag hai.
-  // ─────────────────────────────────────────
+  // Sign-In dialog kholta hai � yeh flow GIS overlay se bilkul alag hai.
+  // -----------------------------------------
   const handleNativeGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
@@ -174,7 +174,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-stretch">
 
-      {/* ── LEFT PANEL (desktop only - Matches Register UI) ── */}
+      {/* -- LEFT PANEL (desktop only - Matches Register UI) -- */}
       <div className="hidden lg:flex lg:w-[42%] flex-col justify-between p-12 relative overflow-hidden"
         style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
 
@@ -234,7 +234,7 @@ export default function Login() {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL (Form Area) ── */}
+      {/* -- RIGHT PANEL (Form Area) -- */}
       <div className="flex-1 flex flex-col justify-center py-10 px-6 sm:px-10 lg:px-16 bg-background overflow-y-auto">
 
         <div className="lg:hidden flex items-center gap-2 mb-8">
@@ -259,7 +259,7 @@ export default function Login() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
-            {/* Google Sign-In Button — web: custom look + invisible real button overlay
+            {/* Google Sign-In Button � web: custom look + invisible real button overlay
                 native: direct custom button, native plugin call */}
             <div className="relative w-full h-11">
               <button
@@ -284,7 +284,7 @@ export default function Login() {
                 )}
               </button>
 
-              {/* Real Google button — invisible, sits exactly on top, web only */}
+              {/* Real Google button � invisible, sits exactly on top, web only */}
               {!isNative && (
                 <div
                   ref={googleButtonContainerRef}
@@ -330,7 +330,7 @@ export default function Login() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
                   type="password" 
-                  placeholder="••••••••" 
+                  placeholder="��������" 
                   className={`pl-9 h-12 text-sm bg-background/50 focus-visible:ring-primary/20 ${errors.password ? "border-destructive" : ""}`} 
                   {...register("password")} 
                 />
@@ -361,3 +361,6 @@ export default function Login() {
     </div>
   );
 }
+
+
+

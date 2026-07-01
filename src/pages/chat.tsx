@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "wouter";
 import { 
   ArrowLeft, Send, Phone, Video, MoreVertical, 
@@ -8,7 +8,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/auth";
 
-// ─── types ───────────────────────────────────────────────────────────────────
+// --- types -------------------------------------------------------------------
 interface Message {
   id: number | string;
   sender_id?: number;
@@ -30,7 +30,7 @@ interface Partner {
   isVerified?: boolean;
 }
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// --- helpers -----------------------------------------------------------------
 function formatTime(dateStr: string) {
   if (!dateStr) return "";
   return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -61,7 +61,7 @@ function groupByDate(messages: Message[]) {
   return groups;
 }
 
-// ─── main component ──────────────────────────────────────────────────────────
+// --- main component ----------------------------------------------------------
 export default function Chat() {
   const params        = useParams();
   const otherUserId   = params.id;
@@ -81,10 +81,10 @@ export default function Chat() {
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
   const pollRef         = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── fetch partner ────────────────────────────────────────────────────────
+  // -- fetch partner --------------------------------------------------------
   const fetchPartner = useCallback(async () => {
     try {
-      const res  = await fetch("/api/discover/profiles", {
+      const res  = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/discover/profiles`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -92,7 +92,7 @@ export default function Chat() {
         .find((p: any) => p.id === Number(otherUserId));
       if (found) setPartner(found);
       else {
-        // fallback — fetch single user
+        // fallback � fetch single user
         const r2   = await fetch(`/api/users/${otherUserId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -101,7 +101,7 @@ export default function Chat() {
     } catch (e) { console.error("partner fetch", e); }
   }, [otherUserId, token]);
 
-  // ── fetch messages ───────────────────────────────────────────────────────
+  // -- fetch messages -------------------------------------------------------
   const fetchMessages = useCallback(async () => {
     try {
       const res  = await fetch(`/api/chat/${otherUserId}`, {
@@ -125,7 +125,7 @@ export default function Chat() {
     fetchPartner();
     fetchMessages();
     
-    // 🔥 10X EXPERT FIX: Polling ONLY runs if the browser tab is currently visible
+    // ?? 10X EXPERT FIX: Polling ONLY runs if the browser tab is currently visible
     pollRef.current = setInterval(() => {
       if (document.visibilityState === "visible") {
         fetchMessages();
@@ -139,7 +139,7 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, partnerTyping]);
 
-  // ── auto-grow textarea ───────────────────────────────────────────────────
+  // -- auto-grow textarea ---------------------------------------------------
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -147,7 +147,7 @@ export default function Chat() {
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
   }, [inputText]);
 
-  // ── send ─────────────────────────────────────────────────────────────────
+  // -- send -----------------------------------------------------------------
   const sendMessage = async () => {
     const content = inputText.trim();
     if (!content || sending) return;
@@ -165,7 +165,7 @@ export default function Chat() {
     setInputText("");
 
     try {
-      await fetch("/api/chat", {
+      await fetch(`${import.meta.env.VITE_API_URL || ""}/api/chat`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ receiverId: Number(otherUserId), content }),
@@ -184,10 +184,10 @@ export default function Chat() {
   return (
     <div className="max-w-3xl mx-auto h-[calc(100vh-80px)] flex flex-col">
 
-      {/* ── Container ──────────────────────────────────────────────────────── */}
+      {/* -- Container -------------------------------------------------------- */}
       <div className="flex flex-col flex-1 bg-white border border-gray-100 rounded-[24px] shadow-sm overflow-hidden">
 
-        {/* ── Header ────────────────────────────────────────────────────────── */}
+        {/* -- Header ---------------------------------------------------------- */}
         <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
             <Link href="/matches">
@@ -228,7 +228,7 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* ── Partner Info Panel (slide-down) ───────────────────────────────── */}
+        {/* -- Partner Info Panel (slide-down) --------------------------------- */}
         <AnimatePresence>
           {showInfo && partner && (
             <motion.div
@@ -254,7 +254,7 @@ export default function Chat() {
                 ))}
                 <Link href={`/mentor/${partner.id}`}>
                   <span className="text-xs font-bold text-[#6C3BFF] underline underline-offset-2 cursor-pointer">
-                    View profile →
+                    View profile ?
                   </span>
                 </Link>
               </div>
@@ -262,18 +262,18 @@ export default function Chat() {
           )}
         </AnimatePresence>
 
-        {/* ── Offline Banner ────────────────────────────────────────────────── */}
+        {/* -- Offline Banner -------------------------------------------------- */}
         <AnimatePresence>
           {!isOnline && (
             <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }}
               className="bg-red-50 border-b border-red-100 px-4 py-2 flex items-center gap-2">
               <WifiOff className="w-3.5 h-3.5 text-red-500" />
-              <span className="text-xs font-bold text-red-600">No connection — messages will sync when back online</span>
+              <span className="text-xs font-bold text-red-600">No connection � messages will sync when back online</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Messages Area ─────────────────────────────────────────────────── */}
+        {/* -- Messages Area --------------------------------------------------- */}
         <div className="flex-1 overflow-y-auto p-4 bg-[#F8FAFC] space-y-1 scrollbar-hide">
 
           {/* Empty state */}
@@ -284,7 +284,7 @@ export default function Chat() {
               </div>
               <div>
                 <p className="font-black text-slate-700">Start a conversation!</p>
-                <p className="text-sm text-slate-400 mt-1">Say hi to {partner?.name || "your match"} 👋</p>
+                <p className="text-sm text-slate-400 mt-1">Say hi to {partner?.name || "your match"} ??</p>
               </div>
             </div>
           )}
@@ -383,7 +383,7 @@ export default function Chat() {
           <div ref={messagesEndRef} className="h-2" />
         </div>
 
-        {/* ── Input Area ────────────────────────────────────────────────────── */}
+        {/* -- Input Area ------------------------------------------------------ */}
         <div className="px-3 py-3 bg-white border-t border-gray-100 shrink-0">
           <div className={`flex items-end gap-2 bg-[#F8FAFC] rounded-[20px] px-3 py-2 border transition-all ${
             inputText ? "border-[#6C3BFF]/40 bg-white shadow-sm" : "border-gray-200"
@@ -431,7 +431,7 @@ export default function Chat() {
           </div>
 
           <p className="text-[10px] text-slate-300 text-center mt-1.5 font-medium">
-            Enter to send • Shift+Enter for new line
+            Enter to send � Shift+Enter for new line
           </p>
         </div>
 
@@ -439,3 +439,7 @@ export default function Chat() {
     </div>
   );
 }
+
+
+
+

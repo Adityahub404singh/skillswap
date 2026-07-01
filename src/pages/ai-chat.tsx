@@ -37,7 +37,7 @@ export default function AIChat() {
     setMessages(prev => [...prev, { role: "user", text: msg, time }]);
     setLoading(true);
     try {
-      const res = await fetch("/api/ai/chat", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/ai/chat`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ message: msg }),
@@ -159,3 +159,7 @@ export default function AIChat() {
     </div>
   );
 }
+
+
+
+
