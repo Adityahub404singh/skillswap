@@ -425,58 +425,73 @@ router.post("/:id/heartbeat", requireAuth, async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════
 // 🔚 1-ON-1 COMPLETE
 // ══════════════════════════════════════════════════════════════
-router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
+router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-    
-    if (!session) return res.status(404).json({ error: "Not found" });
-    if (session.studentId !== req.userId && session.mentorId !== req.userId) return res.status(403).json({ error: "Unauthorized" });
-    if ((session as any).isGroup === 1) return res.status(400).json({ error: "Use /end-group for group sessions" });
+
+    if (!session || session.mentorId !== req.userId) return res.status(403).json({ error: "Unauthorized" });
+    if (session.status !== "in_progress") return res.status(400).json({ error: "Session not in progress" });
 
     const startedAt = (session as any).startedAt;
-    if (session.status !== "in_progress" || !startedAt) {
-      return res.status(400).json({ error: "Session must be started with OTP first!" });
+    const durationMins = (session as any).duration || 60;
+    const elapsedMins = (Date.now() - new Date(startedAt).getTime()) / 60000;
+    
+    // Mentor ka overall session time % (Safety cap)
+    const mentorTimePct = Math.min(elapsedMins / durationMins, 1);
+
+    // 🔥 FRAUD GUARD: Mentor exits too early (Whole group auto-refunded)
+    if (mentorTimePct < AUTO_CANCEL_THRESHOLD) {
+      const enrollments = await getEnrollmentCount(sessionId);
+      for (const e of enrollments) {
+        await refundStudent(e.studentId, e.creditsAmount, sessionId, "Mentor ended group too early (Auto-Refund)");
+        await db.update(groupEnrollmentsTable).set({ status: "refunded" } as any).where(eq(groupEnrollmentsTable.id, e.id));
+      }
+      await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Ended under 20% limit." } as any).where(eq(sessionsTable.id, sessionId));
+      return res.status(400).json({ error: "Session ended too early. Auto-cancelled & all students refunded." });
     }
 
-    const duration      = (session as any).duration || 60;
-    const wallClockMins = (Date.now() - new Date(startedAt).getTime()) / 60000;
-    const timePct       = wallClockMins / duration;
+    const enrollments = await getEnrollmentCount(sessionId);
+    let totalPendingForMentor = 0;
 
-    // 🔥 FRAUD GUARD: Fast Exits (<20% Time)
-    if (timePct < AUTO_CANCEL_THRESHOLD) {
-      await db.update(sessionsTable).set({ 
-        status: "cancelled", cancelReason: `Auto-Cancelled: Session ended too early (${Math.round(wallClockMins)} mins).`
-      } as any).where(eq(sessionsTable.id, sessionId));
+    for (const enrollment of enrollments) {
+      // 🔥 PER-STUDENT FRAUD GUARD: Student kitni der active tha?
+      const studentActiveMins = enrollment.activeSeconds / 60;
+      const studentTimePct = Math.min(studentActiveMins / durationMins, 1);
 
-      await refundStudent(session.studentId, session.creditsAmount, sessionId, `Fast Exit Refund: Session was only ${Math.round(wallClockMins)} mins.`);
-      return res.status(400).json({ error: `Session ended at ${Math.round(wallClockMins)} mins. It was auto-cancelled and student refunded.` });
-    }
+      // Agar student 20% se kam time active tha, uska paisa wapas karo
+      if (studentTimePct < AUTO_CANCEL_THRESHOLD) {
+        await refundStudent(enrollment.studentId, enrollment.creditsAmount, sessionId, "Ghost student (Insufficient activity)");
+        await db.update(groupEnrollmentsTable).set({ status: "refunded" } as any).where(eq(groupEnrollmentsTable.id, enrollment.id));
+        continue; // Payout nahi milega
+      }
 
-    let payoutAmount = session.creditsAmount;
-    let refundAmount = 0;
+      // Final payout: Individual student activity vs Mentor's delivery (Jo kam ho)
+      const effectivePct = Math.min(studentTimePct, mentorTimePct);
+      let finalPayout = Math.floor(enrollment.creditsAmount * effectivePct);
+      const refundAmt = enrollment.creditsAmount - finalPayout;
 
-    if (timePct < MVT_THRESHOLD) {
-      payoutAmount = Math.floor(session.creditsAmount * timePct);
-      refundAmount = session.creditsAmount - payoutAmount;
-    }
+      if (refundAmt > 0) {
+        await refundStudent(enrollment.studentId, refundAmt, sessionId, `Prorated Group Refund (${Math.round(effectivePct * 100)}% delivery)`);
+      }
 
-    if (refundAmount > 0) {
-      await refundStudent(session.studentId, refundAmount, sessionId, `Prorated Refund: Class ran for ${Math.round(wallClockMins)}/${duration} mins.`);
+      totalPendingForMentor += finalPayout;
+      await db.update(groupEnrollmentsTable).set({ 
+        status: "pending_clearance", 
+        completedAt: new Date(),
+      } as any).where(eq(groupEnrollmentsTable.id, enrollment.id));
     }
 
     await db.update(sessionsTable).set({
       status: "pending_clearance", 
       completedAt: new Date(), 
-      actualDuration: Math.round(wallClockMins),
-      creditsAmount: payoutAmount
+      actualDuration: Math.round(elapsedMins),
+      creditsAmount: totalPendingForMentor,
     } as any).where(eq(sessionsTable.id, sessionId));
 
-    notify.sessionCompleted(session.mentorId, session.skill, payoutAmount);
-    res.json({ 
-      success: true, 
-      message: `Session ended. Funds (${payoutAmount} cr) are in Escrow and will clear in ${ESCROW_CLEARANCE_HOURS} hours unless disputed.`,
-      prorated: timePct < MVT_THRESHOLD
+    res.json({
+      success: true,
+      message: `Group session ended! ${totalPendingForMentor} credits placed in escrow.`,
     });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });

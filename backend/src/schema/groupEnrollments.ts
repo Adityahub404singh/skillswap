@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, index } from "drizzle-orm/pg-core";
 
 export const groupEnrollmentsTable = pgTable("group_enrollments", {
   id:              serial("id").primaryKey(),
@@ -15,4 +15,8 @@ export const groupEnrollmentsTable = pgTable("group_enrollments", {
   joinedAt:        timestamp("joined_at").notNull().defaultNow(),
   completedAt:     timestamp("completed_at"),
   createdAt:       timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  // 🔥 SAFELY ADDED INDEXES (Bandwidth aur Speed ke liye)
+  sessionIdx: index("group_enrollments_session_idx").on(table.sessionId),
+  studentIdx: index("group_enrollments_student_idx").on(table.studentId),
+}));

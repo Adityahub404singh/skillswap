@@ -1,0 +1,3 @@
+﻿const { Pool } = require('pg');
+const pool = new Pool({ connectionString: 'postgresql://neondb_owner:npg_GiTnzt29kPjM@ep-odd-frog-am5juiin-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require', ssl: { rejectUnauthorized: false } });
+pool.query("SELECT COUNT(*) as base64_users, pg_size_pretty(SUM(length(avatar))) as total_size FROM users WHERE avatar LIKE 'data:%'").then(r => { console.log('Base64 avatars:', r.rows[0]); return pool.query("SELECT pg_size_pretty(pg_total_relation_size('users')) as total, pg_size_pretty(pg_relation_size('users')) as data"); }).then(r => { console.log('Users table size:', r.rows[0]); process.exit(0); }).catch(e => { console.error(e.message); process.exit(1); });

@@ -1,6 +1,6 @@
 // backend/src/schema/users.ts
 
-import { pgTable, serial, integer, text, timestamp, real, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, real, varchar, boolean, jsonb, index } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
   id:                 serial("id").primaryKey(),
@@ -27,7 +27,6 @@ export const usersTable = pgTable("users", {
   longestStreak:      integer("longest_streak").default(0),
   lastActiveDate:     text("last_active_date"),
   verifiedSkillsV2:   jsonb("verified_skills_v2"), 
-  badgesV2:           jsonb("badges_v2"),           
   location:           varchar("location", { length: 100 }),
   microSessionsCount: integer("micro_sessions_count").default(0),
   isPortfolioPublic:  boolean("is_portfolio_public").default(true), 
@@ -38,4 +37,9 @@ export const usersTable = pgTable("users", {
   referredBy:         integer("referred_by"),
   earnedBalance:      integer("earned_balance").default(0),
   googleId:           text("google_id"),
-});
+  badgesV2:           jsonb("badges_v2"),
+}, (table) => ({
+  // 🔥 SAFELY ADDED INDEXES (Bandwidth bachane ke liye)
+  emailIdx: index("users_email_idx").on(table.email),
+  googleIdIdx: index("users_google_id_idx").on(table.googleId),
+}));
