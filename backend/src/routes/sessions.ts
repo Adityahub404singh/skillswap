@@ -425,6 +425,58 @@ router.post("/:id/heartbeat", requireAuth, async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════
 // 🔚 1-ON-1 COMPLETE
 // ══════════════════════════════════════════════════════════════
+// 🔥 FIX: Ye route pehle missing tha — frontend ka completeMut (useCompleteSession)
+// koi bhi matching endpoint nahi pa raha tha, isliye mentors kabhi 1-on-1 session
+// complete hi nahi kar paate the aur payment escrow me fasa reh jaata tha.
+router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const sessionId = parseInt(req.params.id as string);
+    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+
+    if (!session) return res.status(404).json({ error: "Not found" });
+    if ((session as any).isGroup === 1) return res.status(400).json({ error: "Use /end-group for group sessions" });
+    if (session.mentorId !== req.userId) return res.status(403).json({ error: "Only mentor can complete" });
+    if (session.status !== "in_progress") return res.status(400).json({ error: "Session not in progress" });
+
+    const startedAt    = (session as any).startedAt;
+    const durationMins  = (session as any).duration || 60;
+    const elapsedMins   = (Date.now() - new Date(startedAt).getTime()) / 60000;
+    const timePct       = Math.min(elapsedMins / durationMins, 1);
+
+    // 🔥 FRAUD GUARD: Mentor ended way too early — full refund to student, no payout
+    if (timePct < AUTO_CANCEL_THRESHOLD) {
+      await refundStudent(session.studentId, session.creditsAmount, sessionId, "Mentor ended session too early (Auto-Refund)");
+      await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Ended under 20% limit." } as any).where(eq(sessionsTable.id, sessionId));
+      return res.status(400).json({ error: "Session ended too early. Auto-cancelled & student refunded." });
+    }
+
+    // Prorated payout: < 80% delivery = partial refund to student, mentor gets prorated amount
+    let finalPayout = session.creditsAmount;
+    if (timePct < MVT_THRESHOLD) {
+      finalPayout = Math.floor(session.creditsAmount * timePct);
+      const refundAmt = session.creditsAmount - finalPayout;
+      if (refundAmt > 0) {
+        await refundStudent(session.studentId, refundAmt, sessionId, `Prorated Refund (${Math.round(timePct * 100)}% delivery)`);
+      }
+    }
+
+    await db.update(sessionsTable).set({
+      status: "pending_clearance",
+      completedAt: new Date(),
+      actualDuration: Math.round(elapsedMins),
+      creditsAmount: finalPayout,
+    } as any).where(eq(sessionsTable.id, sessionId));
+
+    res.json({
+      success: true,
+      message: `Session completed! ${finalPayout} credits placed in escrow for ${ESCROW_CLEARANCE_HOURS} hours.`,
+    });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// 👥 GROUP SESSION COMPLETE
+// ══════════════════════════════════════════════════════════════
 router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
@@ -636,62 +688,33 @@ router.post("/:id/start-group", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
+// 🔥 FIX: Student leave-group endpoint pehle missing tha — frontend ka
+// leaveGroupSession() hamesha 404 pe fail ho raha tha. Sirf "active" enrollment
+// waala student leave kar sakta hai, tabhi tak jab session shuru nahi hua hai
+// (started ke baad chhodna refund-fraud ka rasta khol dega).
+router.post("/:id/leave-group", requireAuth, async (req: AuthRequest, res) => {
   try {
     const sessionId = parseInt(req.params.id as string);
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+    if (!session || (session as any).isGroup !== 1) return res.status(400).json({ error: "Invalid group session" });
 
-    if (!session || session.mentorId !== req.userId)  return res.status(403).json({ error: "Unauthorized" });
-    if (session.status !== "in_progress") return res.status(400).json({ error: "Session not in progress" });
+    const [enrollment] = await db.select().from(groupEnrollmentsTable).where(and(
+      eq(groupEnrollmentsTable.sessionId, sessionId),
+      eq(groupEnrollmentsTable.studentId, req.userId!),
+      eq(groupEnrollmentsTable.status, "active")
+    ));
+    if (!enrollment) return res.status(400).json({ error: "You are not actively enrolled in this session" });
 
-    const startedAt  = (session as any).startedAt;
-    const duration   = (session as any).duration || 60;
-    const elapsedMins = (Date.now() - new Date(startedAt).getTime()) / 60000;
-    const timePct    = elapsedMins / duration;
-
-    // 🔥 FRAUD GUARD
-    if (timePct < AUTO_CANCEL_THRESHOLD) {
-      const enrollments = await getEnrollmentCount(sessionId);
-      for (const e of enrollments) {
-        await refundStudent(e.studentId, e.creditsAmount, sessionId, "Mentor ended group too early (Auto-Refund)");
-        await db.update(groupEnrollmentsTable).set({ status: "refunded" } as any).where(eq(groupEnrollmentsTable.id, e.id));
-      }
-      await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Ended under 20% limit." } as any).where(eq(sessionsTable.id, sessionId));
-      return res.status(400).json({ error: "Session ended too early. Auto-cancelled & all students refunded." });
+    if (session.status === "in_progress" || session.status === "pending_clearance" || session.status === "completed") {
+      return res.status(400).json({ error: "Cannot leave — session already started or finished. Use dispute instead." });
     }
 
-    const enrollments = await getEnrollmentCount(sessionId);
-    let totalPendingForMentor = 0;
+    await refundStudent(req.userId!, enrollment.creditsAmount, sessionId, `Left group before start: ${session.skill}`);
+    await db.update(groupEnrollmentsTable).set({
+      status: "refunded", refundAmount: enrollment.creditsAmount, refundedAt: new Date(),
+    } as any).where(eq(groupEnrollmentsTable.id, enrollment.id));
 
-    for (const enrollment of enrollments) {
-      let finalPayout = enrollment.creditsAmount;
-
-      if (timePct < MVT_THRESHOLD) {
-        finalPayout = Math.floor(enrollment.creditsAmount * timePct);
-        const refundAmt = enrollment.creditsAmount - finalPayout;
-        if (refundAmt > 0) {
-          await refundStudent(enrollment.studentId, refundAmt, sessionId, `Prorated Group Refund (${Math.round(timePct * 100)}% delivery)`);
-        }
-      }
-
-      totalPendingForMentor += finalPayout;
-      await db.update(groupEnrollmentsTable).set({ 
-        status: "pending_clearance", 
-        completedAt: new Date(),
-      } as any).where(eq(groupEnrollmentsTable.id, enrollment.id));
-    }
-
-    await db.update(sessionsTable).set({
-      status: "pending_clearance", 
-      completedAt: new Date(), 
-      actualDuration: Math.round(elapsedMins),
-      creditsAmount: totalPendingForMentor,
-    } as any).where(eq(sessionsTable.id, sessionId));
-
-    res.json({
-      success: true,
-      message: `Group session ended! ${totalPendingForMentor} credits placed in escrow for ${ESCROW_CLEARANCE_HOURS} hours.`,
-    });
+    res.json({ success: true, message: "Left the group. Credits refunded." });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
