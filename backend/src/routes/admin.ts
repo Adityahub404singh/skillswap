@@ -9,9 +9,9 @@ const router: IRouter = Router();
 // GET /api/admin/stats
 router.get("/stats", requireAuth, requireAdmin, async (_req, res) => {
   try {
-    const users = await db.select().from(usersTable);
-    const sessions = await db.select().from(sessionsTable);
-    const txs = await db.select().from(transactionsTable);
+    const users = await db.select().from(usersTable).limit(500);
+    const sessions = await db.select().from(sessionsTable).limit(500);
+    const txs = await db.select().from(transactionsTable).limit(500);
 
     // 🔥 FIX: creditsAmount use kiya (Schema ke hisaab se)
     const completed = sessions.filter(s => s.status === "completed");
@@ -34,17 +34,17 @@ router.get("/stats", requireAuth, requireAdmin, async (_req, res) => {
 
 // GET /api/admin/users
 router.get("/users", requireAuth, requireAdmin, async (_req, res) => {
-  res.json(await db.select().from(usersTable).orderBy(desc(usersTable.createdAt)));
+  res.json(await db.select().from(usersTable).orderBy(desc(usersTable.createdAt)).limit(100));
 });
 
 // GET /api/admin/sessions
 router.get("/sessions", requireAuth, requireAdmin, async (_req, res) => {
-  res.json(await db.select().from(sessionsTable).orderBy(desc(sessionsTable.createdAt)));
+  res.json(await db.select().from(sessionsTable).orderBy(desc(sessionsTable.createdAt)).limit(100));
 });
 
 // GET /api/admin/transactions
 router.get("/transactions", requireAuth, requireAdmin, async (_req, res) => {
-  res.json(await db.select().from(transactionsTable).orderBy(desc(transactionsTable.createdAt)));
+  res.json(await db.select().from(transactionsTable).orderBy(desc(transactionsTable.createdAt)).limit(100));
 });
 
 // GET /api/admin/pending-withdrawals
@@ -53,7 +53,7 @@ router.get("/pending-withdrawals", requireAuth, requireAdmin, async (_req, res) 
     const pending = await db.select()
       .from(transactionsTable)
       .where(eq(transactionsTable.type, "withdrawal_pending"))
-      .orderBy(desc(transactionsTable.createdAt));
+      .orderBy(desc(transactionsTable.createdAt)).limit(100);
 
     res.json(pending);
   } catch (err: any) {

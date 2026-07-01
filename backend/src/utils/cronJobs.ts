@@ -1,10 +1,15 @@
-import cron from 'node-cron';
+﻿ import cron from 'node-cron';
 import nodemailer from 'nodemailer';
 import { db } from '../db.js';
 import { sessionsTable } from '../schema/sessions.js';
 import { usersTable } from '../schema/users.js';
 import { transactionsTable } from '../schema/transactions.js';
 import { eq, and, lte, sql } from 'drizzle-orm';
+
+// 🔒 Same secret the protected clear-escrow route checks against
+const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret-change-in-prod";
+// Set BASE_URL in .env for production (e.g. https://api.skillswap.com)
+const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
 // 📧 Email Setup using Nodemailer (Gmail)
 const transporter = nodemailer.createTransport({
@@ -25,7 +30,7 @@ export function startCronJobs() {
   cron.schedule('0 * * * *', async () => {
     try {
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const staleSessions = await db.select().from(sessionsTable)
+      const staleSessions = await db.select().from(sessionsTable).limit(200)
         .where(and(eq(sessionsTable.status, 'requested'), lte(sessionsTable.createdAt, yesterday)));
 
       if (staleSessions.length > 0) console.log(`🧹 Cleaning up ${staleSessions.length} stale sessions...`);
@@ -57,11 +62,10 @@ export function startCronJobs() {
     
     try {
       // Get all users from db
-      const users = await db.select().from(usersTable);
+      const users = await db.select().from(usersTable).limit(500);
       const now = new Date().getTime();
 
       for (const user of users) {
-        // NOTE: Make sure your usersTable has a 'lastActiveDate' string or timestamp column!
         if (!user.lastActiveDate || !user.email) continue;
 
         const lastActive = new Date(user.lastActiveDate).getTime();
@@ -110,7 +114,6 @@ export function startCronJobs() {
           `;
         }
 
-        // If a subject is set, send the email!
         if (subject) {
           await transporter.sendMail({
             from: `"SkillSwap Team" <${process.env.EMAIL_USER}>`,
@@ -123,6 +126,35 @@ export function startCronJobs() {
       }
     } catch (e) {
       console.error("Retention Email Cron Error:", e);
+    }
+  });
+
+  // =========================================================================
+  // 🌟 CRON JOB 3: ESCROW CLEARANCE ENGINE (Runs every hour)
+  // =========================================================================
+  // 🔥 FIX: Ye ab dobara escrow logic nahi likhta (jo sessions.ts ke
+  // /system/cron/clear-escrow route se DUPLICATE tha aur double-payout
+  // ka risk create kar raha tha). Ab ye SIRF us protected route ko
+  // call karta hai — single source of truth.
+  cron.schedule('0 * * * *', async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/sessions/system/cron/clear-escrow`, {
+        method: "POST",
+        headers: { "X-Cron-Secret": CRON_SECRET },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("❌ [ESCROW CRON] Clear-escrow call failed:", data);
+        return;
+      }
+
+      if (data.clearedCount > 0) {
+        console.log(`🏦 [ESCROW] Cleared ${data.clearedCount} sessions. Total paid: ${data.totalClearedAmt} cr.`);
+      }
+    } catch (err: any) {
+      console.error("❌ [ESCROW CRON ERROR]:", err);
     }
   });
 }

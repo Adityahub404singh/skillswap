@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "wouter";
 import { 
   ArrowLeft, Send, Phone, Video, MoreVertical, 
@@ -81,7 +81,7 @@ export default function Chat() {
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
   const pollRef         = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── fetch partner ───────────────────────────────────────────────────────
+  // ── fetch partner ────────────────────────────────────────────────────────
   const fetchPartner = useCallback(async () => {
     try {
       const res  = await fetch("/api/discover/profiles", {
@@ -101,7 +101,7 @@ export default function Chat() {
     } catch (e) { console.error("partner fetch", e); }
   }, [otherUserId, token]);
 
-  // ── fetch messages ──────────────────────────────────────────────────────
+  // ── fetch messages ───────────────────────────────────────────────────────
   const fetchMessages = useCallback(async () => {
     try {
       const res  = await fetch(`/api/chat/${otherUserId}`, {
@@ -124,7 +124,14 @@ export default function Chat() {
   useEffect(() => {
     fetchPartner();
     fetchMessages();
-    pollRef.current = setInterval(fetchMessages, 3000);
+    
+    // 🔥 10X EXPERT FIX: Polling ONLY runs if the browser tab is currently visible
+    pollRef.current = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchMessages();
+      }
+    }, 10000);
+    
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [fetchPartner, fetchMessages]);
 
@@ -132,7 +139,7 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, partnerTyping]);
 
-  // ── auto-grow textarea ──────────────────────────────────────────────────
+  // ── auto-grow textarea ───────────────────────────────────────────────────
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -140,7 +147,7 @@ export default function Chat() {
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
   }, [inputText]);
 
-  // ── send ────────────────────────────────────────────────────────────────
+  // ── send ─────────────────────────────────────────────────────────────────
   const sendMessage = async () => {
     const content = inputText.trim();
     if (!content || sending) return;
@@ -177,10 +184,10 @@ export default function Chat() {
   return (
     <div className="max-w-3xl mx-auto h-[calc(100vh-80px)] flex flex-col">
 
-      {/* ── Container ──────────────────────────────────────────────────── */}
+      {/* ── Container ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 bg-white border border-gray-100 rounded-[24px] shadow-sm overflow-hidden">
 
-        {/* ── Header ─────────────────────────────────────────────────── */}
+        {/* ── Header ────────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
             <Link href="/matches">
@@ -221,7 +228,7 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* ── Partner Info Panel (slide-down) ────────────────────────── */}
+        {/* ── Partner Info Panel (slide-down) ───────────────────────────────── */}
         <AnimatePresence>
           {showInfo && partner && (
             <motion.div
@@ -255,7 +262,7 @@ export default function Chat() {
           )}
         </AnimatePresence>
 
-        {/* ── Offline Banner ──────────────────────────────────────────── */}
+        {/* ── Offline Banner ────────────────────────────────────────────────── */}
         <AnimatePresence>
           {!isOnline && (
             <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }}
@@ -266,7 +273,7 @@ export default function Chat() {
           )}
         </AnimatePresence>
 
-        {/* ── Messages Area ───────────────────────────────────────────── */}
+        {/* ── Messages Area ─────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto p-4 bg-[#F8FAFC] space-y-1 scrollbar-hide">
 
           {/* Empty state */}
@@ -376,7 +383,7 @@ export default function Chat() {
           <div ref={messagesEndRef} className="h-2" />
         </div>
 
-        {/* ── Input Area ──────────────────────────────────────────────── */}
+        {/* ── Input Area ────────────────────────────────────────────────────── */}
         <div className="px-3 py-3 bg-white border-t border-gray-100 shrink-0">
           <div className={`flex items-end gap-2 bg-[#F8FAFC] rounded-[20px] px-3 py-2 border transition-all ${
             inputText ? "border-[#6C3BFF]/40 bg-white shadow-sm" : "border-gray-200"

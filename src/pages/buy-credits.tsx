@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -7,7 +7,7 @@ import { Zap, Star, Crown, Rocket, Check, Loader2, ShieldCheck, CreditCard, Lock
 import { API_BASE_URL } from "@/lib/api-utils";
 import { motion } from "framer-motion";
 
-// 🔥 Added "save" percentages to attract users to bigger packs!
+// ?? Added "save" percentages to attract users to bigger packs!
 const PACKAGES = [
   { id: "starter", credits: 100, price: 99, label: "Starter", icon: Zap, color: "from-blue-400 to-blue-600", popular: false, save: null },
   { id: "popular", credits: 300, price: 249, label: "Most Popular", icon: Star, color: "from-violet-500 to-purple-600", popular: true, save: "17% OFF" },
@@ -15,9 +15,19 @@ const PACKAGES = [
   { id: "elite", credits: 1500, price: 999, label: "Elite Master", icon: Crown, color: "from-amber-400 to-orange-500", popular: false, save: "33% OFF" },
 ];
 
-declare global {
-  interface Window { Razorpay: any; }
+declare global { interface Window { Razorpay: any; } }
+
+function loadRazorpay(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) { resolve(); return; }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Razorpay failed to load"));
+    document.body.appendChild(script);
+  });
 }
+
 
 export default function BuyCredits() {
   const token = useAuthStore(s => s.token);
@@ -55,7 +65,7 @@ export default function BuyCredits() {
           });
           const result = await verifyRes.json();
           if (result.success) {
-            toast({ title: "🎉 Payment Successful!", description: `${pkg.credits} credits have been added to your wallet!` });
+            toast({ title: "?? Payment Successful!", description: `${pkg.credits} credits have been added to your wallet!` });
             queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
             queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
           } else {
@@ -66,6 +76,7 @@ export default function BuyCredits() {
         modal: { ondismiss: () => setLoading(null) },
       };
 
+      await loadRazorpay();
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (err) {
@@ -74,14 +85,14 @@ export default function BuyCredits() {
     }
   };
 
-  // 🔥 FIX: "spring" ke aage 'as const' laga diya taaki TypeScript error na de
+  // ?? FIX: "spring" ke aage 'as const' laga diya taaki TypeScript error na de
   const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } } };
 
   return (
     <div className="py-10 px-4 max-w-6xl mx-auto overflow-hidden">
       
-      {/* 🌟 HERO SECTION */}
+      {/* ?? HERO SECTION */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-4 mb-12">
         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-extrabold uppercase tracking-widest border border-primary/20 mb-2">
           <Sparkles className="w-4 h-4" /> Invest in Yourself
@@ -95,7 +106,7 @@ export default function BuyCredits() {
         </p>
       </motion.div>
 
-      {/* 💎 PRICING CARDS */}
+      {/* ?? PRICING CARDS */}
       <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 max-w-5xl mx-auto items-center">
         {PACKAGES.map((pkg) => {
           const Icon = pkg.icon;
@@ -136,7 +147,7 @@ export default function BuyCredits() {
                 <p className="text-sm font-semibold text-slate-500 mb-6">Learning Credits</p>
 
                 <div className="text-3xl font-extrabold text-slate-900 mb-8 flex items-center justify-center gap-1">
-                  <span className="text-lg text-slate-400 font-medium">₹</span>{pkg.price}
+                  <span className="text-lg text-slate-400 font-medium">?</span>{pkg.price}
                 </div>
 
                 <ul className="text-sm text-slate-600 space-y-3 text-left w-full mb-8 font-medium">
@@ -164,14 +175,14 @@ export default function BuyCredits() {
                 onClick={() => handleBuy(pkg)}
                 disabled={loading === pkg.id}
               >
-                {loading === pkg.id ? <Loader2 className="w-6 h-6 animate-spin" /> : `Pay ₹${pkg.price}`}
+                {loading === pkg.id ? <Loader2 className="w-6 h-6 animate-spin" /> : `Pay ?${pkg.price}`}
               </Button>
             </motion.div>
           );
         })}
       </motion.div>
 
-      {/* 🛡️ TRUST & SECURITY BANNER */}
+      {/* ??? TRUST & SECURITY BANNER */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-16 max-w-3xl mx-auto">
         <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
@@ -194,3 +205,4 @@ export default function BuyCredits() {
     </div>
   );
 }
+

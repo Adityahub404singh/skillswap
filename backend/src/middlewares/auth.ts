@@ -38,7 +38,7 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
       try {
         const payload = verifyToken(token);
         req.userId = payload.userId;
-        req.userEmail = payload.email;
+    req.userEmail = payload.email;
       } catch {
         return res.status(401).json({ error: "Unauthorized", message: "Invalid or expired token" });
       }
@@ -51,3 +51,4 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
   
   next();
 }
+

@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuthStore } from "@/store/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Capacitor Plugins
 import { Preferences } from "@capacitor/preferences";
@@ -55,7 +55,7 @@ import { setupDeepLinks, setupPushNotifications, NativeStorage } from "@/lib/and
 const API_BASE_URL = "https://skillswap-b59w.onrender.com";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+  defaultOptions: { queries: { retry: 1, staleTime: 5 * 60_000, refetchOnWindowFocus: false } },
 });
 
 async function updateStreak(token: string) {
@@ -95,7 +95,13 @@ function Router() {
   const token = useAuthStore((s) => s.token);
   const [location] = useLocation();
   
-  useEffect(() => { if (token) updateStreak(token); }, [token]);
+  const streakFired = useRef(false);
+  useEffect(() => {
+    if (token && !streakFired.current) {
+      streakFired.current = true;
+      updateStreak(token);
+    }
+  }, [token]);
 
   useEffect(() => {
     const listenerPromise = CapacitorApp.addListener("backButton", () => {

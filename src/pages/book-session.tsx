@@ -1,23 +1,29 @@
 ﻿import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Clock, CheckCircle, Star, ShieldCheck, Loader2, Calendar, User, ChevronLeft } from "lucide-react";
+import { motion } from "framer-motion";
+import { Zap, Clock, CheckCircle, Star, ShieldCheck, Loader2, Calendar, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useGetMe, useBookSession } from "@/lib/api";
-import { useApiOptions, API_BASE_URL } from "@/lib/api-utils";
+import { useBookSession } from "@/lib/api";
+import { useApiOptions } from "@/lib/api-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import confetti from "canvas-confetti";
 
+const BASE = import.meta.env.VITE_API_URL || "https://skillswap-b59w.onrender.com";
+
 const SESSION_TYPES = [
   { id: "micro_15", label: "15-min Quick Help", desc: "Fast concept explanation", multiplier: 0.25, duration: 15, badge: "Popular", color: "border-orange-500 bg-orange-50/50", glow: "shadow-orange-500/20" },
-  { id: "micro_30", label: "30-min Deep Dive",  desc: "Focused session on a topic",   multiplier: 0.50, duration: 30, badge: "",         color: "border-blue-500 bg-blue-50/50", glow: "shadow-blue-500/20" },
-  { id: "standard", label: "1-hour Mastery",    desc: "Comprehensive learning",       multiplier: 1.00, duration: 60, badge: "Best Value", color: "border-emerald-500 bg-emerald-50/50", glow: "shadow-emerald-500/20" },
+  { id: "micro_30", label: "30-min Deep Dive",  desc: "Focused session on a topic",  multiplier: 0.50, duration: 30, badge: "",         color: "border-blue-500 bg-blue-50/50", glow: "shadow-blue-500/20" },
+  { id: "standard", label: "1-hour Mastery",    desc: "Comprehensive learning",        multiplier: 1.00, duration: 60, badge: "Best Value", color: "border-emerald-500 bg-emerald-50/50", glow: "shadow-emerald-500/20" },
 ];
 
 function calcCredits(multiplier: number, pricePerHour: number): number {
   const rate = Math.max(pricePerHour || 10, 10);
   return Math.max(Math.round(rate * multiplier), 3);
+}
+
+function getToken() {
+  try { return localStorage.getItem("skillswap_token")?.replace(/['\"]+/g, "") || null; } catch { return null; }
 }
 
 export default function BookSession() {
@@ -28,19 +34,32 @@ export default function BookSession() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const skillFromUrl = urlParams.get("skill") || "";
-  
-  // ?? FIX 1: Safe Number Parsing
   const mentorIdFromUrl = params?.mentorId && !isNaN(Number(params.mentorId)) ? parseInt(params.mentorId) : null;
 
-  const { data: currentUser } = useGetMe(options);
-  
+  // /api/me — token se seedha, layout ke saath conflict nahi hoga kyunki same queryKey
+  const { data: currentUser } = useQuery({
+    queryKey: ["/api/me"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const token = getToken();
+      if (!token) return null;
+      const res = await fetch(`${BASE}/api/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  // /api/users — full URL, no limit param (backend abhi support nahi karta)
   const { data: allUsers, isLoading: mentorsLoading } = useQuery({
     queryKey: ["/api/users"],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/users`);
+      const res = await fetch(`${BASE}/api/users`);
       if (!res.ok) return [];
       return res.json();
-    }
+    },
   });
 
   const [selectedType, setSelectedType] = useState("standard");
@@ -62,7 +81,7 @@ export default function BookSession() {
     mutation: {
       onSuccess: () => {
         confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 } });
-        toast({ title: "?? Booking Confirmed!", description: "Your mentor has been notified." });
+        toast({ title: "🎉 Booking Confirmed!", description: "Your mentor has been notified." });
         setBooked(true);
         setTimeout(() => setLocation("/sessions"), 2500);
       },
@@ -72,7 +91,6 @@ export default function BookSession() {
     }
   });
 
-  // ?? FIX 2: Sorting Logic - Keep selected mentor visible at the top!
   const availableMentors = (allUsers as any[] || [])
     .filter(u => u.id !== currentUser?.id)
     .sort((a, b) => {
@@ -80,7 +98,7 @@ export default function BookSession() {
       if (b.id === selectedMentorId) return 1;
       return 0;
     });
-  
+
   const selectedTypeObj = SESSION_TYPES.find(t => t.id === selectedType) || SESSION_TYPES[2];
   const selectedMentor = availableMentors.find((m: any) => m.id === selectedMentorId);
   const mentorRate = selectedMentor?.pricePerHour || 20;
@@ -95,19 +113,17 @@ export default function BookSession() {
       toast({ title: "Low Balance", description: `You need ${sessionCredits} credits. Visit Wallet.`, variant: "destructive" });
       return;
     }
-
-    bookMut.mutate({ 
-      data: { 
-        mentorId: selectedMentorId, 
-        skill: skill.trim(), 
-        sessionType: selectedType, 
-        scheduledDate: new Date(`${date}T${time}:00`).toISOString(), 
-        message: message || undefined 
-      } 
+    bookMut.mutate({
+      data: {
+        mentorId: selectedMentorId,
+        skill: skill.trim(),
+        sessionType: selectedType,
+        scheduledDate: new Date(`${date}T${time}:00`).toISOString(),
+        message: message || undefined
+      }
     } as any);
   }
 
-  // ?? SUCCESS STATE UI
   if (booked) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
@@ -126,12 +142,9 @@ export default function BookSession() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-20 font-sans relative overflow-hidden">
-      
-      {/* ?? UNICORN GLOWS */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-30 animate-pulse pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-30 animate-pulse pointer-events-none" style={{ animationDelay: '2s' }}></div>
 
-      {/* HEADER */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 pt-8 pb-20 px-4 shadow-lg relative z-10">
         <div className="max-w-4xl mx-auto flex flex-col gap-4">
           <button onClick={() => window.history.back()} className="w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-colors">
@@ -145,8 +158,8 @@ export default function BookSession() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-10 space-y-6 relative z-20">
-        
-        {/* STEP 1: CHOOSE FORMAT */}
+
+        {/* STEP 1 */}
         <div className="bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] shadow-xl border border-white">
           <h2 className="text-sm font-black text-indigo-600 mb-5 uppercase tracking-widest flex items-center gap-3">
             <span className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs shadow-md">1</span> Choose Format
@@ -178,7 +191,7 @@ export default function BookSession() {
           </div>
         </div>
 
-        {/* STEP 2: SELECT MENTOR */}
+        {/* STEP 2 */}
         <div className="bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] shadow-xl border border-white">
           <h2 className="text-sm font-black text-indigo-600 mb-5 uppercase tracking-widest flex items-center gap-3">
             <span className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs shadow-md">2</span> Select Mentor
@@ -187,7 +200,6 @@ export default function BookSession() {
             <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* ?? SAFE: Render sorted list so selected mentor is always visible */}
               {availableMentors.slice(0, 6).map((mentor: any) => (
                 <button
                   key={mentor.id}
@@ -221,12 +233,11 @@ export default function BookSession() {
           )}
         </div>
 
-        {/* STEP 3: SCHEDULE */}
+        {/* STEP 3 */}
         <div className="bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] shadow-xl border border-white">
           <h2 className="text-sm font-black text-indigo-600 mb-6 uppercase tracking-widest flex items-center gap-3">
             <span className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs shadow-md">3</span> Schedule & Confirm
           </h2>
-          
           <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-5">
               <div>
@@ -271,15 +282,14 @@ export default function BookSession() {
                   </div>
                 </div>
               </div>
-              
               <div>
                 {currentUser && (
                   <p className="text-center text-xs font-black text-slate-400 mb-4 uppercase tracking-widest">
                     Your Wallet: <span className={currentUser.credits < sessionCredits ? "text-red-500" : "text-emerald-500"}>{currentUser.credits} Credits</span>
                   </p>
                 )}
-                <Button 
-                  onClick={handleBook} 
+                <Button
+                  onClick={handleBook}
                   disabled={!selectedMentorId || !skill || !date || !time || bookMut.isPending || (currentUser?.credits || 0) < sessionCredits}
                   className="w-full h-14 rounded-xl font-black text-lg shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02] transition-all bg-gradient-to-r from-indigo-600 to-pink-500 text-white disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none"
                 >

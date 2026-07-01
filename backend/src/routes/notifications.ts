@@ -1,9 +1,9 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-// 🔥 Duplicate table removed, schema imported
+// ðŸ”¥ Duplicate table removed, schema imported
 import { notificationsTable } from "../schema/index.js";
 
 const router: IRouter = Router();
@@ -15,7 +15,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       .select()
       .from(notificationsTable)
       .where(eq(notificationsTable.userId, req.userId!))
-      .orderBy(desc(notificationsTable.createdAt));
+      .orderBy(desc(notificationsTable.createdAt)).limit(50);
     res.json(notifs);
   } catch (err: any) {
     console.error("[notifications fallback]", err.message);

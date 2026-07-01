@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,7 +34,7 @@ export default function FlashBoard() {
 
   useEffect(() => {
     fetchDoubts();
-    const interval = setInterval(fetchDoubts, 5000); // Auto-refresh every 5s
+    const interval = setInterval(() => { if (document.visibilityState === "visible") fetchDoubts(); }, 15000); // Auto-refresh every 5s
     return () => clearInterval(interval);
   }, []);
 
@@ -169,3 +169,4 @@ export default function FlashBoard() {
     </div>
   );
 }
+

@@ -63,19 +63,19 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// 🔥 EXPERT FIX: Removed the memory/bandwidth leak. Now queries DB directly for 1 user.
 router.get("/portfolio/:slug", async (req, res) => {
   try {
-    const all = await db.select().from(usersTable);
-    const user = all.find(u => u.seoSlug === req.params.slug);
-    if (!user) return res.status(404).json({ error: "Profile not found" });
-    res.json(formatUser(user));
+    const rows = await db.select().from(usersTable).where(eq(usersTable.seoSlug, req.params.slug)).limit(1);
+    if (!rows[0]) return res.status(404).json({ error: "Profile not found" });
+    res.json(formatUser(rows[0]));
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get("/", async (_req, res) => {
   try {
-    // 🔥 FIX 1: Limit 50 hata diya, taaki naye "Pro Mentor" (0 sessions) bhi Frontend ko milein!
-    const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted));
+    // 🔥 EXPERT FIX: Re-added limit to prevent bandwidth disaster, but set to 100 to still show new mentors.
+    const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted)).limit(100);
     res.json(rows.map(formatUser));
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
@@ -107,7 +107,6 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
     const data = UpdateSchema.parse(req.body);
     const updateData: any = { ...data };
     
-    // 🔥 FIX 2: JSON.stringify hata diya! Drizzle jsonb arrays ko khud handle karta hai.
     if (updateData.skillsTeach !== undefined) {
       updateData.skillsTeachV2 = updateData.skillsTeach;
       delete updateData.skillsTeach;

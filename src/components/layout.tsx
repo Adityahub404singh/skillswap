@@ -42,12 +42,21 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: notifications } = useQuery({
     queryKey: ["/api/notifications"],
     queryFn: async () => {
+      // Ek extra check: agar token string mein hi ghalat hai toh mat call karo
+      if (!token || token === "null" || token === "undefined") return [];
+      
       const res = await fetch("/api/notifications", { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!token,
-    refetchInterval: 15000,
+    // 🔥 FIX 1: Safely check for real token
+    enabled: !!token && token !== "null" && token !== "undefined",
+    // 🔥 FIX 2: Stop React Query from looping/retrying when API gives 401 Error
+    retry: false, 
+    // 🔥 FIX 3: Stop fetching again just because user clicked on the screen
+    refetchOnWindowFocus: false, 
+    // 🔥 FIX 4: Polling disabled
+    refetchInterval: false, 
   });
   
   const unreadCount = notifications?.filter((n: any) => !n.isRead)?.length || 0;
@@ -272,7 +281,6 @@ export function Layout({ children }: { children: ReactNode }) {
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = location === link.href;
-              
               return (
                 <Link key={link.href} href={link.href} className="flex flex-col items-center justify-center w-full h-full relative">
                   {isActive && <div className="absolute top-0 w-8 h-1 bg-[#6C3BFF] rounded-b-full"></div>}

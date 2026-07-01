@@ -1,11 +1,11 @@
-﻿import { StrictMode } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import * as Sentry from "@sentry/react";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 
-// 1. 🔥 FORCE UNREGISTER SERVICE WORKER
+// 1. ?? FORCE UNREGISTER SERVICE WORKER
 // Android app mein Service Worker ki zarurat nahi hoti, yeh API calls ko hijack kar sakta hai.
 // Yeh ensure karta hai ki purana cache load na ho.
 if ('serviceWorker' in navigator) {
@@ -18,12 +18,12 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 2. 🔥 GLOBAL FETCH OVERRIDE — ONLY for native Android/Capacitor builds
+// 2. ?? GLOBAL FETCH OVERRIDE � ONLY for native Android/Capacitor builds
 // Web (dev ya Vercel prod) mein relative '/api' paths already kaam karte hain:
-//   - Dev: vite.config.ts ka proxy → localhost:3001
-//   - Prod web: vercel.json ka rewrite → Render backend
+//   - Dev: vite.config.ts ka proxy ? localhost:3001
+//   - Prod web: vercel.json ka rewrite ? Render backend
 // Sirf Capacitor WebView mein '/api' relative path fail hota hai kyuki wahan
-// koi dev-server proxy nahi hota — isliye sirf wahi absolute URL force karte hain.
+// koi dev-server proxy nahi hota � isliye sirf wahi absolute URL force karte hain.
 const isNativeApp = !!(window as any).Capacitor?.isNativePlatform?.();
 
 if (isNativeApp) {
@@ -43,10 +43,10 @@ if (isNativeApp) {
     });
   };
 
-  // 🔥 GoogleAuth native plugin ko explicitly initialize karna ZAROORI hai —
+  // ?? GoogleAuth native plugin ko explicitly initialize karna ZAROORI hai �
   // bina iske GoogleAuth.signIn() call karte waqt native crash hota hai
   // ("keeps stopping"). capacitor.config.ts ke plugin config se yeh alag
-  // hai — woh sirf strings.xml generate karta hai, runtime init nahi karta.
+  // hai � woh sirf strings.xml generate karta hai, runtime init nahi karta.
   GoogleAuth.initialize({
     clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
     scopes: ["profile", "email"],
@@ -65,7 +65,7 @@ Sentry.init({
 });
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
+  
     <App />
-  </StrictMode>
+  
 );

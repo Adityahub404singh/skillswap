@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { db } from "../db.js";
 import { sql } from "drizzle-orm"; 
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js"; // 🔥 Security Added
@@ -41,16 +41,21 @@ router.get("/conversations", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 💬 GET: Puraani Chat History nikaalo
+// 💬 GET: Puraani Chat History nikaalo (🔥 10X OPTIMIZED WITH LIMIT)
 router.get("/:otherUserId", requireAuth, async (req: AuthRequest, res) => {
     try {
         const userId = req.userId!; // 🔥 FIX
-       const otherUserId = parseInt(req.params.otherUserId as string);
+        const otherUserId = parseInt(req.params.otherUserId as string);
 
+        // Subquery: Pehle latest 50 messages nikalo DESC mein, fir unko UI ke liye ASC mein palat do
         const chatHistoryResult = await db.execute(sql`
-            SELECT * FROM messages 
-            WHERE (sender_id = ${userId} AND receiver_id = ${otherUserId})
-               OR (sender_id = ${otherUserId} AND receiver_id = ${userId})
+            SELECT * FROM (
+                SELECT * FROM messages 
+                WHERE (sender_id = ${userId} AND receiver_id = ${otherUserId})
+                   OR (sender_id = ${otherUserId} AND receiver_id = ${userId})
+                ORDER BY created_at DESC
+                LIMIT 50
+            ) sub
             ORDER BY created_at ASC
         `);
 

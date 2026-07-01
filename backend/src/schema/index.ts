@@ -1,4 +1,4 @@
-﻿export * from "./users.js";
+export * from "./users.js";
 export * from "./sessions.js";
 export * from "./transactions.js";
 export * from "./ratings.js";
@@ -7,3 +7,4 @@ export * from "./notifications.js";
 export * from "./platform.js";
 export * from "./swipes.js";
 export * from "./messages.js";
+export * from "./groupEnrollments.js";

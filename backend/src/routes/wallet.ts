@@ -32,13 +32,14 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 2. FETCH TRANSACTION HISTORY
+// 2. FETCH TRANSACTION HISTORY (🔥 EXPERT FIX: Added LIMIT 100 to prevent bandwidth leak)
 router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
     try {
         const history = await db.select()
             .from(transactionsTable)
             .where(eq(transactionsTable.userId, req.userId!))
-            .orderBy(desc(transactionsTable.createdAt));
+            .orderBy(desc(transactionsTable.createdAt))
+            .limit(100);
         res.json(history);
     } catch (err: any) {
         res.status(500).json({ error: "Server error" });

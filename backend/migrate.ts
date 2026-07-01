@@ -1,35 +1,37 @@
-import pg from 'pg';
-import * as dotenv from 'dotenv';
-dotenv.config();
+import "dotenv/config";
+import { pool } from "./src/db.js";
 
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+async function migrate() {
+  console.log("🔄 Running migration...\n");
 
-async function main() {
-  await client.connect();
-  console.log('Connected to database...');
+  const columns = [
+    { table: "group_enrollments", col: "active_seconds",    type: "REAL DEFAULT 0" },
+    { table: "group_enrollments", col: "last_heartbeat_at", type: "TIMESTAMP" },
+    { table: "group_enrollments", col: "is_connected",      type: "INTEGER DEFAULT 0" },
+    { table: "group_enrollments", col: "completed_at",      type: "TIMESTAMP" },
+    { table: "group_enrollments", col: "refund_amount",     type: "INTEGER DEFAULT 0" },
+    { table: "group_enrollments", col: "refund_reason",     type: "TEXT" },
+    { table: "group_enrollments", col: "refunded_at",       type: "TIMESTAMP" },
+    { table: "sessions",          col: "last_heartbeat_at", type: "TIMESTAMP" },
+    { table: "sessions",          col: "active_minutes",    type: "REAL DEFAULT 0" },
+  ];
 
-  const res = await client.query(`
-    SELECT column_name FROM information_schema.columns 
-    WHERE table_name='users' ORDER BY ordinal_position
-  `);
-  console.log('Current columns:', res.rows.map((r: any) => r.column_name).join(', '));
+  for (const { table, col, type } of columns) {
+    try {
+      await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${type}`);
+      console.log(`✅ ${table}.${col}`);
+    } catch (e: any) {
+      console.log(`❌ ${table}.${col}: ${e.message}`);
+    }
+  }
 
-  await client.query(`
-    ALTER TABLE users 
-    ADD COLUMN IF NOT EXISTS current_streak INTEGER DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS longest_streak INTEGER DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS last_active_date DATE
-  `);
-  console.log('Columns added!');
+  console.log("\n📋 Final group_enrollments columns:");
+  const r = await pool.query(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name='group_enrollments' ORDER BY ordinal_position`);
+  r.rows.forEach((c: any) => console.log(`  ${c.column_name}: ${c.data_type}`));
 
-  const res2 = await client.query(`
-    SELECT column_name FROM information_schema.columns 
-    WHERE table_name='users' AND column_name IN ('current_streak','longest_streak','last_active_date')
-  `);
-  console.log('Verified new columns:', res2.rows.map((r: any) => r.column_name).join(', '));
-
-  await client.end();
-  console.log('Done! Restart backend now.');
+  await pool.end();
+  console.log("\n✅ Done!");
+  process.exit(0);
 }
 
-main().catch(console.error);
+migrate().catch(e => { console.error("❌ Failed:", e.message); process.exit(1); });
