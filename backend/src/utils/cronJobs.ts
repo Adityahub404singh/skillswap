@@ -22,6 +22,13 @@ const transporter = nodemailer.createTransport({
 
 // ?? Ek hi function jisme saare Cron Jobs chalenge
 export function startCronJobs() {
+  // Keep-alive ping every 14 min
+  cron.schedule("*/14 * * * *", async () => {
+    try {
+      await fetch(`${process.env.BASE_URL}/api/health`);
+      console.log("[PING] Server kept alive");
+    } catch(e) {}
+  });
   console.log("? Initializing all background Cron Jobs...");
 
   // =========================================================================
@@ -158,5 +165,6 @@ export function startCronJobs() {
     }
   });
 }
+
 
 
