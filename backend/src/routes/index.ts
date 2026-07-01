@@ -12,6 +12,11 @@ import adminRouter from "./admin.js";
 import chatRouter from "./chat.js";
 import gamificationRouter from "./gamification.js";
 import paymentRouter from "./payment.js";
+import discoverRouter from "./discover.js";
+import notificationsRouter from "./notifications.js";
+import verificationRouter from "./verification.js";
+import platformRouter from "./platform.js";
+import quizRouter from "./quiz.js";
 
 const router: IRouter = Router();
 router.use(healthRouter);
@@ -24,8 +29,12 @@ router.use("/wallet", walletRouter);
 router.use("/ratings", ratingsRouter);
 router.use("/ai", aiRouter);
 router.use("/admin", adminRouter);
-
 router.use("/chat", chatRouter);
 router.use("/gamification", gamificationRouter);
 router.use("/payment", paymentRouter);
+router.use("/discover", discoverRouter);
+router.use("/notifications", notificationsRouter);
+router.use("/verification", verificationRouter);
+router.use("/platform", platformRouter);
+router.use("/quiz", quizRouter);
 export default router;

@@ -16,6 +16,7 @@ import {
   Lock, Key, User, Compass, Timer, ArrowRightLeft, UserCheck,
   PlayCircle, StopCircle, BadgeCheck, TrendingUp,
 } from "lucide-react";
+const BASE = import.meta.env.VITE_API_URL || "";
 
 type SessionTab   = "learning" | "teaching" | "groups";
 type StatusFilter = "all" | "requested" | "accepted" | "in_progress" | "completed" | "cancelled";
@@ -77,7 +78,7 @@ export default function Sessions() {
       if (document.visibilityState !== "visible") return;
       
       allLive.forEach((s: any) => {
-        fetch(`/api/sessions/${s.id}/heartbeat`, {
+        fetch(`${BASE}/api/sessions/${s.id}/heartbeat`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         }).catch(() => {});
@@ -96,7 +97,7 @@ export default function Sessions() {
   const fetchGroupBrowse = async () => {
     setGroupLoading(true);
     try {
-      const res = await fetch("/api/sessions/group/browse", {
+      const res = await fetch(`${BASE}/api/sessions/group/browse`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -107,7 +108,7 @@ export default function Sessions() {
 
   const fetchMyEnrollments = async () => {
     try {
-      const res = await fetch("/api/sessions/group/my-enrollments", {
+      const res = await fetch(`${BASE}/api/sessions/group/my-enrollments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -136,7 +137,7 @@ export default function Sessions() {
       toast({ title: "Enter valid 6-digit OTP", variant: "destructive" }); return;
     }
     try {
-      const res = await fetch(`/api/sessions/${otpModal.id}/start`, {
+      const res = await fetch(`${BASE}/api/sessions/${otpModal.id}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ otp: otpInput }),
@@ -153,7 +154,7 @@ export default function Sessions() {
 
   const startGroupSession = async (sessionId: number) => {
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/start-group`, {
+      const res = await fetch(`${BASE}/api/sessions/${sessionId}/start-group`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -169,7 +170,7 @@ export default function Sessions() {
 
   const endGroupSession = async (sessionId: number) => {
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/end-group`, {
+      const res = await fetch(`${BASE}/api/sessions/${sessionId}/end-group`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -186,7 +187,7 @@ export default function Sessions() {
   const joinGroupSession = async (sessionId: number, creditsAmount: number) => {
     setJoinLoading(sessionId);
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/join-group`, {
+      const res = await fetch(`${BASE}/api/sessions/${sessionId}/join-group`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -203,7 +204,7 @@ export default function Sessions() {
 
   const leaveGroupSession = async (sessionId: number) => {
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/leave-group`, {
+      const res = await fetch(`${BASE}/api/sessions/${sessionId}/leave-group`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -221,7 +222,7 @@ export default function Sessions() {
     setMembersModal(session);
     setMembersLoading(true);
     try {
-      const res = await fetch(`/api/sessions/${session.id}/group-members`, {
+      const res = await fetch(`${BASE}/api/sessions/${session.id}/group-members`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -235,7 +236,7 @@ export default function Sessions() {
       toast({ title: "Fill all required fields", variant: "destructive" }); return;
     }
     try {
-      const res = await fetch("/api/sessions/group", {
+      const res = await fetch(`${BASE}/api/sessions/group`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -262,7 +263,7 @@ export default function Sessions() {
   const negotiatePrice = async () => {
     if (!negotiateModal || !proposedPrice) return;
     try {
-      const res = await fetch(`/api/sessions/${negotiateModal.id}/negotiate`, {
+      const res = await fetch(`${BASE}/api/sessions/${negotiateModal.id}/negotiate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ proposedPrice: parseInt(proposedPrice) }),

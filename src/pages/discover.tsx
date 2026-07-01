@@ -403,7 +403,7 @@ export default function Discover() {
     if (!token) return;
     (async () => {
       try {
-        const res  = await fetch("/api/discover/profiles", {
+        const res  = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/discover/profiles`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -443,7 +443,7 @@ export default function Discover() {
       Haptics.impact({ style: dir === "like" ? ImpactStyle.Medium : ImpactStyle.Light }).catch(() => {});
 
     try {
-      const res    = await fetch("/api/discover/swipe", {
+      const res    = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/discover/swipe`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ swipedOnId: card.id, action: dir }),

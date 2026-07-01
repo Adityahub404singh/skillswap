@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { 
   Search, MoreVertical, Heart, MessageCircle, 
   Compass, CheckCircle2, Archive, Trash2, Sparkles,
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/auth";
 import { useToast } from "@/hooks/use-toast";
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// --- helpers -----------------------------------------------------------------
 const formatTime = (dateString: string) => {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -30,7 +30,7 @@ function getInitials(name?: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-// ─── avatar (circle, used in "New Connections" strip) ────────────────────────
+// --- avatar (circle, used in "New Connections" strip) ------------------------
 function ConnectionAvatar({ name, src }: { name?: string; src?: string }) {
   const [errored, setErrored] = useState(false);
   const showImage = !!src && !errored;
@@ -56,7 +56,7 @@ function ConnectionAvatar({ name, src }: { name?: string; src?: string }) {
   );
 }
 
-// ─── avatar (rounded square, used in "Recent Messages" list) ─────────────────
+// --- avatar (rounded square, used in "Recent Messages" list) -----------------
 function ChatAvatar({ name, src, isOnline }: { name?: string; src?: string; isOnline?: boolean }) {
   const [errored, setErrored] = useState(false);
   const showImage = !!src && !errored;
@@ -84,7 +84,7 @@ function ChatAvatar({ name, src, isOnline }: { name?: string; src?: string; isOn
   );
 }
 
-// ─── skeleton ────────────────────────────────────────────────────────────────
+// --- skeleton ----------------------------------------------------------------
 const SkeletonCard = () => (
   <div className="flex items-center gap-4 p-4 sm:p-5 border-b border-gray-50 last:border-0 animate-pulse">
     <div className="w-14 h-14 bg-slate-100 rounded-[16px] shrink-0" />
@@ -98,7 +98,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-// ─── main ────────────────────────────────────────────────────────────────────
+// --- main --------------------------------------------------------------------
 export default function Matches() {
   const token = useAuthStore(s => s.token);
   const { toast } = useToast();
@@ -115,8 +115,8 @@ export default function Matches() {
       try {
         const headers = { Authorization: `Bearer ${token}` };
         const [mRes, cRes] = await Promise.all([
-          fetch("/api/discover/matches",      { headers }),
-          fetch("/api/chat/conversations",    { headers }),
+          fetch(`${import.meta.env.VITE_API_URL || ""}/api/discover/matches`,      { headers }),
+          fetch(`${import.meta.env.VITE_API_URL || ""}/api/chat/conversations`,    { headers }),
         ]);
         const mData = await mRes.json();
         const cData = await cRes.json();
@@ -138,29 +138,29 @@ export default function Matches() {
   // unread count
   const unreadCount = conversations.filter(c => c.unread > 0).length;
 
-  // 🔥 Optimistic local update — no "mark all read" backend endpoint exists yet,
+  // ?? Optimistic local update � no "mark all read" backend endpoint exists yet,
   // so this clears the UI badge immediately. When that endpoint is added, call
   // it here before/alongside this local update so it persists across reloads.
   const handleMarkAllRead = () => {
     setConversations(prev => prev.map(c => ({ ...c, unread: 0 })));
     setShowMenu(false);
-    toast({ title: "All caught up! 🎉", description: "Every conversation marked as read." });
+    toast({ title: "All caught up! ??", description: "Every conversation marked as read." });
   };
 
   const handleArchive = () => {
     setShowMenu(false);
-    toast({ title: "Coming soon 🚀", description: "Chat archiving is on its way." });
+    toast({ title: "Coming soon ??", description: "Chat archiving is on its way." });
   };
 
   const handleDeleteHistory = () => {
     setShowMenu(false);
-    toast({ title: "Coming soon 🚀", description: "Delete history is on its way." });
+    toast({ title: "Coming soon ??", description: "Delete history is on its way." });
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-      {/* ── Header & Search ───────────────────────────────────────────── */}
+      {/* -- Header & Search --------------------------------------------- */}
       <div className="bg-white rounded-[24px] p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-gray-100">
         <div className="flex justify-between items-center mb-5">
           <div>
@@ -232,13 +232,13 @@ export default function Matches() {
           {searchQuery && (
             <button onClick={() => setSearchQuery("")}
               className="absolute right-4 text-slate-400 hover:text-slate-600 text-xs font-bold">
-              ✕
+              ?
             </button>
           )}
         </div>
       </div>
 
-      {/* ── New Connections ───────────────────────────────────────────── */}
+      {/* -- New Connections --------------------------------------------- */}
       <div className="bg-white rounded-[24px] p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-gray-100">
         <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
           <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" /> New Connections
@@ -280,7 +280,7 @@ export default function Matches() {
         )}
       </div>
 
-      {/* ── Conversations ─────────────────────────────────────────────── */}
+      {/* -- Conversations ----------------------------------------------- */}
       <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-50">
           <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -365,3 +365,4 @@ export default function Matches() {
     </div>
   );
 }
+
