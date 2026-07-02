@@ -13,6 +13,7 @@ export default defineConfig({
     "./src/schema/swipes.ts",
     "./src/schema/messages.ts",
     "./src/schema/platform.ts",
+    "./src/schema/groupEnrollments.ts",
   ],
   out: "./drizzle",
   dialect: "postgresql",
@@ -20,3 +21,4 @@ export default defineConfig({
     url: process.env.DATABASE_URL!,
   },
 });
+

@@ -1,4 +1,6 @@
 import * as Sentry from "@sentry/react";
+import { Capacitor } from "@capacitor/core";
+
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
 };
@@ -8,6 +10,11 @@ export type BodyType<T> = T;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+
+// ✅ FIX: Web pe proxy use karo, phone pe direct Render URL
+const BASE_URL = Capacitor.isNativePlatform()
+  ? "https://skillswap-b59w.onrender.com"
+  : (import.meta.env.VITE_API_URL || "");
 
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
@@ -224,11 +231,10 @@ export async function customFetch<T = unknown>(
   const method = resolveMethod(input, init.method);
 
   let finalInput = input;
-  
-  const baseUrl = "https://skillswap-b59w.onrender.com"; 
-  
+
+  // ✅ FIX: BASE_URL use karo — phone pe Render, web pe proxy
   if (typeof input === "string" && input.startsWith("/")) {
-    finalInput = `${baseUrl}${input}`;
+    finalInput = `${BASE_URL}${input}`;
   }
 
   const headers = mergeHeaders(
@@ -246,20 +252,18 @@ export async function customFetch<T = unknown>(
   }
 
   const requestInfo = { method, url: resolveUrl(finalInput) };
-  
-  // 🔥 FETCH CALL WITH CORS MODE
-  const response = await fetch(finalInput, { 
-    ...init, 
-    method, 
+
+  const response = await fetch(finalInput, {
+    ...init,
+    method,
     headers,
-    mode: 'cors' 
+    mode: 'cors'
   });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
     const apiError = new ApiError(response, errorData, requestInfo);
 
-    // 🔥 Sentry ko batao ki API call fail hui hai
     Sentry.captureException(apiError, {
       extra: {
         url: requestInfo.url,

@@ -12,7 +12,8 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
         const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
         if (!user) return res.status(404).json({ error: "User not found" });
 
-        const [stats] = await db.execute(sql`SELECT COALESCE(SUM(CASE WHEN type = 'earned' THEN amount ELSE 0 END), 0) as total_earned, COALESCE(SUM(CASE WHEN type IN ('spent', 'withdrawal_pending') OR amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_spent FROM transactions WHERE user_id = ${req.userId}`);
+        const result = await db.execute(sql`SELECT COALESCE(SUM(CASE WHEN type = 'earned' THEN amount ELSE 0 END), 0) as total_earned, COALESCE(SUM(CASE WHEN type IN ('spent', 'withdrawal_pending') OR amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_spent FROM transactions WHERE user_id = ${req.userId}`);
+        const stats = result.rows[0];
         const totalEarned = Number(stats?.total_earned || 0);
         const totalSpent = Number(stats?.total_spent || 0);
 
@@ -99,4 +100,5 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+
 
