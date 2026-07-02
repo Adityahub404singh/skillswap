@@ -35,7 +35,7 @@ export default function Notifications() {
   };
 
   const markRead = async (id: number) => {
-    await fetch(`/api/notifications/${id}/read`, { method: "PATCH", headers });
+    await fetch(`${import.meta.env.VITE_API_URL || ""}/api/notifications/${id}/read`, { method: "PATCH", headers });
     setNotifs(p => p.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
@@ -120,6 +120,7 @@ export default function Notifications() {
     </div>
   );
 }
+
 
 
 

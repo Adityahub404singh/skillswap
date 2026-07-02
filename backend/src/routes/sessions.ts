@@ -162,42 +162,45 @@ router.get("/group/browse", requireAuth, async (req: AuthRequest, res) => {
       .orderBy(desc(sessionsTable.scheduledDate))
       .limit(50);
 
-    const enriched = await Promise.all(allGroup.map(async (session: any) => {
-      const enrollments = await db.select().from(groupEnrollmentsTable).where(and(
-        eq(groupEnrollmentsTable.sessionId, session.id),
-        eq(groupEnrollmentsTable.status, "active")
-      ));
+    if (allGroup.length === 0) return res.json([]);
 
-      const [myEnrollment] = enrollments.filter(e => e.studentId === req.userId);
+    const sessionIds = allGroup.map((s: any) => s.id);
+    const mentorIds  = [...new Set(allGroup.map((s: any) => s.mentorId))] as number[];
+    const [allEnrollments, allMentors] = await Promise.all([
+      db.select().from(groupEnrollmentsTable).where(and(
+        inArray(groupEnrollmentsTable.sessionId, sessionIds),
+        eq(groupEnrollmentsTable.status, "active")
+      )),
+      db.select({ id: usersTable.id, name: usersTable.name, avatar: usersTable.avatar, averageRating: usersTable.averageRating })
+        .from(usersTable).where(inArray(usersTable.id, mentorIds)),
+    ]);
+    const mentorMap = Object.fromEntries(allMentors.map((m: any) => [m.id, m]));
+
+    const enriched = allGroup.map((session: any) => {
+      const enrollments    = allEnrollments.filter((e: any) => e.sessionId === session.id);
+      const myEnrollment   = enrollments.find((e: any) => e.studentId === req.userId);
       const enrolledCount  = enrollments.length;
       const spotsLeft      = (session.maxStudents || 10) - enrolledCount;
-      
+
       let isMyHeartbeatActive = false;
       if (myEnrollment?.lastHeartbeatAt) {
         const secsSince = (Date.now() - new Date(myEnrollment.lastHeartbeatAt).getTime()) / 1000;
         isMyHeartbeatActive = secsSince < HEARTBEAT_TIMEOUT_SECS;
       }
 
-      const [mentor] = await db.select({
-        id: usersTable.id,
-        name: usersTable.name,
-        avatar: usersTable.avatar,
-        averageRating: usersTable.averageRating,
-      }).from(usersTable).where(eq(usersTable.id, session.mentorId));
-
       return {
         ...session,
-        sessionOtp:         undefined, // Security Rule: NEVER expose OTP
+        sessionOtp:         undefined,
         enrolledCount,
         spotsLeft,
         isEnrolled:         !!myEnrollment,
-        isOwnSession:       session.mentorId === req.userId, // 🛡️ Frontend ke liye flag
+        isOwnSession:       session.mentorId === req.userId,
         isFull:             spotsLeft <= 0 && !myEnrollment,
         isMyHeartbeatActive,
         myActiveSeconds:    myEnrollment?.activeSeconds || 0,
-        mentor:             mentor || null,
+        mentor:             mentorMap[session.mentorId] || null,
       };
-    }));
+    });
 
     res.json(enriched);
   } catch (err: any) { res.status(500).json({ error: err.message }); }

@@ -48,7 +48,10 @@ export default function Dashboard() {
   const firstName = user.name?.split(" ")[0] || "Learner";
   const streak = (user as any)?.currentStreak ?? 0;
   const trustLevel = user?.trustScore >= 90 ? "Expert" : user?.trustScore >= 70 ? "Advanced" : user?.trustScore >= 50 ? "Intermediate" : "Beginner";
-  
+
+  // 🔥 FIX: Hardcoded 75% ki jagah real trustScore (0-100 scale) se calculate
+  const levelProgress = Math.min(Math.max(user.trustScore || 0, 0), 100);
+
   const upcomingSessions = sessions?.filter((s: any) => new Date(s.scheduledDate) > new Date()).slice(0, 3) || [];
 
   return (
@@ -86,13 +89,13 @@ export default function Dashboard() {
           {/* Minimal Progress Bar */}
           <div className="mt-5">
             <div className="flex justify-between text-[10px] font-bold text-white/70 mb-1.5">
-              <span>Level Progress</span>
-              <span>75%</span>
+              <span>Level Progress · {trustLevel}</span>
+              <span>{levelProgress}%</span>
             </div>
             <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }} 
-                animate={{ width: "75%" }} 
+                animate={{ width: `${levelProgress}%` }} 
                 transition={{ duration: 1, ease: "easeOut" }}
                 className="h-full bg-white rounded-full"
               />

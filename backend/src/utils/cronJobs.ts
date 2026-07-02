@@ -1,17 +1,13 @@
- import cron from 'node-cron';
+﻿import cron from 'node-cron';
 import nodemailer from 'nodemailer';
 import { db } from '../db.js';
 import { sessionsTable } from '../schema/sessions.js';
 import { usersTable } from '../schema/users.js';
 import { transactionsTable } from '../schema/transactions.js';
-import { eq, and, lte, sql, inArray } from 'drizzle-orm';
+import { eq, and, lte, sql } from 'drizzle-orm';
 
-// ?? Same secret the protected clear-escrow route checks against
-const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret-change-in-prod";
-// Set BASE_URL in .env for production (e.g. https://api.skillswap.com)
-const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
-// ?? Email Setup using Nodemailer (Gmail)
+// 📧 Email Setup using Nodemailer (Gmail)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -20,16 +16,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// ?? Ek hi function jisme saare Cron Jobs chalenge
+// 🔥 Ek hi function jisme saare Cron Jobs chalenge
 export function startCronJobs() {
-  // Keep-alive ping every 14 min
+  console.log("⏰ Initializing all background Cron Jobs...");
+
+  // 🏓 PING: Render free tier sleep rokne ke liye har 14 min
   cron.schedule("*/14 * * * *", async () => {
     try {
-      await fetch(`${process.env.BASE_URL}/api/health`);
+      const url = process.env.BASE_URL || "https://skillswap-b59w.onrender.com";
+      await fetch(`${url}/api/health`);
       console.log("[PING] Server kept alive");
-    } catch(e) {}
+    } catch (e) { /* silent */ }
   });
-  console.log("? Initializing all background Cron Jobs...");
 
   // =========================================================================
   // CRON JOB 1: STALE SESSION CLEANUP (Runs every hour)
@@ -40,7 +38,7 @@ export function startCronJobs() {
       const staleSessions = await db.select().from(sessionsTable).limit(200)
         .where(and(eq(sessionsTable.status, 'requested'), lte(sessionsTable.createdAt, yesterday)));
 
-      if (staleSessions.length > 0) console.log(`?? Cleaning up ${staleSessions.length} stale sessions...`);
+      if (staleSessions.length > 0) console.log(`🧹 Cleaning up ${staleSessions.length} stale sessions...`);
 
       for (const session of staleSessions) {
         await db.update(sessionsTable)
@@ -65,11 +63,11 @@ export function startCronJobs() {
   // CRON JOB 2: AUTOMATED RETENTION EMAILS (Runs every day at 12:00 PM Noon)
   // =========================================================================
   cron.schedule('0 12 * * *', async () => {
-    console.log("?? Running Daily User Retention Email Engine...");
+    console.log("🚀 Running Daily User Retention Email Engine...");
     
     try {
       // Get all users from db
-      const users = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, credits: usersTable.credits, lastActiveDate: usersTable.lastActiveDate }).from(usersTable).limit(500);
+      const users = await db.select().from(usersTable).limit(500);
       const now = new Date().getTime();
 
       for (const user of users) {
@@ -81,17 +79,17 @@ export function startCronJobs() {
         let subject = "";
         let htmlMessage = "";
 
-        // ?? DAY 2: MOTIVATIONAL & CREDIT REMINDER
+        // 🔥 DAY 2: MOTIVATIONAL & CREDIT REMINDER
         if (daysInactive === 2) {
-          subject = `?? Don't let your skills rust, ${user.name?.split(' ')[0] || 'Champion'}! ??`;
+          subject = `🚨 Don't let your skills rust, ${user.name?.split(' ')[0] || 'Champion'}! 🚀`;
           htmlMessage = `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
               <div style="background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); padding: 30px 20px; text-align: center;">
                 <h1 style="color: #ffffff; margin: 0; font-size: 28px; letter-spacing: -0.5px;">SkillSwap</h1>
               </div>
               <div style="padding: 40px 30px;">
-                <h2 style="color: #1e293b; margin-top: 0; font-size: 22px;">Ready for your next breakthrough? ?</h2>
-                <p style="color: #475569; font-size: 16px; line-height: 1.6;">It's been 48 hours since we last saw you. Did you know you have <strong>${user.credits || 0} Credits</strong> waiting in your wallet? ??</p>
+                <h2 style="color: #1e293b; margin-top: 0; font-size: 22px;">Ready for your next breakthrough? ⚡</h2>
+                <p style="color: #475569; font-size: 16px; line-height: 1.6;">It's been 48 hours since we last saw you. Did you know you have <strong>${user.credits || 0} Credits</strong> waiting in your wallet? 💰</p>
                 <p style="color: #475569; font-size: 16px; line-height: 1.6;">Don't lose your learning momentum. The best time to master a new skill or teach someone is right now.</p>
                 <div style="text-align: center; margin-top: 35px;">
                   <a href="https://skillswap.com" style="background: linear-gradient(to right, #4f46e5, #ec4899); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 50px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 10px rgba(236, 72, 153, 0.3);">Claim Your Session Now</a>
@@ -101,17 +99,17 @@ export function startCronJobs() {
           `;
         } 
         
-        // ?? DAY 4: FOMO (FEAR OF MISSING OUT) & SOCIAL PROOF
+        // 🔥 DAY 4: FOMO (FEAR OF MISSING OUT) & SOCIAL PROOF
         else if (daysInactive === 4) {
-          subject = `?? Someone is looking for exactly what you know!`;
+          subject = `👀 Someone is looking for exactly what you know!`;
           htmlMessage = `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
               <div style="background: linear-gradient(135deg, #f97316 0%, #ef4444 100%); padding: 30px 20px; text-align: center;">
                 <h1 style="color: #ffffff; margin: 0; font-size: 28px; letter-spacing: -0.5px;">SkillSwap</h1>
               </div>
               <div style="padding: 40px 30px;">
-                <h2 style="color: #1e293b; margin-top: 0; font-size: 22px;">You're missing out, ${user.name?.split(' ')[0] || 'Friend'}! ??</h2>
-                <p style="color: #475569; font-size: 16px; line-height: 1.6;">Your profile has been visible, but because you're offline, you're missing out on potential matches and the chance to boost your <strong>Trust Score</strong>! ??</p>
+                <h2 style="color: #1e293b; margin-top: 0; font-size: 22px;">You're missing out, ${user.name?.split(' ')[0] || 'Friend'}! 📉</h2>
+                <p style="color: #475569; font-size: 16px; line-height: 1.6;">Your profile has been visible, but because you're offline, you're missing out on potential matches and the chance to boost your <strong>Trust Score</strong>! 🏆</p>
                 <p style="color: #475569; font-size: 16px; line-height: 1.6;">Other users are climbing the leaderboard. Jump back in, swipe on new profiles, and let's get you to the top!</p>
                 <div style="text-align: center; margin-top: 35px;">
                   <a href="https://skillswap.com" style="background: linear-gradient(to right, #f97316, #ef4444); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 50px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);">Boost My Score</a>
@@ -128,7 +126,7 @@ export function startCronJobs() {
             subject: subject,
             html: htmlMessage
           });
-          console.log(`?? Retention Email sent to: ${user.email} (Inactive for ${daysInactive} days)`);
+          console.log(`📧 Retention Email sent to: ${user.email} (Inactive for ${daysInactive} days)`);
         }
       }
     } catch (e) {
@@ -137,35 +135,59 @@ export function startCronJobs() {
   });
 
   // =========================================================================
-  // ?? CRON JOB 3: ESCROW CLEARANCE ENGINE (Runs every hour)
+  // 🌟 CRON JOB 3: ESCROW CLEARANCE ENGINE (Runs every hour)
   // =========================================================================
-  // ?? FIX: Ye ab dobara escrow logic nahi likhta (jo sessions.ts ke
-  // /system/cron/clear-escrow route se DUPLICATE tha aur double-payout
-  // ka risk create kar raha tha). Ab ye SIRF us protected route ko
-  // call karta hai � single source of truth.
+  // 🔥 FIX: localhost fetch hata diya — Render pe ECONNREFUSED deta tha
+  // Ab seedha DB call karta hai, koi HTTP request nahi
   cron.schedule('0 * * * *', async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/sessions/system/cron/clear-escrow`, {
-        method: "POST",
-        headers: { "X-Cron-Secret": CRON_SECRET },
-      });
+      const PLATFORM_FEE_PCT = 0.15;
+      const ESCROW_CLEARANCE_HOURS = 24;
+      const clearanceThreshold = new Date(Date.now() - ESCROW_CLEARANCE_HOURS * 60 * 60 * 1000);
 
-      const data = await res.json();
+      const pendingSessions = await db.select().from(sessionsTable).where(
+        and(
+          eq(sessionsTable.status, "pending_clearance"),
+          lte(sessionsTable.completedAt, clearanceThreshold)
+        )
+      );
 
-      if (!res.ok) {
-        console.error("? [ESCROW CRON] Clear-escrow call failed:", data);
-        return;
+      let clearedCount = 0;
+      let totalClearedAmt = 0;
+
+      for (const session of pendingSessions) {
+        const isMicro = !["standard", "extended"].includes((session as any).sessionType);
+        const platformFee = Math.round(session.creditsAmount * PLATFORM_FEE_PCT);
+        const mentorEarnings = session.creditsAmount - platformFee;
+
+        if (mentorEarnings > 0) {
+          await db.update(usersTable).set({
+            credits:            sql`${usersTable.credits} + ${mentorEarnings}`,
+            sessionsCompleted:  sql`${usersTable.sessionsCompleted} + 1`,
+            microSessionsCount: isMicro ? sql`${usersTable.microSessionsCount} + 1` : sql`${usersTable.microSessionsCount}`,
+          } as any).where(eq(usersTable.id, session.mentorId));
+
+          await db.insert(transactionsTable).values({
+            userId: session.mentorId, type: "earned", amount: mentorEarnings,
+            description: `Cleared Escrow: Taught ${session.skill} (Fee: ${platformFee} cr)`,
+            sessionId: session.id,
+          } as any);
+
+          totalClearedAmt += mentorEarnings;
+        }
+
+        await db.update(sessionsTable)
+          .set({ status: "completed" } as any)
+          .where(eq(sessionsTable.id, session.id));
+
+        clearedCount++;
       }
 
-      if (data.clearedCount > 0) {
-        console.log(`?? [ESCROW] Cleared ${data.clearedCount} sessions. Total paid: ${data.totalClearedAmt} cr.`);
+      if (clearedCount > 0) {
+        console.log(`🏦 [ESCROW] Cleared ${clearedCount} sessions. Total paid: ${totalClearedAmt} cr.`);
       }
     } catch (err: any) {
-      console.error("? [ESCROW CRON ERROR]:", err);
+      console.error("❌ [ESCROW CRON ERROR]:", err);
     }
   });
 }
-
-
-
-

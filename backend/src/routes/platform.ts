@@ -45,7 +45,7 @@ router.post("/feedback", async (req: AuthRequest, res) => {
 // 3. ADMIN: Get All Feedbacks
 router.get("/admin/feedbacks", requireAuth, async (req, res) => {
     try {
-        const feedbacks = await db.select().from(feedbacksTable).orderBy(desc(feedbacksTable.createdAt));
+        const feedbacks = await db.select().from(feedbacksTable).orderBy(desc(feedbacksTable.createdAt)).limit(100);
         res.json(feedbacks);
     } catch (err) { res.status(500).json({ error: "Failed to fetch feedbacks" }); }
 });
@@ -53,7 +53,7 @@ router.get("/admin/feedbacks", requireAuth, async (req, res) => {
 // 4. ADMIN: Get All Subscribers
 router.get("/admin/subscribers", requireAuth, async (req, res) => {
     try {
-        const subs = await db.select().from(subscribersTable).orderBy(desc(subscribersTable.createdAt));
+        const subs = await db.select().from(subscribersTable).orderBy(desc(subscribersTable.createdAt)).limit(500);
         res.json(subs);
     } catch (err) { res.status(500).json({ error: "Failed to fetch subscribers" }); }
 });

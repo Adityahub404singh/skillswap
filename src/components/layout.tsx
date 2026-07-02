@@ -96,7 +96,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const sendFeedback = async () => { 
     if (!feedbackText.trim()) return; 
     try { 
-      await fetch('/api/platform/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ rating: feedbackRating, text: feedbackText }) }); 
+      await fetch(`${import.meta.env.VITE_API_URL || ''}/api/platform/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ rating: feedbackRating, text: feedbackText }) }); 
       setFeedbackSent(true); 
       setTimeout(() => { setFeedbackOpen(false); setFeedbackSent(false); setFeedbackText(''); setFeedbackRating(5); }, 2000); 
     } catch (err) { console.error(err); } 

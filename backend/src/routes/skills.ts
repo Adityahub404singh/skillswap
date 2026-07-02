@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
   try {
     const { search, category } = req.query;
 
-    let skills = await db.select().from(skillsTable);
+    let skills = await db.select().from(skillsTable).limit(200);
 
     if (search && typeof search === 'string') {
       skills = skills.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
@@ -74,3 +74,4 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+

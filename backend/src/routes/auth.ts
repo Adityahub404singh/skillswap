@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";
 import { db } from "../db.js";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { signToken } from "../utils/jwt.js";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
@@ -432,7 +432,15 @@ router.get("/referral", requireAuth, async (req: AuthRequest, res) => {
     if (!user) return res.status(404).json({ error: "Not Found" });
     const referralCode = `${user.name!.replace(/\s+/g, "").toLowerCase()}${user.id}`;
     const referralLink = (process.env.FRONTEND_URL || "https://skillswap-india.vercel.app") + "/register?ref=" + referralCode;
-    res.json({ referralCode, referralLink });
+
+    // 🔥 FIX: Real referral count + earnings (invite.tsx pehle hardcoded "0 Friends" dikhata tha)
+    const referredUsers = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.referredBy, user.id));
+    const earnedRows = await db.select().from(transactionsTable).where(
+      and(eq(transactionsTable.userId, user.id), eq(transactionsTable.type, "referral"))
+    );
+    const totalEarned = earnedRows.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+    res.json({ referralCode, referralLink, referredCount: referredUsers.length, totalEarned });
   } catch (err) {
     res.status(401).json({ error: "Unauthorized" });
   }

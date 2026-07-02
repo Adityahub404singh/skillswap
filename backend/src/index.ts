@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import express from "express";
 import cors from "cors";
+import uploadRouter from "./routes/upload.js";
 
 // Import routers
 import discoverRouter from "./routes/discover.js";
@@ -76,6 +77,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: true }));
 
 // Routes
+app.use("/api/upload", uploadRouter);
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);

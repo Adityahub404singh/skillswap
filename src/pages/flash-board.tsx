@@ -68,7 +68,7 @@ export default function FlashBoard() {
   const handleClaim = async (id: number) => {
     setClaiming(id);
     try {
-      const res = await fetch(`/api/sessions/${id}/claim-flash`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/sessions/${id}/claim-flash`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -169,6 +169,7 @@ export default function FlashBoard() {
     </div>
   );
 }
+
 
 
 

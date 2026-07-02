@@ -8,7 +8,7 @@ export default function Footer() {
   const [subscribed, setSubscribed] = useState(false);
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
 
-  const handleNewsletter = async (e: React.FormEvent) => { e.preventDefault(); if (!email) return; try { await fetch('/api/platform/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) }); setSubscribed(true); setEmail(''); } catch (err) { console.error(err); } };
+  const handleNewsletter = async (e: React.FormEvent) => { e.preventDefault(); if (!email) return; try { await fetch(`${import.meta.env.VITE_API_URL || ''}/api/platform/subscribe`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) }); setSubscribed(true); setEmail(''); } catch (err) { console.error(err); } };
 
   const stats = [
     { icon: Users, value: "10,000+", label: "Active Learners", color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -162,7 +162,7 @@ export default function Footer() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-6">
           
           <div className="flex items-center gap-3 text-sm text-gray-500 font-medium">
-            <span>© 2026 SkillSwap Inc.</span>
+            <span>ï¿½ 2026 SkillSwap Inc.</span>
             <span className="w-1 h-1 rounded-full bg-gray-600" />
             <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> India</span>
           </div>

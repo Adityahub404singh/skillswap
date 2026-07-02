@@ -48,7 +48,7 @@ export default function Quiz() {
   const fetchStats = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/quiz/stats`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/quiz/stats`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (res.ok) setStats(data);
       setLoading(false);
@@ -64,7 +64,7 @@ export default function Quiz() {
     const isCorrect = selectedIndex === dailyQuestions[qIndex].ans;
     
     try {
-      const res = await fetch(`${API_BASE_URL}/api/quiz/submit`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/quiz/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ isCorrect })
@@ -151,3 +151,4 @@ export default function Quiz() {
     </div>
   );
 }
+

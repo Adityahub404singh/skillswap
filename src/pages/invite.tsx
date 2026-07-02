@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
+import { useAuthStore } from "@/store/auth";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Copy, Share2, Gift, Users, Coins, Sparkles, CheckCircle2 } from "lucide-react";
@@ -9,12 +10,26 @@ import { Button } from "@/components/ui/button";
 export default function Invite() {
   const options = useApiOptions();
   const { data: user } = useGetMe(options);
+  const { token } = useAuthStore();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
-  // Generate a unique referral link (using user ID or name as ref code)
-  const refCode = user ? `${user.name?.replace(/\s+/g, '').toLowerCase()}${user.id}` : "wait...";
-  const inviteLink = `https://skillswap.app/register?ref=${refCode}`;
+  // 🔥 FIX: Backend se real data (link + count + earnings), hardcode nahi
+  const [referral, setReferral] = useState<{ referralCode: string; referralLink: string; referredCount: number; totalEarned: number } | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/auth/referral`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) setReferral(await res.json());
+      } catch (e) { console.error("referral fetch failed", e); }
+    })();
+  }, [token]);
+
+  const inviteLink = referral?.referralLink || `${window.location.origin}/register?ref=wait...`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(inviteLink);
@@ -30,13 +45,11 @@ export default function Invite() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-      {/* Hero Section */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} 
         className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white p-8 md:p-12 text-center shadow-2xl"
       >
         <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay pointer-events-none"></div>
-        
         <div className="relative z-10 space-y-4">
           <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mb-6 border-2 border-white/30 shadow-inner">
             <Gift className="w-10 h-10 text-white" />
@@ -48,7 +61,6 @@ export default function Invite() {
         </div>
       </motion.div>
 
-      {/* The Link Generator */}
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
         className="max-w-2xl mx-auto bg-background rounded-3xl p-6 md:p-8 border border-border shadow-lg -mt-10 relative z-20"
@@ -70,7 +82,6 @@ export default function Invite() {
         </div>
       </motion.div>
 
-      {/* How it works & Stats */}
       <div className="grid md:grid-cols-2 gap-6 pt-6">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="p-8 rounded-3xl bg-muted/30 border border-border/50">
           <h2 className="text-xl font-extrabold mb-6 flex items-center gap-2"><Sparkles className="text-yellow-500 w-6 h-6" /> How it works</h2>
@@ -103,11 +114,11 @@ export default function Invite() {
           <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-4">
             <Coins className="w-12 h-12 text-primary" />
           </div>
-          <h3 className="text-2xl font-black text-foreground">0 Friends</h3>
+          <h3 className="text-2xl font-black text-foreground">{referral?.referredCount ?? 0} Friends</h3>
           <p className="text-muted-foreground mb-6">invited so far</p>
           <div className="w-full bg-background rounded-2xl p-4 border border-border shadow-sm flex justify-between items-center">
             <span className="font-semibold text-muted-foreground">Total Earned</span>
-            <span className="text-xl font-black text-primary">0 Credits</span>
+            <span className="text-xl font-black text-primary">{referral?.totalEarned ?? 0} Credits</span>
           </div>
           <p className="text-xs text-muted-foreground mt-4 italic">Stats update automatically when your friends join.</p>
         </motion.div>

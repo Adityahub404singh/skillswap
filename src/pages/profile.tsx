@@ -15,12 +15,12 @@ import { User, Save, Plus, X, Award, Star, Trophy, CheckCircle, Flame, Copy, Che
 const ALL_SKILLS = ["Python","JavaScript","React","DSA","Web Dev","AI/ML","Design","English","Maths","Node.js","TypeScript","Java","C++","Chess","Music","Spanish","Photography","Marketing","Next.js","MongoDB","DevOps","Figma","Flutter","AWS"];
 
 const BADGES = [
-  { icon: "??", label: "First Session",  color: "bg-blue-50 border-blue-100 text-blue-600" },
-  { icon: "??", label: "7-Day Streak",   color: "bg-orange-50 border-orange-100 text-orange-600" },
-  { icon: "?", label: "30-Day Legend",  color: "bg-yellow-50 border-yellow-100 text-yellow-700" },
-  { icon: "??", label: "Top Mentor",     color: "bg-purple-50 border-purple-100 text-purple-600" },
-  { icon: "?", label: "Verified Expert", color: "bg-green-50 border-green-100 text-green-600" },
-  { icon: "??", label: "Community Star",  color: "bg-cyan-50 border-cyan-100 text-cyan-600" },
+  { icon: "🏅", label: "First Session",  color: "bg-blue-50 border-blue-100 text-blue-600" },
+  { icon: "🔥", label: "7-Day Streak",   color: "bg-orange-50 border-orange-100 text-orange-600" },
+  { icon: "⭐", label: "30-Day Legend",  color: "bg-yellow-50 border-yellow-100 text-yellow-700" },
+  { icon: "👑", label: "Top Mentor",     color: "bg-purple-50 border-purple-100 text-purple-600" },
+  { icon: "✅", label: "Verified Expert", color: "bg-green-50 border-green-100 text-green-600" },
+  { icon: "🌟", label: "Community Star",  color: "bg-cyan-50 border-cyan-100 text-cyan-600" },
 ];
 
 export default function Profile() {
@@ -32,6 +32,7 @@ export default function Profile() {
   const { data: user, isLoading } = useGetMe(options);
 
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState("");
@@ -89,7 +90,7 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Update failed");
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
-      toast({ title: "Profile Updated! ??", description: "Your changes have been saved." });
+      toast({ title: "Profile Updated! ✅", description: "Your changes have been saved." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Save failed", description: e.message });
     }
@@ -101,13 +102,40 @@ export default function Profile() {
     setLocation("/login");
   };
 
+  // 🔥 FIX: Ab base64 ko seedha DB me save nahi karta — Cloudinary pe upload karke
+  // real URL DB me save hota hai. (Base64-in-DB issue pehle bhi clean karna pada tha.)
   const handleCamera = async () => {
+    if (!token) return;
     try {
-      const image = await Camera.getPhoto({ quality: 90, allowEditing: true, resultType: CameraResultType.Base64 });
-      const base64 = `data:image/jpeg;base64,${image.base64String}`;
-      setAvatar(base64);
-    } catch (e) {
+      const image = await Camera.getPhoto({ quality: 80, allowEditing: true, resultType: CameraResultType.Base64 });
+      if (!image.base64String) return;
+
+      setUploadingAvatar(true);
+
+      const byteChars = atob(image.base64String);
+      const byteNumbers = new Array(byteChars.length).fill(0).map((_, i) => byteChars.charCodeAt(i));
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: `image/${image.format || "jpeg"}` });
+      const file = new File([blob], `avatar.${image.format || "jpg"}`, { type: blob.type });
+
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/upload/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+
+      setAvatar(data.avatar);
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
+      toast({ title: "Photo updated! 📸" });
+    } catch (e: any) {
       console.error("Camera error:", e);
+      toast({ variant: "destructive", title: "Upload failed", description: e.message || "Try again." });
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -117,7 +145,7 @@ export default function Profile() {
   };
 
   const copyPortfolio = () => {
-    const text = `?? SkillSwap Portfolio � ${user?.name}\n? Trust Score: ${user?.trustScore}/100\n?? Skills I Teach: ${skillsTeach.join(", ") || "�"}\n?? Skills I Learn: ${skillsLearn.join(", ") || "�"}\n?? Badges: ${unlockedBadges.map(i => BADGES[i].label).join(", ") || "�"}\n?? https://skillswap-india.vercel.app`;
+    const text = `🌟 SkillSwap Portfolio — ${user?.name}\n⭐ Trust Score: ${user?.trustScore}/100\n📚 Skills I Teach: ${skillsTeach.join(", ") || "—"}\n🎯 Skills I Learn: ${skillsLearn.join(", ") || "—"}\n🏆 Badges: ${unlockedBadges.map(i => BADGES[i].label).join(", ") || "—"}\n🔗 https://skillswap-india.vercel.app`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -145,13 +173,19 @@ export default function Profile() {
         <div className="flex items-center gap-5 relative z-10">
           <div
             onClick={handleCamera}
-            className="w-20 h-20 rounded-[20px] bg-white border-2 border-white/20 flex items-center justify-center text-3xl shadow-lg overflow-hidden flex-shrink-0 cursor-pointer active:scale-95 transition-transform"
+            className="w-20 h-20 rounded-[20px] bg-white border-2 border-white/20 flex items-center justify-center text-3xl shadow-lg overflow-hidden flex-shrink-0 cursor-pointer active:scale-95 transition-transform relative"
           >
-            {avatar ? <img src={avatar} alt={name} className="w-full h-full object-cover" /> : <User className="w-10 h-10 text-[#6C3BFF]" />}
+            {uploadingAvatar ? (
+              <Loader2 className="w-8 h-8 text-[#6C3BFF] animate-spin" />
+            ) : avatar ? (
+              <img src={avatar} alt={name} className="w-full h-full object-cover" />
+            ) : (
+              <User className="w-10 h-10 text-[#6C3BFF]" />
+            )}
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-black">{user.name}</h1>
-            <p className="text-white/80 text-sm mt-0.5 line-clamp-1">{user.bio || "No bio yet � add one below!"}</p>
+            <p className="text-white/80 text-sm mt-0.5 line-clamp-1">{user.bio || "No bio yet — add one below!"}</p>
             <div className="flex flex-wrap gap-2 mt-3">
               <span className="flex items-center gap-1.5 bg-black/15 border border-white/10 rounded-full px-3 py-1 text-xs font-bold">
                 <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" /> Trust: {user.trustScore}
@@ -281,7 +315,7 @@ export default function Profile() {
               {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving changes...</> : <><Save className="w-4 h-4 mr-2" /> Save Profile</>}
             </Button>
             
-            {/* ?? Logout Button Moved Here */}
+            {/* Logout Button */}
             <Button onClick={handleLogout} variant="outline" className="w-full rounded-full h-14 font-bold text-sm text-red-500 border-red-100 hover:bg-red-50 hover:text-red-600">
               <LogOut className="w-4 h-4 mr-2" /> Log out securely
             </Button>
@@ -345,6 +379,3 @@ export default function Profile() {
     </motion.div>
   );
 }
-
-
-
