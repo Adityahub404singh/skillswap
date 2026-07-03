@@ -6,7 +6,7 @@ import {
   Users, LayoutDashboard, ClipboardList, BookOpen, CreditCard,
   Trash2, Plus, Minus, X, Shield, TrendingUp, CheckCircle,
   MessageSquare, Mail, Star, History, AlertTriangle, RefreshCw,
-  BadgeCheck, Ban, Search, Download, Bell, Send, Filter,
+  BadgeCheck, Ban, Search, Download, Bell, Send, Filter, Flag,
   ExternalLink, Clock, ChevronDown,
   BarChart2, Settings, AlertCircle, UserX, LineChart, PieChart, LogIn,
 } from "lucide-react";
@@ -25,6 +25,7 @@ export default function AdminPanel() {
   const [searchResults, setSearchResults] = useState<any>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [reports, setReports] = useState<any>(null);
+  const [userReports, setUserReports] = useState<any[]>([]);
   const [platformSettings, setPlatformSettings] = useState<any>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -107,6 +108,7 @@ export default function AdminPanel() {
     apiFetch("/users/me").then(r => r.json()).then(u => setAdminEmail(u.email || ""));
     apiFetch("/admin/analytics").then(r => r.json()).then(setAnalytics).catch(() => {});
     apiFetch("/admin/reports").then(r => r.json()).then(setReports).catch(() => {});
+    apiFetch("/admin/user-reports").then(r => r.json()).then(d => setUserReports(Array.isArray(d) ? d : [])).catch(() => {});
     apiFetch("/admin/settings").then(r => r.json()).then(setPlatformSettings).catch(() => {});
     fetchData();
   }, [token]);
@@ -166,6 +168,15 @@ export default function AdminPanel() {
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isPremium: !u.isPremium } : u));
       toast({ title: "Updated", description: `${user.name} is now ${!user.isPremium ? "✅ Verified" : "Unverified"}.` });
     }
+  };
+
+  const handleResolveUserReport = async (id: number, status: "reviewed" | "dismissed") => {
+    await apiFetch(`/admin/user-reports/${id}/resolve`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    setUserReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    toast({ title: status === "reviewed" ? "✅ Marked Reviewed" : "Dismissed" });
   };
 
   const handleApprove = async (txId: number) => {
@@ -283,14 +294,18 @@ export default function AdminPanel() {
   // ─── Tabs config ─────────────────────────────────────────────
   const tabs = [
     { id: "dashboard",     label: "Dashboard",        icon: LayoutDashboard },
+    { id: "analytics",     label: "Analytics",        icon: LineChart },
+    { id: "search",        label: "Global Search",    icon: Search },
     { id: "users",         label: "Users",             icon: Users },
     { id: "sessions",      label: "Sessions",          icon: BookOpen },
     { id: "withdrawals",   label: "Withdrawals",       icon: CreditCard, badge: pendingWithdrawals.length },
     { id: "transactions",  label: "All Transactions",  icon: TrendingUp },
     { id: "notifications", label: "Notifications",     icon: Bell },
+    { id: "reports",       label: "Reports",           icon: AlertTriangle },
     { id: "audit",         label: "Audit Logs",        icon: ClipboardList },
     { id: "feedback",      label: "Feedback",          icon: MessageSquare, badge: feedbacks.length },
     { id: "newsletter",    label: "Subscribers",       icon: Mail },
+    { id: "settings",      label: "Settings",          icon: Settings },
   ];
 
   // ─── New handlers ───────────────────────────────────────────
@@ -1183,6 +1198,63 @@ export default function AdminPanel() {
                       ))}</tbody>
                     </table>
                   </div>
+
+                  {/* ✅ USER-SUBMITTED REPORTS */}
+                  <div className="bg-white rounded-2xl border border-purple-100 shadow-sm p-5 md:col-span-2">
+                    <h3 className="font-bold text-purple-600 mb-4 flex items-center gap-2">
+                      <Flag className="w-4 h-4" />
+                      User-Submitted Reports
+                      <span className="ml-auto text-xs font-bold bg-red-50 text-red-500 px-2 py-0.5 rounded-full">
+                        {userReports.filter(r => r.status === "pending").length} pending
+                      </span>
+                    </h3>
+                    {userReports.length === 0 ? (
+                      <p className="text-sm text-gray-400 py-4 text-center">No reports submitted yet.</p>
+                    ) : (
+                      userReports.map((r: any) => (
+                        <div key={r.id} className="flex items-center justify-between py-3 border-b border-gray-50 text-sm last:border-0">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900">
+                              <span className="text-indigo-600">{r.reporterName}</span>
+                              <span className="text-gray-400 font-normal mx-1">reported</span>
+                              <span className="text-red-600">{r.reportedName}</span>
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                              <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold uppercase text-[10px]">
+                                {r.reason?.replace(/_/g, " ")}
+                              </span>
+                              {r.message && <span className="text-gray-400 truncate max-w-[200px]">"{r.message}"</span>}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-1">
+                              {new Date(r.createdAt).toLocaleString()}
+                              {r.reportedEmail && <span className="ml-2 text-gray-300">• {r.reportedEmail}</span>}
+                            </p>
+                          </div>
+                          {r.status === "pending" ? (
+                            <div className="flex gap-1.5 shrink-0 ml-3">
+                              <button
+                                onClick={() => handleResolveUserReport(r.id, "reviewed")}
+                                className="px-2.5 py-1.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 text-xs font-semibold transition-colors">
+                                Reviewed
+                              </button>
+                              <button
+                                onClick={() => handleResolveUserReport(r.id, "dismissed")}
+                                className="px-2.5 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-xs font-semibold transition-colors">
+                                Dismiss
+                              </button>
+                            </div>
+                          ) : (
+                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full shrink-0 ml-3 ${
+                              r.status === "reviewed" ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
+                            }`}>
+                              {r.status}
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+
                 </div>
               )}
             </div>

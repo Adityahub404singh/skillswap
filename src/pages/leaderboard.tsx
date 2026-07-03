@@ -31,6 +31,7 @@ export default function Leaderboard() {
 
   // Transform backend data to match UI
   const formattedData = rawData.map((u: any, index: number) => ({
+    id: u.id, // ID Added here for the Link
     rank: index + 1,
     name: u.name,
     loc: u.location || "Global",
@@ -80,7 +81,14 @@ export default function Leaderboard() {
                     {user.avatar ? <img src={user.avatar} className="w-full h-full rounded-full object-cover"/> : user.name.charAt(0)}
                     {user.verified && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center border-2 border-background"><CheckCircle className="w-2.5 h-2.5 text-white" /></div>}
                   </div>
-                  <p className={`text-xs font-bold text-center ${user.isMe ? "text-primary" : ""}`}>{user.isMe ? "You" : user.name.split(" ")[0]}</p>
+                  
+                  {/* Top 3 Profile Link Added */}
+                  <Link href={`/mentor/${user.id}`}>
+                    <p className={`text-xs font-bold text-center mt-2 hover:underline cursor-pointer ${user.isMe ? "text-primary" : ""}`}>
+                      {user.isMe ? "You" : user.name.split(" ")[0]}
+                    </p>
+                  </Link>
+
                   <p className="text-xs text-muted-foreground">{tab === "streaks" ? `${user.streak}d 🔥` : `${user.pts} pts`}</p>
                 </motion.div>
               );
@@ -108,7 +116,14 @@ export default function Leaderboard() {
                   {entry.verified && <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center border-2 border-background"><CheckCircle className="w-2.5 h-2.5 text-white" /></div>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold truncate ${entry.isMe ? "text-primary" : ""}`}>{entry.isMe ? `You (${entry.name.split(" ")[0]})` : entry.name}</p>
+                  
+                  {/* List Item Profile Link Added */}
+                  <Link href={`/mentor/${entry.id}`} className="hover:underline cursor-pointer block w-fit">
+                    <p className={`text-sm font-bold truncate ${entry.isMe ? "text-primary" : ""}`}>
+                      {entry.isMe ? `You (${entry.name.split(" ")[0]})` : entry.name}
+                    </p>
+                  </Link>
+
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                     <span className="flex items-center gap-0.5"><Star className="w-3 h-3 fill-orange-400 text-orange-400" /> {entry.rating}</span>
                     <span>·</span><span className="text-orange-500">🔥 {entry.streak}d</span>
@@ -125,7 +140,3 @@ export default function Leaderboard() {
     </div>
   );
 }
-
-
-
-

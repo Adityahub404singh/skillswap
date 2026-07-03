@@ -8,10 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function SkillPage() {
   const [, params] = useRoute("/skills/:skill");
   const skillSlug = params?.skill || "skill";
-  // Convert slug back to readable name (e.g., "graphic-design" -> "Graphic Design")
   const skillName = skillSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   
-  // 1. MUST INITIALIZE AS EMPTY ARRAY
   const [mentors, setMentors] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
 
@@ -25,13 +23,13 @@ export default function SkillPage() {
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           
+          // 🔥 STRICT MATCH + PURE RATING SORTING
           const targetSkill = skillName.toLowerCase().trim();
           const targetSlug = skillSlug.toLowerCase().trim().replace(/-/g, ' ');
 
           const matched = data.filter(u => {
             let teachSkills: string[] = [];
 
-            // 2. Safely parse skillsTeach (handles stringified JSON)
             if (Array.isArray(u.skillsTeach)) {
               teachSkills = u.skillsTeach;
             } else if (typeof u.skillsTeach === "string") {
@@ -43,20 +41,15 @@ export default function SkillPage() {
               }
             }
 
-            // 3. Exact Match Check (Case Insensitive)
-            const exactMatch = teachSkills.some((s) => {
+            return teachSkills.some((s) => {
                if (typeof s !== "string") return false;
                const currentSkill = s.toLowerCase().trim();
                return currentSkill === targetSkill || currentSkill === targetSlug;
             });
-
-            // Fallback Match (Bio/Headline)
-            const bioStr = u.bio || "";
-            const headlineStr = u.headline || "";
-            const looseMatch = `${bioStr} ${headlineStr}`.toLowerCase().includes(targetSkill) ||
-                               `${bioStr} ${headlineStr}`.toLowerCase().includes(targetSlug);
-
-            return exactMatch || looseMatch;
+          }).sort((a, b) => {
+            const ratingA = a.averageRating || 0;
+            const ratingB = b.averageRating || 0;
+            return ratingB - ratingA;
           });
 
           setMentors(matched);
@@ -84,8 +77,6 @@ export default function SkillPage() {
 
   return (
     <div className="min-h-screen pb-20">
-      
-      {/* Premium Hero Header */}
       <div className="bg-gradient-to-b from-indigo-950 via-primary/90 to-background pt-20 pb-32 px-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="max-w-4xl mx-auto text-center relative z-10">
@@ -109,8 +100,6 @@ export default function SkillPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-20 relative z-20 space-y-16">
-        
-        {/* Why Learn Section */}
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="grid md:grid-cols-3 gap-6">
           {[
             { title: "Career Growth", desc: `Adding ${skillName} to your resume opens up premium opportunities globally.` },
@@ -127,7 +116,6 @@ export default function SkillPage() {
           ))}
         </motion.div>
 
-        {/* Mentors Grid Section */}
         <div id="mentors" className="pt-10">
           <div className="flex items-center justify-between mb-10">
             <div>
@@ -146,7 +134,6 @@ export default function SkillPage() {
               {[1,2,3].map(i => <Skeleton key={i} className="h-64 rounded-[2rem]" />)}
             </div>
           ) : mentors.length === 0 ? (
-            /* Empty state if no mentors found */
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card-premium p-12 text-center bg-card border-2 border-dashed border-border/80 rounded-[3rem] shadow-sm">
               <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Sparkles className="w-12 h-12 text-primary" />
@@ -184,8 +171,9 @@ export default function SkillPage() {
                       </div>
 
                       <div className="flex items-center gap-4 mb-8">
+                        {/* 🔥 FIXED RATING UI RENDERING HERE */}
                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 font-bold text-sm">
-                          <Star className="w-4 h-4 fill-amber-500" /> {mentor.rating || (mentor.trustScore ? (mentor.trustScore / 20).toFixed(1) : "4.8")}
+                          <Star className="w-4 h-4 fill-amber-500" /> {mentor.averageRating > 0 ? mentor.averageRating.toFixed(1) : "New"}
                         </div>
                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm">
                           <BookOpen className="w-4 h-4" /> {mentor.sessionsCompleted || 0} Sessions
@@ -204,6 +192,14 @@ export default function SkillPage() {
                         </Link>
                       </div>
 
+
+
+{/* NAYA VIEW PROFILE BUTTON ADD KAREIN */}
+<Link href={`/mentor/${mentor.id}`} onClick={e => e.stopPropagation()}>
+  <button className="w-full mt-4 py-2.5 rounded-xl border border-[#6C3BFF]/20 text-[#6C3BFF] text-xs font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1.5">
+    View Full Profile  <ArrowRight className="w-3.5 h-3.5" />
+  </button>
+</Link>
                     </div>
                   </motion.div>
                 ))}

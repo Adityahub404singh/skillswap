@@ -1,13 +1,32 @@
 {
   "project_info": {
-    "project_number": "234235855410",
-    "project_id": "skillswap-8d234",
-    "storage_bucket": "skillswap-8d234.firebasestorage.app"
+    "project_number": "881708185588",
+    "project_id": "skillswap-e676e",
+    "storage_bucket": "skillswap-e676e.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:234235855410:android:41786daa029b6648c0b22b",
+        "mobilesdk_app_id": "1:881708185588:android:fdd9230d7ec403c7b66ba1",
+        "android_client_info": {
+          "package_name": "com.skillswap.aditya.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBjCqaT2VHpUOOovhUO61W-VTRcnfdVeRY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:881708185588:android:a9358bf216624745b66ba1",
         "android_client_info": {
           "package_name": "com.skillswap.app"
         }
@@ -15,7 +34,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyC0iYpAIHOqbcLjZkEadP9U6op8q_VbsJA"
+          "current_key": "AIzaSyBjCqaT2VHpUOOovhUO61W-VTRcnfdVeRY"
         }
       ],
       "services": {

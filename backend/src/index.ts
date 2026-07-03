@@ -1,5 +1,5 @@
 ﻿import "dotenv/config";
-
+import reportsRouter from "./routes/Reports.js";
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import express from "express";
@@ -77,6 +77,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: true }));
 
 // Routes
+app.use("/api/reports", reportsRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);

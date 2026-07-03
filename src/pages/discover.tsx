@@ -3,6 +3,7 @@ import {
   motion, AnimatePresence, PanInfo,
   useMotionValue, useTransform, animate,
 } from "framer-motion";
+import{ ArrowRight } from "lucide-react";
 import {
   X, Heart, BadgeCheck, Star, Sparkles, Zap, ChevronUp,
   MessageCircle, Calendar, Loader2, MapPin, ShieldCheck,
@@ -290,6 +291,7 @@ function SwipeCard({
             ))}
           </div>
         </div>
+        
 
         <div className="mb-3">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
@@ -320,10 +322,18 @@ function SwipeCard({
                 <Coins className="w-3 h-3 text-slate-500" />{card.price} cr
               </p>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Per Hour</p>
+               <Link href={`/mentor/${card.id}`} onClick={e => e.stopPropagation()}>
+            <button className="w-full mt-4 py-2.5 rounded-xl border border-[#6C3BFF]/20 text-[#6C3BFF] text-xs font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1.5">
+              View Full Profile <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </Link>
             </div>
+            
           </div>
         </div>
+        
       </div>
+      
     </motion.div>
   );
 }

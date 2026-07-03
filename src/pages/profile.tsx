@@ -3,14 +3,16 @@ import { useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter"; // ✅ Link imported here
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Camera, CameraResultType } from "@capacitor/camera";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
-import { User, Save, Plus, X, Award, Star, Trophy, CheckCircle, Flame, Copy, Check, Sparkles, Loader2, LogOut } from "lucide-react";
+import { User, Save, Plus, X, Award, Star, Trophy, CheckCircle, Flame, Copy, Check, Sparkles, Loader2, LogOut, MessageSquare } from "lucide-react";
+import { useGetMentorRatings } from "@/lib/api";
+import { format } from "date-fns";
 
 const ALL_SKILLS = ["Python","JavaScript","React","DSA","Web Dev","AI/ML","Design","English","Maths","Node.js","TypeScript","Java","C++","Chess","Music","Spanish","Photography","Marketing","Next.js","MongoDB","DevOps","Figma","Flutter","AWS"];
 
@@ -44,8 +46,14 @@ export default function Profile() {
   const [skillsLearn, setSkillsLearn] = useState<string[]>([]);
   const [newTeach, setNewTeach] = useState("");
   const [newLearn, setNewLearn] = useState("");
-  const [activeTab, setActiveTab] = useState<"profile"|"badges"|"portfolio">("profile");
+  const [activeTab, setActiveTab] = useState<"profile"|"badges"|"portfolio"|"reviews">("profile");
   const [copied, setCopied] = useState(false);
+
+  // 🔥 FIX: Ab mentor apne khud ke reviews dekh sakta hai (pehle ye kahin nahi tha)
+  const { data: myRatings, isLoading: ratingsLoading } = useGetMentorRatings(user?.id || 0, {
+    ...options,
+    query: { queryKey: ["ratings", user?.id], enabled: !!user?.id },
+  });
 
   const unlockedBadges: number[] = [];
   if (user && user.sessionsCompleted > 0) unlockedBadges.push(0);
@@ -102,8 +110,6 @@ export default function Profile() {
     setLocation("/login");
   };
 
-  // 🔥 FIX: Ab base64 ko seedha DB me save nahi karta — Cloudinary pe upload karke
-  // real URL DB me save hota hai. (Base64-in-DB issue pehle bhi clean karna pada tha.)
   const handleCamera = async () => {
     if (!token) return;
     try {
@@ -162,6 +168,7 @@ export default function Profile() {
     { id: "profile" as const, label: "Edit Profile", icon: User },
     { id: "badges"  as const, label: "Badges",       icon: Trophy },
     { id: "portfolio" as const, label: "Portfolio",  icon: Award },
+    { id: "reviews" as const, label: "Reviews",      icon: MessageSquare },
   ];
 
   return (
@@ -193,6 +200,14 @@ export default function Profile() {
               <span className="flex items-center gap-1.5 bg-black/15 border border-white/10 rounded-full px-3 py-1 text-xs font-bold">
                 <Sparkles className="w-3.5 h-3.5 text-white/90" /> {user.credits} cr
               </span>
+              
+              {/* ✅ NEW: Leaderboard Link Button added here */}
+              <Link href="/leaderboard">
+                <span className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 border border-white/40 rounded-full px-3 py-1 text-xs font-bold transition-colors cursor-pointer text-white shadow-sm">
+                  <Trophy className="w-3.5 h-3.5 text-yellow-300" /> View Leaderboard
+                </span>
+              </Link>
+
             </div>
           </div>
         </div>
@@ -374,6 +389,49 @@ export default function Profile() {
               Share your portfolio link to attract more learners and showcase your skills!
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {/* Reviews Tab */}
+      {activeTab === "reviews" && (
+        <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="p-6 rounded-[24px] bg-white border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] space-y-6">
+          <div>
+            <h2 className="font-bold text-xl text-slate-800">Your Reviews</h2>
+            <p className="text-sm font-medium text-slate-500">What students are saying about your sessions</p>
+          </div>
+
+          {ratingsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[1, 2].map(i => <div key={i} className="h-28 bg-slate-50 rounded-[20px] animate-pulse" />)}
+            </div>
+          ) : myRatings && myRatings.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {myRatings.map((rating: any) => (
+                <div key={rating.id} className="bg-slate-50 p-5 rounded-[20px] border border-gray-100">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">{rating.studentName}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{format(new Date(rating.createdAt), 'MMM d, yyyy')}</p>
+                    </div>
+                    <div className="flex gap-0.5 bg-white px-2 py-1 rounded-md border border-gray-100 shadow-sm">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className={`w-3.5 h-3.5 ${i < rating.rating ? 'fill-amber-500 text-amber-500' : 'text-slate-200'}`} />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-600 font-medium leading-relaxed">"{rating.review || "Great session, highly recommended!"}"</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center bg-slate-50/50 rounded-[20px] border border-dashed border-gray-200">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <Star className="w-8 h-8 text-slate-300" />
+              </div>
+              <p className="text-base font-bold text-slate-700">No reviews yet</p>
+              <p className="text-xs font-medium text-slate-500 mt-1">Reviews will show up here after you complete sessions.</p>
+            </div>
+          )}
         </motion.div>
       )}
     </motion.div>

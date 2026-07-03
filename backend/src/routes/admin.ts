@@ -2,7 +2,7 @@
 import { db } from "../db.js";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth.js";
 import { desc, eq, sql, or, count } from "drizzle-orm";
-import { usersTable, sessionsTable, transactionsTable } from "../schema/index.js";
+import { usersTable, sessionsTable, transactionsTable, reportsTable } from "../schema/index.js";
 import { notify } from "../notify.js";
 
 const router: IRouter = Router();
@@ -561,6 +561,48 @@ router.get("/reports", requireAuth, requireAdmin, async (_req, res) => {
       topEarners:        topEarners.rows,
     });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// 🚩 USER-SUBMITTED REPORTS (mentor-profile.tsx ka Report button)
+// /admin/reports (upar wala) se ALAG hai — woh heuristic fraud detection hai
+// ══════════════════════════════════════════════════════════════
+router.get("/user-reports", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const allReports = await db.select().from(reportsTable)
+      .orderBy(desc(reportsTable.createdAt))
+      .limit(200);
+
+    const userIds = [...new Set(allReports.flatMap(r => [r.reporterId, r.reportedUserId]))];
+    const allUsers = userIds.length > 0
+      ? await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+          .from(usersTable)
+      : [];
+    const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+    res.json(allReports.map(r => ({
+      ...r,
+      reporterName:  userMap.get(r.reporterId)?.name  || `User #${r.reporterId}`,
+      reportedName:  userMap.get(r.reportedUserId)?.name  || `User #${r.reportedUserId}`,
+      reportedEmail: userMap.get(r.reportedUserId)?.email || null,
+    })));
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to fetch user reports" });
+  }
+});
+
+router.patch("/user-reports/:id/resolve", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    const { status } = req.body;
+    if (!["reviewed", "dismissed"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status. Use 'reviewed' or 'dismissed'" });
+    }
+    await db.update(reportsTable).set({ status } as any).where(eq(reportsTable.id, id));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to update report" });
+  }
 });
 
 export default router;

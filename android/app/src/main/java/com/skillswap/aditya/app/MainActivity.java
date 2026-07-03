@@ -1,4 +1,4 @@
-package com.skillswap.app;
+package com.skillswap.aditya.app;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;

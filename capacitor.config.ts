@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.skillswap.app',
+  appId: 'com.skillswap.aditya.app',
   appName: 'SkillSwap',
   webDir: 'dist',
   server: {

@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,7 +75,7 @@ export default function Sessions() {
     const allLive = [...live, ...enrolled];
     if (allLive.length === 0) return;
     const interval = setInterval(() => {
-      // 🔥 EXPERT FIX: Prevent background polling & Reduced frequency to 60s
+      // ?? EXPERT FIX: Prevent background polling & Reduced frequency to 60s
       if (document.visibilityState !== "visible") return;
       
       allLive.forEach((s: any) => {
@@ -176,7 +177,7 @@ export default function Sessions() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast({ title: "Session Ended! 🎉", description: data.message });
+        toast({ title: "Session Ended! ??", description: data.message });
         invalidate();
       } else {
         toast({ title: "Error", description: data.error, variant: "destructive" });
@@ -193,7 +194,7 @@ export default function Sessions() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast({ title: "Joined! 🎉", description: `${creditsAmount} credits deducted. You're in!` });
+        toast({ title: "Joined! ??", description: `${creditsAmount} credits deducted. You're in!` });
         fetchGroupBrowse(); fetchMyEnrollments(); invalidate();
       } else {
         toast({ title: "Couldn't join", description: data.error, variant: "destructive" });
@@ -226,7 +227,7 @@ export default function Sessions() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setGroupMembers(data.members || []);
+      setGroupMembers(Array.isArray(data) ? data : data.members || []);
     } catch { setGroupMembers([]); }
     setMembersLoading(false);
   };
@@ -249,7 +250,7 @@ export default function Sessions() {
         }),
       });
       if (res.ok) {
-        toast({ title: "Group Class Created! 🎓", description: "Students can now join your session." });
+        toast({ title: "Group Class Created! ??", description: "Students can now join your session." });
         setGroupModal(false);
         setGroupForm({ skill: "", scheduledDate: "", creditsAmount: "20", maxStudents: "10", message: "", sessionType: "standard" });
         invalidate();
@@ -369,9 +370,9 @@ export default function Sessions() {
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════
+      {/* -------------------------------------------
           GROUP BROWSE TAB
-          ═══════════════════════════════════════════ */}
+          ------------------------------------------- */}
       {tab === "groups" && (
         <div className="space-y-4">
 
@@ -396,7 +397,7 @@ export default function Sessions() {
                         <p className="font-black text-slate-800 text-sm">{session.skill}</p>
                         <p className="text-[11px] text-slate-500 font-medium">by {session.mentor?.name || "Mentor"}</p>
                         <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                          {format(new Date(session.scheduledDate), "EEE, MMM d • h:mm a")}
+                          {format(new Date(session.scheduledDate), "EEE, MMM d � h:mm a")}
                           <span className="ml-2 text-emerald-600 font-bold">{session.enrolledCount}/{session.maxStudents} students</span>
                         </p>
                       </div>
@@ -439,7 +440,7 @@ export default function Sessions() {
             <div className="p-12 text-center rounded-[24px] border border-gray-100 bg-white shadow-sm">
               <Users className="w-12 h-12 text-slate-200 mx-auto mb-3" />
               <h3 className="text-xl font-black mb-1 text-slate-800">No group classes available</h3>
-              <p className="text-slate-500 text-sm font-medium">Check back soon — mentors are creating new group sessions!</p>
+              <p className="text-slate-500 text-sm font-medium">Check back soon � mentors are creating new group sessions!</p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -476,7 +477,7 @@ export default function Sessions() {
                     <div className="flex flex-wrap gap-2 text-[11px] font-bold">
                       <span className="text-slate-600 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
                         <CalendarDays className="w-3 h-3 text-[#6C3BFF]" />
-                        {format(new Date(session.scheduledDate), "EEE, MMM d • h:mm a")}
+                        {format(new Date(session.scheduledDate), "EEE, MMM d � h:mm a")}
                       </span>
                       <span className="text-[#6C3BFF] bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
                         <Coins className="w-3 h-3" /> {session.creditsAmount} cr / student
@@ -518,7 +519,7 @@ export default function Sessions() {
                       ) : session.isEnrolled ? (
                         <div className="flex gap-2">
                           <Button disabled className="flex-1 bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold rounded-full h-9 text-xs">
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Enrolled ✓
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Enrolled ?
                           </Button>
                           {session.status === "accepted" && (
                             <Button variant="outline" size="sm" onClick={() => leaveGroupSession(session.id)}
@@ -538,7 +539,7 @@ export default function Sessions() {
                           className="w-full bg-gradient-to-r from-[#6C3BFF] to-[#8B5CF6] text-white font-bold rounded-full h-9 text-xs shadow-sm">
                           {joinLoading === session.id
                             ? <Loader2 className="w-4 h-4 animate-spin" />
-                            : <><Coins className="w-3.5 h-3.5 mr-1.5" /> Join — {session.creditsAmount} credits</>}
+                            : <><Coins className="w-3.5 h-3.5 mr-1.5" /> Join � {session.creditsAmount} credits</>}
                         </Button>
                       )}
                     </div>
@@ -557,9 +558,9 @@ export default function Sessions() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════
+      {/* -------------------------------------------
           LEARNING / TEACHING SESSIONS LIST
-          ═══════════════════════════════════════════ */}
+          ------------------------------------------- */}
       {tab !== "groups" && (
         <div className="space-y-4">
           {isLoading ? (
@@ -615,16 +616,24 @@ export default function Sessions() {
                             )}
                           </div>
 
-                          <p className="text-xs font-medium text-slate-500 mb-3 flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5" />
-                            {tab === "learning" ? "Mentor: " : "Student: "}
-                            <span className="text-slate-800 font-bold">{otherName}</span>
-                          </p>
+                          {/* ✅ Isko change karke aise likhein: */}
+<p className="text-xs font-medium text-slate-500 mb-3 flex items-center gap-1.5">
+  <User className="w-3.5 h-3.5" />
+  {tab === "learning" ? "Mentor: " : "Student: "}
+  
+  {tab === "learning" && otherUser?.id ? (
+    <Link href={`/mentor/${otherUser.id}`} className="text-[#6C3BFF] font-bold hover:underline cursor-pointer">
+      {otherName}
+    </Link>
+  ) : (
+    <span className="text-slate-800 font-bold">{otherName}</span>
+  )}
+</p>
 
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-md flex items-center gap-1.5">
                               <CalendarDays className="w-3 h-3 text-[#6C3BFF]" />
-                              {format(new Date(session.scheduledDate), "EEE, MMM d • h:mm a")}
+                              {format(new Date(session.scheduledDate), "EEE, MMM d � h:mm a")}
                             </span>
                             <span className="text-[11px] font-bold text-[#6C3BFF] bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md flex items-center gap-1.5">
                               <Coins className="w-3 h-3" />{session.creditsAmount} cr
@@ -647,7 +656,7 @@ export default function Sessions() {
                       {/* ACTION BUTTONS */}
                       <div className="flex flex-col items-end gap-2 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-100 shrink-0">
 
-                        {/* ── TEACHING: 1-on-1 Requested ── */}
+                        {/* -- TEACHING: 1-on-1 Requested -- */}
                         {tab === "teaching" && !isGroupSession && session.status === "requested" && (
                           <div className="flex gap-2 w-full md:w-auto">
                             <Button variant="outline" size="sm" className="flex-1 md:flex-none text-blue-600 border-blue-100 hover:bg-blue-50 font-bold rounded-full text-xs"
@@ -665,7 +674,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* ── TEACHING: 1-on-1 Accepted → OTP ── */}
+                        {/* -- TEACHING: 1-on-1 Accepted ? OTP -- */}
                         {tab === "teaching" && !isGroupSession && session.status === "accepted" && (
                           <div className="flex flex-col items-end gap-1.5 w-full md:w-auto">
                             <Button size="sm" className="w-full md:w-auto bg-[#6C3BFF] text-white font-bold rounded-full text-xs h-8"
@@ -679,7 +688,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* ── TEACHING: GROUP Accepted → Start Group ── */}
+                        {/* -- TEACHING: GROUP Accepted ? Start Group -- */}
                         {tab === "teaching" && isGroupSession && session.status === "accepted" && (
                           <div className="flex flex-col gap-2 w-full md:w-auto">
                             <div className="text-[11px] text-slate-500 font-bold text-right">
@@ -703,7 +712,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* ── TEACHING: GROUP In Progress → End Group ── */}
+                        {/* -- TEACHING: GROUP In Progress ? End Group -- */}
                         {tab === "teaching" && isGroupSession && session.status === "in_progress" && (
                           <div className="flex flex-col gap-2 w-full md:w-auto">
                             {session.meetLink && (
@@ -726,7 +735,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* ── LEARNING: Requested ── */}
+                        {/* -- LEARNING: Requested -- */}
                         {tab === "learning" && session.status === "requested" && (
                           <Button variant="outline" size="sm"
                             className="w-full md:w-auto text-red-500 border-red-100 hover:bg-red-50 font-bold rounded-full text-xs h-8"
@@ -735,14 +744,14 @@ export default function Sessions() {
                           </Button>
                         )}
 
-                        {/* ── LEARNING: Accepted (OTP + Meet Link) ── */}
+                        {/* -- LEARNING: Accepted (OTP + Meet Link) -- */}
                         {tab === "learning" && session.status === "accepted" && (
                           <div className="flex flex-col gap-2 w-full md:w-auto bg-slate-50 p-3 rounded-[16px] border border-gray-100">
                             {!isGroupSession && (
                               <div className="flex items-center justify-between w-full gap-4">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase">Your OTP:</span>
                                 <span className="font-mono font-black text-[#6C3BFF] tracking-widest text-sm bg-white px-2 py-0.5 rounded border border-gray-200">
-                                  {session.sessionOtp || "••••••"}
+                                  {session.sessionOtp || "������"}
                                 </span>
                               </div>
                             )}
@@ -761,7 +770,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* ── BOTH: In Progress ── */}
+                        {/* -- BOTH: In Progress -- */}
                         {session.status === "in_progress" && (
                           <div className="flex flex-col gap-2 w-full md:w-auto">
                             {session.meetLink && (
@@ -782,7 +791,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* ── LEARNING: Completed → Rate ── */}
+                        {/* -- LEARNING: Completed ? Rate -- */}
                         {tab === "learning" && session.status === "completed" && !session.teacherRating && !isGroupSession && (
                           <Button variant="outline" size="sm"
                             className="w-full md:w-auto border-orange-200 text-orange-500 hover:bg-orange-50 font-bold rounded-full text-xs h-8"
@@ -808,9 +817,9 @@ export default function Sessions() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════
+      {/* -------------------------------------------
           MODALS
-          ═══════════════════════════════════════════ */}
+          ------------------------------------------- */}
 
       {/* OTP Dialog */}
       <Dialog open={!!otpModal} onOpenChange={o => !o && setOtpModal(null)}>
@@ -824,7 +833,7 @@ export default function Sessions() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 flex flex-col items-center">
-            <Input type="text" maxLength={6} placeholder="• • • • • •" value={otpInput}
+            <Input type="text" maxLength={6} placeholder="� � � � � �" value={otpInput}
               onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
               className="text-center text-3xl tracking-[0.5em] font-mono h-16 w-full bg-slate-50 border border-slate-200 focus-visible:ring-[#6C3BFF] rounded-2xl" />
           </div>
@@ -919,7 +928,7 @@ export default function Sessions() {
                 className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm font-medium" />
             </div>
             <p className="text-[10px] text-slate-400 font-medium bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-              💡 You earn: (students × credits) − 15% platform fee, paid when you end the session.
+              ?? You earn: (students � credits) - 15% platform fee, paid when you end the session.
             </p>
           </div>
           <DialogFooter className="mt-2 gap-2">
@@ -939,7 +948,7 @@ export default function Sessions() {
               <Users className="w-5 h-5 text-[#6C3BFF]" /> Enrolled Students
             </DialogTitle>
             <DialogDescription className="text-slate-500 text-xs font-medium mt-1">
-              {membersModal?.skill} • {groupMembers.length}/{membersModal?.maxStudents} enrolled
+              {membersModal?.skill} � {groupMembers.length}/{membersModal?.maxStudents} enrolled
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-2 max-h-64 overflow-y-auto">
@@ -1000,3 +1009,4 @@ export default function Sessions() {
     </div>
   );
 }
+
