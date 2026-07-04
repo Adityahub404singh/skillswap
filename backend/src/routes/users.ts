@@ -1,6 +1,6 @@
 ﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
 import { usersTable } from "../schema/index.js";
@@ -130,6 +130,23 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// DELETE /api/users/me — Account deletion (Google Play + GDPR policy)
+router.delete("/me", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    // Cancel all active sessions
+    await db.execute(sql`UPDATE sessions SET status='cancelled', cancel_reason='Account deleted' WHERE student_id=${userId} OR mentor_id=${userId}`);
+    // Delete all user data
+    await db.execute(sql`DELETE FROM notifications WHERE user_id=${userId}`);
+    await db.execute(sql`DELETE FROM swipes WHERE swiper_id=${userId} OR swiped_on_id=${userId}`);
+    await db.execute(sql`DELETE FROM group_enrollments WHERE student_id=${userId}`);
+    await db.execute(sql`DELETE FROM transactions WHERE user_id=${userId}`);
+    await db.execute(sql`DELETE FROM ratings WHERE student_id=${userId} OR mentor_id=${userId}`);
+    await db.delete(usersTable).where(eq(usersTable.id, userId));
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;

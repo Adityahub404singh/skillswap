@@ -45,7 +45,7 @@ export default function AIChat() {
       const data = await res.json();
       setMessages(prev => [...prev, { role: "ai", text: data.reply || "Sorry, I could not process that. Try again!", time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }]);
     } catch {
-      setMessages(prev => [...prev, { role: "ai", text: "Connection error! Please try again. 😅", time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }]);
+      setMessages(prev => [...prev, { role: "ai", text: "AI service is temporarily unavailable. Please try again in a moment. 🙏", time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }]);
     }
     setLoading(false);
   };

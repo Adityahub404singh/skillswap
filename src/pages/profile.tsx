@@ -3,7 +3,7 @@ import { useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useAuthStore } from "@/store/auth";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation, Link } from "wouter"; // ✅ Link imported here
+import { useLocation, Link } from "wouter"; 
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Camera, CameraResultType } from "@capacitor/camera";
@@ -49,7 +49,6 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState<"profile"|"badges"|"portfolio"|"reviews">("profile");
   const [copied, setCopied] = useState(false);
 
-  // 🔥 FIX: Ab mentor apne khud ke reviews dekh sakta hai (pehle ye kahin nahi tha)
   const { data: myRatings, isLoading: ratingsLoading } = useGetMentorRatings(user?.id || 0, {
     ...options,
     query: { queryKey: ["ratings", user?.id], enabled: !!user?.id },
@@ -87,7 +86,7 @@ export default function Profile() {
         body: JSON.stringify({
           name: name.trim(),
           bio: bio.trim(),
-          avatar: avatar.trim() || undefined,
+          avatar: (avatar.trim() && avatar.startsWith("https://") && !avatar.startsWith("data:")) ? avatar.trim() : undefined,
           linkedinUrl: linkedinUrl.trim() || undefined,
           location: userLocation.trim() || undefined,
           pricePerHour: Number(pricePerHour),
@@ -108,6 +107,32 @@ export default function Profile() {
   const handleLogout = () => {
     logout();
     setLocation("/login");
+  };
+
+  // ✅ NEW FUNCTION ADDED HERE TO FIX THE ERROR
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm("Are you sure you want to delete your account? This action cannot be undone.");
+    if (!confirmed) return;
+
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/users/me`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete account");
+      }
+
+      toast({ title: "Account Deleted", description: "Your account has been permanently removed." });
+      logout();
+      setLocation("/login");
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
   };
 
   const handleCamera = async () => {
@@ -201,7 +226,6 @@ export default function Profile() {
                 <Sparkles className="w-3.5 h-3.5 text-white/90" /> {user.credits} cr
               </span>
               
-              {/* ✅ NEW: Leaderboard Link Button added here */}
               <Link href="/leaderboard">
                 <span className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 border border-white/40 rounded-full px-3 py-1 text-xs font-bold transition-colors cursor-pointer text-white shadow-sm">
                   <Trophy className="w-3.5 h-3.5 text-yellow-300" /> View Leaderboard
@@ -246,7 +270,19 @@ export default function Profile() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Avatar URL</label>
-                <Input value={avatar} onChange={e => setAvatar(e.target.value)} placeholder="https://..." className="rounded-xl bg-slate-50 border-slate-100" />
+                <Input
+                  value={avatar}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v.startsWith("data:") || v.length > 500) return;
+                    setAvatar(v);
+                  }}
+                  placeholder="https://example.com/photo.jpg"
+                  className="rounded-xl bg-slate-50 border-slate-100"
+                />
+                {avatar && !avatar.startsWith("https://") && avatar.length > 0 && (
+                  <p className="text-xs text-red-500 mt-1">Only https:// URLs allowed</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">LinkedIn Profile</label>
@@ -334,6 +370,9 @@ export default function Profile() {
             <Button onClick={handleLogout} variant="outline" className="w-full rounded-full h-14 font-bold text-sm text-red-500 border-red-100 hover:bg-red-50 hover:text-red-600">
               <LogOut className="w-4 h-4 mr-2" /> Log out securely
             </Button>
+            <button onClick={handleDeleteAccount} className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors py-2 underline-offset-2 underline">
+              Delete my account permanently
+            </button>
           </div>
         </motion.div>
       )}
