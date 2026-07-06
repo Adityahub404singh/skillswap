@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,6 +37,7 @@ export default function Sessions() {
   const token       = useAuthStore(s => s.token);
   const queryClient = useQueryClient();
   const { toast }   = useToast();
+  const [location]  = useLocation();
 
   const [tab,            setTab]           = useState<SessionTab>("learning");
   const [statusFilter,   setStatusFilter]  = useState<StatusFilter>("all");
@@ -64,6 +65,20 @@ export default function Sessions() {
     const t = setInterval(() => setTick(x => x + 1), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Read ?tab=teaching/learning/groups & ?action=create from URL (e.g. coming from Dashboard links)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    const actionParam = params.get("action");
+
+    if (tabParam === "teaching" || tabParam === "learning" || tabParam === "groups") {
+      setTab(tabParam as SessionTab);
+    }
+    if (actionParam === "create") {
+      setGroupModal(true);
+    }
+  }, [location]);
 
   const { data: user }        = useGetMe(options);
   const { data: allSessions, isLoading } = useGetMySessions({ role: tab === "learning" ? "student" : "mentor" }, options);
@@ -279,6 +294,10 @@ export default function Sessions() {
   const myId = (user as any)?.id;
 
   const sessions = (allSessions || []).filter((s: any) => {
+    // Hard isolation: teaching tab shows ONLY sessions where I'm the mentor,
+    // learning tab shows ONLY sessions where I'm the student.
+    if (tab === "teaching" && s.mentorId !== myId) return false;
+    if (tab === "learning" && s.studentId !== myId) return false;
     if (s.isGroup === 1 && tab === "learning" && s.mentorId === myId) return false;
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     return true;
@@ -295,11 +314,12 @@ export default function Sessions() {
 
   const getStatusBadge = (status: string) => {
     const cfg: Record<string, { label: string; icon: any; cls: string }> = {
-      requested:   { label: "Pending",   icon: Clock,        cls: "bg-amber-50 text-amber-600 border-amber-100" },
-      accepted:    { label: "Upcoming",  icon: CalendarDays, cls: "bg-blue-50 text-blue-600 border-blue-100" },
-      in_progress: { label: "Live Now",  icon: Video,        cls: "bg-indigo-600 text-white border-indigo-600 animate-pulse" },
-      completed:   { label: "Completed", icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-600 border-emerald-100" },
-      cancelled:   { label: "Cancelled", icon: XCircle,      cls: "bg-red-50 text-red-600 border-red-100" },
+      requested:        { label: "Pending",   icon: Clock,        cls: "bg-amber-50 text-amber-600 border-amber-100" },
+      accepted:         { label: "Upcoming",  icon: CalendarDays, cls: "bg-blue-50 text-blue-600 border-blue-100" },
+      in_progress:      { label: "Live Now",  icon: Video,        cls: "bg-indigo-600 text-white border-indigo-600 animate-pulse" },
+      pending_clearance:{ label: "Ended",     icon: CheckCircle2, cls: "bg-slate-100 text-slate-500 border-slate-200" },
+      completed:        { label: "Completed", icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-600 border-emerald-100" },
+      cancelled:        { label: "Cancelled", icon: XCircle,      cls: "bg-red-50 text-red-600 border-red-100" },
     };
     const c = cfg[status] || cfg["requested"];
     const Icon = c.icon;
@@ -369,6 +389,7 @@ export default function Sessions() {
           </div>
         )}
       </div>
+      
 
       {/* -------------------------------------------
           GROUP BROWSE TAB
@@ -528,6 +549,12 @@ export default function Sessions() {
                             </Button>
                           )}
                         </div>
+                      ) : session.status !== "accepted" ? (
+                        // ?? FIX: Not enrolled AND session already started/ended � never show a joinable button.
+                        // Backend already blocks this (status !== accepted), this just fixes the misleading UI.
+                        <Button disabled className="w-full bg-slate-100 text-slate-400 font-bold rounded-full h-9 text-xs">
+                          {session.status === "in_progress" ? "Already Started" : "Class Ended"}
+                        </Button>
                       ) : session.isFull ? (
                         <Button disabled className="w-full bg-slate-100 text-slate-400 font-bold rounded-full h-9 text-xs">
                           Session Full

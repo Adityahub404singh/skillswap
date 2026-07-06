@@ -54,6 +54,15 @@ export default function Profile() {
     query: { queryKey: ["ratings", user?.id], enabled: !!user?.id },
   });
 
+  // Read ?tab=profile/badges/portfolio/reviews from URL (deep-link from Dashboard or elsewhere)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    if (tabParam === "profile" || tabParam === "badges" || tabParam === "portfolio" || tabParam === "reviews") {
+      setActiveTab(tabParam);
+    }
+  }, []);
+
   const unlockedBadges: number[] = [];
   if (user && user.sessionsCompleted > 0) unlockedBadges.push(0);
   if (user && (user as any).currentStreak >= 7) unlockedBadges.push(1);

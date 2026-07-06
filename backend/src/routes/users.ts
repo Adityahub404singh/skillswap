@@ -1,9 +1,9 @@
 ﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-import { usersTable } from "../schema/index.js";
+import { usersTable, sessionsTable, transactionsTable, groupEnrollmentsTable } from "../schema/index.js";
 
 const router: IRouter = Router();
 
@@ -169,6 +169,64 @@ router.patch("/me", requireAuth, async (req: AuthRequest, res) => {
 router.delete("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const userId = req.userId!;
+
+    // ?? FIX: Previously this route jumped straight to a raw
+    // "UPDATE sessions SET status='cancelled' ..." which silently cancelled
+    // every session tied to this user (as mentor OR student) with ZERO refund.
+    // If this user was a MENTOR on an active 1-on-1 booking, or ran a group
+    // class students had already paid into, those students' escrowed credits
+    // were stuck forever — the account got deleted but the money never came
+    // back. We refund everyone affected FIRST, before any cancel/delete happens.
+
+    // 1. Refund students on this user's still-active 1-on-1 sessions (as mentor)
+    const activeMentor1on1 = await db.select().from(sessionsTable).where(
+      and(
+        eq(sessionsTable.mentorId, userId),
+        inArray(sessionsTable.status, ["requested", "accepted", "in_progress"]),
+        eq(sessionsTable.isGroup as any, 0),
+      )
+    );
+    for (const s of activeMentor1on1) {
+      if (s.studentId > 0 && s.creditsAmount > 0) {
+        await db.update(usersTable)
+          .set({ credits: sql`${usersTable.credits} + ${s.creditsAmount}` })
+          .where(eq(usersTable.id, s.studentId));
+        await db.insert(transactionsTable).values({
+          userId: s.studentId, type: "refund", amount: s.creditsAmount,
+          description: `[REFUND] Mentor deleted their account: ${s.skill}`, sessionId: s.id,
+        } as any);
+      }
+    }
+
+    // 2. Refund every actively-enrolled student in this user's group classes (as mentor)
+    const activeMentorGroups = await db.select().from(sessionsTable).where(
+      and(
+        eq(sessionsTable.mentorId, userId),
+        eq(sessionsTable.isGroup as any, 1),
+        inArray(sessionsTable.status, ["accepted", "in_progress"]),
+      )
+    );
+    if (activeMentorGroups.length > 0) {
+      const groupIds = activeMentorGroups.map(s => s.id);
+      const activeEnrollments = await db.select().from(groupEnrollmentsTable).where(
+        and(inArray(groupEnrollmentsTable.sessionId, groupIds), eq(groupEnrollmentsTable.status, "active"))
+      );
+      for (const e of activeEnrollments) {
+        await db.update(usersTable)
+          .set({ credits: sql`${usersTable.credits} + ${e.creditsAmount}` })
+          .where(eq(usersTable.id, e.studentId));
+        await db.insert(transactionsTable).values({
+          userId: e.studentId, type: "refund", amount: e.creditsAmount,
+          description: `[REFUND] Mentor deleted their account before group class`, sessionId: e.sessionId,
+        } as any);
+      }
+      if (activeEnrollments.length > 0) {
+        await db.update(groupEnrollmentsTable)
+          .set({ status: "refunded", refundAmount: sql`${groupEnrollmentsTable.creditsAmount}`, refundedAt: new Date() } as any)
+          .where(and(inArray(groupEnrollmentsTable.sessionId, groupIds), eq(groupEnrollmentsTable.status, "active")));
+      }
+    }
+
     // Cancel all active sessions
     await db.execute(sql`UPDATE sessions SET status='cancelled', cancel_reason='Account deleted' WHERE student_id=${userId} OR mentor_id=${userId}`);
     // Delete all user data
