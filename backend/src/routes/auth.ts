@@ -260,6 +260,15 @@ router.post("/login", async (req, res) => {
     const valid = await bcrypt.compare(body.password, user.passwordHash!);
     if (!valid) return res.status(401).json({ error: "Unauthorized", message: "Invalid credentials" });
 
+    // 🔥 FIX: Admin panel had Suspend and Ban buttons, but login never checked
+    // either flag — a suspended/banned user could still log in normally.
+    if ((user as any).isSuspended) {
+      return res.status(403).json({ error: "Account suspended", message: "Your account has been suspended. Contact support if you believe this is a mistake." });
+    }
+    if ((user.trustScore ?? 0) <= -999) {
+      return res.status(403).json({ error: "Account banned", message: "Your account has been banned." });
+    }
+
     if (!user.isEmailVerifiedStatus) {
       const otp = generateOtp();
       await db.update(usersTable)
@@ -351,6 +360,15 @@ router.post("/google", async (req, res) => {
         })
         .where(eq(usersTable.email, email));
       [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    }
+
+    // 🔥 FIX: Same suspend/ban check as password login — otherwise a suspended
+    // user could bypass the block entirely by signing in with Google instead.
+    if ((user as any).isSuspended) {
+      return res.status(403).json({ error: "Account suspended", message: "Your account has been suspended. Contact support if you believe this is a mistake." });
+    }
+    if ((user.trustScore ?? 0) <= -999) {
+      return res.status(403).json({ error: "Account banned", message: "Your account has been banned." });
     }
 
     const token = signToken({ userId: user.id, email: user.email });

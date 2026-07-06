@@ -65,7 +65,7 @@ export default function BuyCredits() {
           });
           const result = await verifyRes.json();
           if (result.success) {
-            toast({ title: "?? Payment Successful!", description: `${pkg.credits} credits have been added to your wallet!` });
+            toast({ title: "🎉 Payment Successful!", description: `${pkg.credits} credits have been added to your wallet!` });
             queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
             queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
           } else {
@@ -147,7 +147,7 @@ export default function BuyCredits() {
                 <p className="text-sm font-semibold text-slate-500 mb-6">Learning Credits</p>
 
                 <div className="text-3xl font-extrabold text-slate-900 mb-8 flex items-center justify-center gap-1">
-                  <span className="text-lg text-slate-400 font-medium">?</span>{pkg.price}
+                  <span className="text-lg text-slate-400 font-medium">₹</span>{pkg.price}
                 </div>
 
                 <ul className="text-sm text-slate-600 space-y-3 text-left w-full mb-8 font-medium">
@@ -175,7 +175,7 @@ export default function BuyCredits() {
                 onClick={() => handleBuy(pkg)}
                 disabled={loading === pkg.id}
               >
-                {loading === pkg.id ? <Loader2 className="w-6 h-6 animate-spin" /> : `Pay ?${pkg.price}`}
+                {loading === pkg.id ? <Loader2 className="w-6 h-6 animate-spin" /> : `Pay ₹${pkg.price}`}
               </Button>
             </motion.div>
           );

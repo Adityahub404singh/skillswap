@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import { db } from "../db.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
 import { pgTable, serial, integer, real, text, timestamp } from "drizzle-orm/pg-core";
+import { sessionsTable } from "../schema/index.js";
 
 const ratingsTable = pgTable("ratings", {
   id:        serial("id").primaryKey(),
@@ -42,6 +43,19 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       review:    z.string().max(500).optional(),
     }).parse(req.body);
 
+    // 🔥 FIX: Verify the rater actually took this session with this mentor,
+    // and that the session is done — otherwise anyone could fake-rate anyone.
+    const [session] = await db.select().from(sessionsTable).where(
+      and(eq(sessionsTable.id, sessionId), eq(sessionsTable.mentorId, mentorId))
+    );
+    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (session.studentId !== req.userId!) {
+      return res.status(403).json({ error: "Only the student who took this session can rate it" });
+    }
+    if (!["completed", "pending_clearance"].includes(session.status)) {
+      return res.status(400).json({ error: "Session must be completed before rating" });
+    }
+
     const [r] = await db.insert(ratingsTable).values({
       sessionId, mentorId, rating,
       review: review ?? null,
@@ -54,4 +68,3 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
-

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "../db.js";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { transactionsTable, usersTable } from "../schema/index.js"; 
 
@@ -27,7 +27,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 2. FETCH TRANSACTION HISTORY (?? EXPERT FIX: Added LIMIT 100 to prevent bandwidth leak)
+// 2. FETCH TRANSACTION HISTORY (🔥 EXPERT FIX: Added LIMIT 100 to prevent bandwidth leak)
 router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
     try {
         const history = await db.select()
@@ -41,7 +41,7 @@ router.get("/transactions", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 3. ?? BULLETPROOF WITHDRAWAL LOGIC
+// 3. 🛡️ BULLETPROOF WITHDRAWAL LOGIC
 router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
     try {
         const { amount, upiId } = req.body;
@@ -52,7 +52,7 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
         const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
         if (user.credits < amount) return res.status(400).json({ error: "Insufficient balance." });
 
-        // ?? FRAUD FIX: Check "Unmatured" credits instead of all-time matured
+        // 🔥 FRAUD FIX: Check "Unmatured" credits instead of all-time matured
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
         const now = Date.now();
 
@@ -73,32 +73,42 @@ router.post("/withdraw", requireAuth, async (req: AuthRequest, res) => {
             });
         }
 
-        // ?? 15% WITHDRAWAL CUT LOGIC (Platform Profit)
+        // 🔥 15% WITHDRAWAL CUT LOGIC (Platform Profit)
         const platformCut = Math.round(amount * 0.15);
         const finalPayout = amount - platformCut;
 
-        // ?? ATOMIC TRANSACTION: Ensuring DB doesn't deduct money if transaction log fails
-        await db.transaction(async (tx) => {
-            // 1. Deduct full amount from user wallet
-            await tx.update(usersTable)
+        // ✅ ATOMIC + RACE-SAFE: deduction condition (credits >= amount) is checked
+        // INSIDE the same UPDATE statement, not in a separate earlier SELECT. This
+        // closes the gap where two quick withdrawal requests could both pass the
+        // earlier balance check and both deduct, pushing balance negative.
+        const result = await db.transaction(async (tx) => {
+            const updated = await tx.update(usersTable)
               .set({ credits: sql`${usersTable.credits} - ${amount}` })
-              .where(eq(usersTable.id, req.userId!));
-            
-            // 2. Save transaction with 15% fee details
+              .where(and(eq(usersTable.id, req.userId!), sql`${usersTable.credits} >= ${amount}`))
+              .returning({ credits: usersTable.credits });
+
+            if (updated.length === 0) {
+                // Someone else's concurrent request already spent the balance
+                throw new Error("INSUFFICIENT_BALANCE_RACE");
+            }
+
             await tx.insert(transactionsTable).values({
-                userId: req.userId!, 
-                type: "withdrawal_pending", 
+                userId: req.userId!,
+                type: "withdrawal_pending",
                 amount: -amount,
                 description: `Payout: Rs ${finalPayout} (15% fee: ${platformCut} cr). UPI: ${upiId}`
             });
+
+            return updated[0];
         });
 
         res.json({ success: true, message: `Withdrawal requested! Rs ${finalPayout} will be credited to your UPI within 24-48 hours.` });
     } catch (err: any) {
+        if (err.message === "INSUFFICIENT_BALANCE_RACE") {
+            return res.status(400).json({ error: "Insufficient balance. Please refresh and try again." });
+        }
         res.status(500).json({ error: "Server error. Please try again." });
     }
 });
 
 export default router;
-
-

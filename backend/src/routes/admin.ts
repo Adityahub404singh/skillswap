@@ -193,7 +193,10 @@ router.patch("/users/:id/verify", requireAuth, requireAdmin, async (req, res) =>
   try {
       const userId = parseInt(req.params.id as string);
       const { isPremium } = req.body;
-      await db.update(usersTable).set({ isPremium } as any).where(eq(usersTable.id, userId));
+      // 🔥 FIX: Schema column is 'isPremiumUser', not 'isPremium'. The old code
+      // silently updated nothing — the Verify button showed a success toast
+      // but the DB value never changed.
+      await db.update(usersTable).set({ isPremiumUser: isPremium } as any).where(eq(usersTable.id, userId));
       res.json({ success: true });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
@@ -334,7 +337,7 @@ router.patch("/users/:id/suspend", requireAuth, requireAdmin, async (req: AuthRe
     if (!user) return res.status(404).json({ error: "User not found" });
 
     await db.update(usersTable).set({
-      isSuspended: suspend ? 1 : 0,
+      isSuspended: !!suspend,
     } as any).where(eq(usersTable.id, userId));
 
     await db.insert(transactionsTable).values({

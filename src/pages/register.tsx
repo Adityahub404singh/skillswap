@@ -8,7 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Preferences } from '@capacitor/preferences';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import {
   ArrowRight, User, Mail, Lock, Loader2, BookOpen,
   Lightbulb, Check, Sparkles, Gift, Tag, Zap, Star
@@ -33,11 +36,18 @@ const registerSchema = z.object({
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
+const isNative = Capacitor.isNativePlatform();
+
 export default function Register() {
   const [, setLocation] = useLocation();
   const { setToken } = useAuthStore();
   const { toast } = useToast();
+  
   const [step, setStep] = useState(0); // 0 = account, 1 = skills
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const googleButtonContainerRef = useRef<HTMLDivElement>(null);
+  const gisInitializedRef = useRef(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const refCode = urlParams.get("ref") || "";
@@ -78,13 +88,11 @@ export default function Register() {
   const registerMutation = useRegisterUser({
     mutation: {
       onSuccess: (resData: any, variables: any) => {
-        // 🔥 ULTIMATE FIX: Jab register success ho, directly OTP page pe bhej do!
         toast({ 
           title: "Check your email! ✉️", 
           description: "We've sent a 6-digit OTP to verify your account." 
         });
         
-        // Form mein jo email dala tha, usko URL mein attach karke verify page pe bhej rahe hain
         const registeredEmail = variables?.data?.email || "";
         setLocation(`/verify-email?email=${encodeURIComponent(registeredEmail)}`);
       },
@@ -118,11 +126,100 @@ export default function Register() {
     });
   };
 
-  const handleGoogleSignIn = () => {
-    toast({
-      title: "Coming Soon 🚀",
-      description: "Google Sign-In is in progress. Use email for now.",
-    });
+  // -----------------------------------------
+  // Google ID token verification (Supports optional referralCode)
+  // -----------------------------------------
+  const loginWithGoogleIdToken = async (idToken: string) => {
+    try {
+      setGoogleLoading(true);
+      const referralCode = getValues("referralCode"); // Fetch referral code if entered
+      
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, referralCode: referralCode || undefined }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || "Google sign-in failed");
+
+      await Preferences.set({ key: 'skillswap_token', value: data.token });
+      localStorage.setItem("skillswap_token", data.token);
+      setToken(data.token);
+      toast({ title: "Welcome! ✨", description: "Account created/signed in with Google." });
+      setLocation("/dashboard");
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Google Sign-In failed",
+        description: err.message,
+      });
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  // -----------------------------------------
+  // WEB ONLY: Google Identity Services initialization
+  // -----------------------------------------
+  useEffect(() => {
+    if (isNative || step !== 0) return; 
+    if (gisInitializedRef.current) return;
+
+    let cancelled = false;
+
+    const tryInit = () => {
+      const g = (window as any).google;
+      if (!g?.accounts?.id) {
+        if (!cancelled) setTimeout(tryInit, 100);
+        return;
+      }
+      if (gisInitializedRef.current) return;
+      gisInitializedRef.current = true;
+
+      g.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: (response: any) => loginWithGoogleIdToken(response.credential),
+      });
+
+      if (googleButtonContainerRef.current) {
+        const width = googleButtonContainerRef.current.offsetWidth || 400;
+        g.accounts.id.renderButton(googleButtonContainerRef.current, {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          width,
+          text: "signup_with", // Changed to "signup_with" for Register page
+        });
+      }
+    };
+
+    tryInit();
+    return () => { cancelled = true; };
+  }, [step]); // Re-run if step changes just in case, though it only renders on step 0
+
+  // -----------------------------------------
+  // NATIVE ONLY (Android APK)
+  // -----------------------------------------
+  const handleNativeGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      const googleUser = await GoogleAuth.signIn();
+      const idToken = (googleUser as any)?.authentication?.idToken;
+      if (!idToken) throw new Error("No ID token received from Google");
+      await loginWithGoogleIdToken(idToken);
+    } catch (err: any) {
+      setGoogleLoading(false);
+      const code = String(err?.code ?? "");
+      const isUserCancelled = code === "12501" || err?.message === "popup_closed_by_user";
+      if (!isUserCancelled) {
+        toast({
+          variant: "destructive",
+          title: "Google Sign-In failed",
+          description: err?.message || "Please try again.",
+        });
+      }
+    }
   };
 
   return (
@@ -131,7 +228,7 @@ export default function Register() {
       {/* ── LEFT PANEL (desktop only) ── */}
       <div className="hidden lg:flex lg:w-[42%] flex-col justify-between p-12 relative overflow-hidden"
         style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
-
+        
         {/* Ambient glow */}
         <div className="absolute top-[-80px] left-[-80px] w-[340px] h-[340px] rounded-full"
           style={{ background: "radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%)" }} />
@@ -240,17 +337,39 @@ export default function Register() {
             {/* ── STEP 0: Account ── */}
             {step === 0 && (
               <>
-                {/* Google */}
-                <button type="button" onClick={handleGoogleSignIn}
-                  className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-semibold">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="18" height="18">
-                    <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
-                    <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
-                    <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
-                    <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
-                  </svg>
-                  Continue with Google
-                </button>
+                {/* Google Sign-In Button */}
+                <div className="relative w-full h-11">
+                  <button
+                    type="button"
+                    disabled={googleLoading}
+                    onClick={isNative ? handleNativeGoogleSignIn : undefined}
+                    className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-semibold disabled:opacity-60"
+                    style={{ pointerEvents: isNative ? "auto" : "none" }}
+                  >
+                    {googleLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="18" height="18">
+                          <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+                          <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+                          <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+                          <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+                        </svg>
+                        Continue with Google
+                      </>
+                    )}
+                  </button>
+
+                  {/* Real Google button – invisible, sits exactly on top, web only */}
+                  {!isNative && (
+                    <div
+                      ref={googleButtonContainerRef}
+                      className="absolute inset-0 overflow-hidden rounded-xl"
+                      style={{ opacity: 0.001 }}
+                    />
+                  )}
+                </div>
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">

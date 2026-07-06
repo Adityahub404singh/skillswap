@@ -55,6 +55,39 @@ function formatUser(user: any) {
   };
 }
 
+// 🔥 FIX: Public routes previously used db.select() with no column list, pulling
+// the FULL row (including passwordHash, emailVerifyToken, phoneVerifyToken,
+// googleId) out of the DB and relying only on formatUser() to hide them before
+// sending the response. If formatUser() is ever changed/forgotten, sensitive
+// fields leak straight into the API response. Explicit column selection means
+// those fields never leave the database for these public-facing routes.
+const PUBLIC_USER_COLUMNS = {
+  id:                 usersTable.id,
+  name:               usersTable.name,
+  email:              usersTable.email,
+  bio:                usersTable.bio,
+  avatar:             usersTable.avatar,
+  location:           usersTable.location,
+  skillsTeachV2:      usersTable.skillsTeachV2,
+  skillsLearnV2:      usersTable.skillsLearnV2,
+  verifiedSkillsV2:   usersTable.verifiedSkillsV2,
+  badgesV2:           usersTable.badgesV2,
+  isPremiumUser:      usersTable.isPremiumUser,
+  isPortfolioPublic:  usersTable.isPortfolioPublic,
+  credits:            usersTable.credits,
+  trustScore:         usersTable.trustScore,
+  sessionsCompleted:  usersTable.sessionsCompleted,
+  averageRating:      usersTable.averageRating,
+  pricePerHour:       usersTable.pricePerHour,
+  isAdmin:            usersTable.isAdmin,
+  currentStreak:      usersTable.currentStreak,
+  longestStreak:      usersTable.longestStreak,
+  lastActiveDate:     usersTable.lastActiveDate,
+  microSessionsCount: usersTable.microSessionsCount,
+  seoSlug:            usersTable.seoSlug,
+  createdAt:          usersTable.createdAt,
+};
+
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const rows = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
@@ -66,7 +99,7 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
 // 🔥 EXPERT FIX: Removed the memory/bandwidth leak. Now queries DB directly for 1 user.
 router.get("/portfolio/:slug", async (req, res) => {
   try {
-    const rows = await db.select().from(usersTable).where(eq(usersTable.seoSlug, req.params.slug)).limit(1);
+    const rows = await db.select(PUBLIC_USER_COLUMNS).from(usersTable).where(eq(usersTable.seoSlug, req.params.slug)).limit(1);
     if (!rows[0]) return res.status(404).json({ error: "Profile not found" });
     res.json(formatUser(rows[0]));
   } catch (err: any) { res.status(500).json({ error: err.message }); }
@@ -75,7 +108,7 @@ router.get("/portfolio/:slug", async (req, res) => {
 router.get("/", async (_req, res) => {
   try {
     // 🔥 EXPERT FIX: Re-added limit to prevent bandwidth disaster, but set to 100 to still show new mentors.
-    const rows = await db.select().from(usersTable).orderBy(desc(usersTable.sessionsCompleted)).limit(100);
+    const rows = await db.select(PUBLIC_USER_COLUMNS).from(usersTable).orderBy(desc(usersTable.sessionsCompleted)).limit(100);
     res.json(rows.map(formatUser));
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
@@ -84,7 +117,7 @@ router.get("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
-    const rows = await db.select().from(usersTable).where(eq(usersTable.id, id));
+    const rows = await db.select(PUBLIC_USER_COLUMNS).from(usersTable).where(eq(usersTable.id, id));
     if (!rows[0]) return res.status(404).json({ error: "User not found" });
     res.json(formatUser(rows[0]));
   } catch (err: any) { res.status(500).json({ error: err.message }); }
@@ -143,7 +176,14 @@ router.delete("/me", requireAuth, async (req: AuthRequest, res) => {
     await db.execute(sql`DELETE FROM swipes WHERE swiper_id=${userId} OR swiped_on_id=${userId}`);
     await db.execute(sql`DELETE FROM group_enrollments WHERE student_id=${userId}`);
     await db.execute(sql`DELETE FROM transactions WHERE user_id=${userId}`);
-    await db.execute(sql`DELETE FROM ratings WHERE student_id=${userId} OR mentor_id=${userId}`);
+    // 🔥 FIX: ratings table uses rater_id / mentor_id, not student_id — the old
+    // query referenced a column that doesn't exist on this table and would
+    // either error or silently delete nothing, leaving orphan rating rows.
+    await db.execute(sql`DELETE FROM ratings WHERE rater_id=${userId} OR mentor_id=${userId}`);
+    // 🔥 FIX: reports and messages were never cleaned up — orphan rows referencing
+    // a deleted user's id used to remain (reporter/reported, sender/receiver).
+    await db.execute(sql`DELETE FROM reports WHERE reporter_id=${userId} OR reported_user_id=${userId}`);
+    await db.execute(sql`DELETE FROM messages WHERE sender_id=${userId} OR receiver_id=${userId}`);
     await db.delete(usersTable).where(eq(usersTable.id, userId));
     res.json({ success: true, message: "Account deleted successfully" });
   } catch (err: any) { res.status(500).json({ error: err.message }); }

@@ -17,6 +17,7 @@ import notificationsRouter from "./notifications.js";
 import verificationRouter from "./verification.js";
 import platformRouter from "./platform.js";
 import quizRouter from "./quiz.js";
+import reportsRouter from "./Reports.js";
 
 const router: IRouter = Router();
 router.use(healthRouter);
@@ -37,4 +38,5 @@ router.use("/notifications", notificationsRouter);
 router.use("/verification", verificationRouter);
 router.use("/platform", platformRouter);
 router.use("/quiz", quizRouter);
+router.use("/reports", reportsRouter);
 export default router;

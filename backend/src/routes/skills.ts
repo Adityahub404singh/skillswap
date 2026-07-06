@@ -34,8 +34,9 @@ router.get('/', async (req, res) => {
         name: skill.name,
         category: skill.category,
         description: skill.description,
-        // Agar DB mein 0 hai toh UI ko bhara dikhane ke liye auto-generate karo (Temporary UI boost)
-        mentorCount: (skill.mentorCount && skill.mentorCount > 0) ? skill.mentorCount : Math.floor(Math.random() * 25) + 5,
+        // Real DB count hi bhejo — fake/random number generate karna bandh, isse
+        // trust issue hota tha (refresh pe number change ho jaata tha).
+        mentorCount: skill.mentorCount || 0,
       };
     });
 
@@ -74,4 +75,3 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
-

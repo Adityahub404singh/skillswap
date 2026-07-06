@@ -1,7 +1,7 @@
 ﻿import { Router } from "express";
 import { db } from "../db.js";
 import { feedbacksTable, subscribersTable } from "../schema/index.js";
-import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
+import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth.js";
 import { desc, eq } from "drizzle-orm"; // 🔥 FIX: Imported eq here
 
 const router = Router();
@@ -43,7 +43,7 @@ router.post("/feedback", async (req: AuthRequest, res) => {
 });
 
 // 3. ADMIN: Get All Feedbacks
-router.get("/admin/feedbacks", requireAuth, async (req, res) => {
+router.get("/admin/feedbacks", requireAuth, requireAdmin, async (req, res) => {
     try {
         const feedbacks = await db.select().from(feedbacksTable).orderBy(desc(feedbacksTable.createdAt)).limit(100);
         res.json(feedbacks);
@@ -51,7 +51,7 @@ router.get("/admin/feedbacks", requireAuth, async (req, res) => {
 });
 
 // 4. ADMIN: Get All Subscribers
-router.get("/admin/subscribers", requireAuth, async (req, res) => {
+router.get("/admin/subscribers", requireAuth, requireAdmin, async (req, res) => {
     try {
         const subs = await db.select().from(subscribersTable).orderBy(desc(subscribersTable.createdAt)).limit(500);
         res.json(subs);

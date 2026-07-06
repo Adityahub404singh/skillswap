@@ -154,7 +154,7 @@ export default function Explore() {
 
                     <div className="pt-3 border-t border-slate-50 flex items-center justify-between mt-auto">
                       <span className="text-[11px] font-bold text-slate-400">
-                        {skill.mentorCount || Math.floor(Math.random() * 20) + 5}+ Mentors
+                        {skill.mentorCount > 0 ? `${skill.mentorCount}+ Mentors` : "New skill"}
                       </span>
                       <div className="w-8 h-8 rounded-full bg-slate-50 group-hover:bg-[#6C3BFF] flex items-center justify-center transition-colors">
                         <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
