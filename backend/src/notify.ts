@@ -22,8 +22,21 @@ export async function createNotification(userId: number, type: string, title: st
       const emailBody = `Hi ${user.name},\n\n${message}\n\nCheck it out here: ${appUrl}${actionUrl || "/dashboard"}\n\nThanks,\nSkillSwap Team`;
       await sendEmail(user.email, title, emailBody);
     }
+
+    // 🔥 FIX: previously there was no success confirmation at all — you could
+    // only infer "it probably worked" from the absence of an error line.
+    // This makes DB-insert success explicit and traceable per user.
+    console.log(`[notify] OK userId=${userId} type=${type}`);
   } catch (err: any) {
-    console.error("[notify]", err.message);
+    // 🔥 FIX: the driver's top-level err.message for a failed query is just the
+    // SQL + params echoed back — it never told us WHY it failed. The real
+    // reason (connection timeout, pool exhaustion, constraint violation, etc.)
+    // lives in err.cause. Logging both gives us the actual root cause instead
+    // of a useless "Failed query" line repeated for every user.
+    console.error(`[notify] Failed for userId=${userId}, type=${type}:`, err.message);
+    if (err.cause) {
+      console.error(`[notify] Root cause for userId=${userId}:`, err.cause);
+    }
   }
 }
 

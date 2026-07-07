@@ -147,7 +147,7 @@ function SwipeCard({
       className="absolute flex flex-col overflow-hidden rounded-[28px] border border-slate-100/80 will-change-transform select-none cursor-grab active:cursor-grabbing"
       style={{
         width: cardWidth,
-        height: expanded ? "calc(100dvh - 130px)" : cardHeight,
+        height: expanded ? "calc(100dvh - 200px - env(safe-area-inset-bottom))" : cardHeight,
         zIndex: 50 - depth,
         x: isTop ? x : 0,
         y: isTop ? y : 0,
@@ -532,7 +532,18 @@ export default function Discover() {
   return (
     <div
       className="fixed flex flex-col bg-[#F8FAFC] font-sans"
-      style={{ inset: 0, top: 64, zIndex: 10 }}
+      style={{
+        top: 64,
+        left: 0,
+        right: 0,
+        // 🔥 FIX: previously `inset: 0` stretched this all the way to the
+        // physical bottom of the screen, so the like/pass hint text and the
+        // bottom of the swipe card ended up hidden behind the app's fixed
+        // bottom nav bar on phones. Reserving nav-bar height + safe-area here
+        // keeps everything visible above it.
+        bottom: "calc(64px + env(safe-area-inset-bottom))",
+        zIndex: 10,
+      }}
     >
       <div className="absolute -top-1/4 -left-1/4 w-[500px] h-[500px] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, rgba(108,59,255,0.12) 0%, transparent 70%)" }} />
@@ -648,7 +659,7 @@ export default function Discover() {
           {loading && (
             <div
               className="absolute flex flex-col overflow-hidden rounded-[28px] border border-slate-100 animate-pulse bg-white"
-              style={{ width: "min(400px, 92vw)", height: "min(620px, calc(100dvh - 190px))" }}
+              style={{ width: "min(400px, 92vw)", height: "min(620px, calc(100dvh - 260px - env(safe-area-inset-bottom)))" }}
             >
               <div className="flex-shrink-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center" style={{ height: "52%" }}>
                 <Loader2 className="w-10 h-10 text-slate-300 animate-spin" />
@@ -718,7 +729,7 @@ export default function Discover() {
                   onExpand={() => setExpanded(prev => prev === card.id ? null : card.id)}
                   onGone={dir => handleGone(dir, card)}
                   cardWidth="min(400px, 92vw)"
-                  cardHeight="min(620px, calc(100dvh - 190px))"
+                  cardHeight="min(620px, calc(100dvh - 260px - env(safe-area-inset-bottom)))"
                 />
               );
             })}

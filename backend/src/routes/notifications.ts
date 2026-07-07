@@ -1,6 +1,6 @@
 ﻿import { Router, type IRouter } from "express";
 import { db } from "../db.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
 // 🔥 Duplicate table removed, schema imported
@@ -34,10 +34,23 @@ router.patch("/read-all", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // PATCH /api/notifications/:id/read
+// 🔥 SECURITY FIX (IDOR): This route previously updated a notification by ID
+// alone, with NO check that it belonged to the requesting user. Any logged-in
+// user could pass any notification ID and mark someone else's notification
+// as read. Now the WHERE clause requires BOTH the id AND userId to match, so
+// a user can only ever touch their own notifications.
 router.patch("/:id/read", requireAuth, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, id));
+    const result = await db.update(notificationsTable)
+      .set({ isRead: true })
+      .where(and(eq(notificationsTable.id, id), eq(notificationsTable.userId, req.userId!)))
+      .returning({ id: notificationsTable.id });
+
+    if (result.length === 0) {
+      // Either it doesn't exist, or it belongs to someone else — don't reveal which.
+      return res.status(404).json({ success: false, error: "Notification not found" });
+    }
     res.json({ success: true });
   } catch (err: any) {
     res.json({ success: false });

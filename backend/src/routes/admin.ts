@@ -285,21 +285,43 @@ router.post("/notifications/send", requireAuth, requireAdmin, async (req: AuthRe
 
     if (userIds.length === 0) return res.json({ success: true, sentTo: 0 });
 
-    // In-app notification + Gmail email via notify.adminBroadcast
-    await Promise.all(
-      userIds.map(userId => notify.adminBroadcast(userId, title.trim(), message.trim(), "/dashboard"))
-    );
+    // 🔥 FIX: Previously this fired ALL userIds through Promise.all at once —
+    // for a broadcast to 85+ users that meant 85 simultaneous DB inserts +
+    // 85 simultaneous outbound emails, all competing for the same connection
+    // pool. On a serverless/free-tier Postgres (limited pool size), many of
+    // those inserts got starved of a connection and failed silently, and
+    // Gmail's SMTP rate-limited the email burst (421 Temporary System Problem).
+    // Sending in small sequential batches keeps concurrent connections low
+    // and stays under Gmail's rate limit, at the cost of a few extra seconds
+    // for a large broadcast — an easy trade-off for reliability.
+    const BATCH_SIZE = 5;
+    const BATCH_DELAY_MS = 400;
+    let sentCount = 0;
+
+    for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+      const batch = userIds.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(userId => notify.adminBroadcast(userId, title.trim(), message.trim(), "/dashboard"))
+      );
+      sentCount += results.filter(r => r.status === "fulfilled").length;
+
+      // Small pause between batches so we never hold more than BATCH_SIZE
+      // connections/outbound emails at once.
+      if (i + BATCH_SIZE < userIds.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+    }
 
     // Audit log entry
     await db.insert(transactionsTable).values({
       userId:      req.userId!,
       type:        "bonus",
       amount:      0,
-      description: `[ADMIN BROADCAST] "${title}" sent to ${userIds.length} ${targetGroup} users by Admin #${req.userId}`,
+      description: `[ADMIN BROADCAST] "${title}" sent to ${sentCount}/${userIds.length} ${targetGroup} users by Admin #${req.userId}`,
     } as any);
 
-    console.log(`[ADMIN] Broadcast "${title}" → ${userIds.length} ${targetGroup} users`);
-    res.json({ success: true, sentTo: userIds.length });
+    console.log(`[ADMIN] Broadcast "${title}" → ${sentCount}/${userIds.length} ${targetGroup} users`);
+    res.json({ success: true, sentTo: sentCount, totalTargeted: userIds.length });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
