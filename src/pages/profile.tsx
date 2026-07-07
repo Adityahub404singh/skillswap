@@ -10,7 +10,7 @@ import { Camera, CameraResultType } from "@capacitor/camera";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
-import { User, Save, Plus, X, Award, Star, Trophy, CheckCircle, Flame, Copy, Check, Sparkles, Loader2, LogOut, MessageSquare } from "lucide-react";
+import { User, Save, Plus, X, Award, Star, Trophy, CheckCircle, Flame, Copy, Check, Sparkles, Loader2, LogOut, MessageSquare, MapPin, LocateFixed } from "lucide-react";
 import { useGetMentorRatings } from "@/lib/api";
 import { format } from "date-fns";
 
@@ -35,6 +35,7 @@ export default function Profile() {
 
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState("");
@@ -118,7 +119,6 @@ export default function Profile() {
     setLocation("/login");
   };
 
-  // ✅ NEW FUNCTION ADDED HERE TO FIX THE ERROR
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm("Are you sure you want to delete your account? This action cannot be undone.");
     if (!confirmed) return;
@@ -179,6 +179,40 @@ export default function Profile() {
     }
   };
 
+  // 🔥 NEW: "Use current location" — browser Geolocation + free reverse-geocoding
+  // via OpenStreetMap Nominatim (no API key needed). Falls back to raw coordinates,
+  // and to a manual-entry message if permission is denied.
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ variant: "destructive", title: "Not supported", description: "Your browser/device doesn't support location detection." });
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          const city = data?.address?.city || data?.address?.town || data?.address?.village || data?.address?.county;
+          const country = data?.address?.country;
+          const label = [city, country].filter(Boolean).join(", ");
+          setUserLocation(label || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
+          toast({ title: "Location detected! 📍" });
+        } catch {
+          toast({ variant: "destructive", title: "Couldn't detect city", description: "Please type it manually." });
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocating(false);
+        toast({ variant: "destructive", title: "Permission denied", description: "Allow location access, or type it manually." });
+      },
+      { timeout: 8000 }
+    );
+  };
+
   const addSkill = (skill: string, type: "teach" | "learn") => {
     if (type === "teach" && !skillsTeach.includes(skill)) setSkillsTeach(p => [...p, skill]);
     if (type === "learn" && !skillsLearn.includes(skill)) setSkillsLearn(p => [...p, skill]);
@@ -234,7 +268,12 @@ export default function Profile() {
               <span className="flex items-center gap-1.5 bg-black/15 border border-white/10 rounded-full px-3 py-1 text-xs font-bold">
                 <Sparkles className="w-3.5 h-3.5 text-white/90" /> {user.credits} cr
               </span>
-              
+              {/* 🔥 Location badge — shows in hero once set, so it's visible at a glance */}
+              {userLocation && (
+                <span className="flex items-center gap-1.5 bg-black/15 border border-white/10 rounded-full px-3 py-1 text-xs font-bold">
+                  <MapPin className="w-3.5 h-3.5 text-rose-300" /> {userLocation}
+                </span>
+              )}
               <Link href="/leaderboard">
                 <span className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 border border-white/40 rounded-full px-3 py-1 text-xs font-bold transition-colors cursor-pointer text-white shadow-sm">
                   <Trophy className="w-3.5 h-3.5 text-yellow-300" /> View Leaderboard
@@ -270,9 +309,32 @@ export default function Profile() {
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" className="rounded-xl bg-slate-50 border-slate-100" />
               </div>
+
+              {/* 🔥 Location — now with map-pin icon + "use current location" detect button */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Location</label>
-                <Input value={userLocation} onChange={e => setUserLocation(e.target.value)} placeholder="City, Country" className="rounded-xl bg-slate-50 border-slate-100" />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-slate-400" /> Location
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleDetectLocation}
+                    disabled={locating}
+                    className="text-[10px] font-bold text-[#6C3BFF] hover:text-indigo-800 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <LocateFixed className="w-3 h-3" />}
+                    {locating ? "Detecting..." : "Use current location"}
+                  </button>
+                </div>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Input
+                    value={userLocation}
+                    onChange={e => setUserLocation(e.target.value)}
+                    placeholder="City, Country"
+                    className="rounded-xl bg-slate-50 border-slate-100 pl-9"
+                  />
+                </div>
               </div>
             </div>
 
@@ -429,7 +491,14 @@ export default function Profile() {
               </div>
               <div>
                 <h3 className="font-black text-xl text-slate-800">{user.name}</h3>
-                <p className="text-sm font-medium text-slate-500">{user.bio || "SkillSwap Member"}</p>
+                {/* 🔥 Location now shown alongside bio on the public portfolio card */}
+                <p className="text-sm font-medium text-slate-500 flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
+                  {userLocation && (
+                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {userLocation}</span>
+                  )}
+                  {userLocation && <span className="text-slate-300">•</span>}
+                  <span>{user.bio || "SkillSwap Member"}</span>
+                </p>
               </div>
             </div>
             

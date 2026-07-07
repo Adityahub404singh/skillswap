@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   motion, AnimatePresence, PanInfo,
   useMotionValue, useTransform, animate,
@@ -7,7 +7,7 @@ import{ ArrowRight } from "lucide-react";
 import {
   X, Heart, BadgeCheck, Star, Sparkles, Zap, ChevronUp,
   MessageCircle, Calendar, Loader2, MapPin, ShieldCheck,
-  Award, Coins, BookOpen, Info,
+  Award, Coins, BookOpen, Info, Search, Users, Filter,
 } from "lucide-react";
 import { Link } from "wouter";
 import confetti from "canvas-confetti";
@@ -59,7 +59,7 @@ function CardImage({ src, name }: { src: string; name: string }) {
 
 // ─── single swipe card ────────────────────────────────────────────────────────
 function SwipeCard({
-  card, isTop, depth, expanded, onExpand, onGone,
+  card, isTop, depth, expanded, onExpand, onGone, cardWidth, cardHeight,
 }: {
   card: Card;
   isTop: boolean;
@@ -67,6 +67,8 @@ function SwipeCard({
   expanded: boolean;
   onExpand: () => void;
   onGone: (dir: "like" | "pass") => void;
+  cardWidth: string;
+  cardHeight: string;
 }) {
   const x    = useMotionValue(0);
   const y    = useMotionValue(0);
@@ -116,8 +118,8 @@ function SwipeCard({
     <motion.div
       className="absolute flex flex-col overflow-hidden rounded-[28px] border border-slate-100/80 will-change-transform select-none cursor-grab active:cursor-grabbing"
       style={{
-        width: "min(360px, 92vw)",
-        height: expanded ? "calc(100dvh - 130px)" : "min(570px, calc(100dvh - 155px))",
+        width: cardWidth,
+        height: expanded ? "calc(100dvh - 130px)" : cardHeight,
         zIndex: 50 - depth,
         x: isTop ? x : 0,
         y: isTop ? y : 0,
@@ -402,6 +404,8 @@ export default function Discover() {
   const [loading,    setLoading]    = useState(true);
   const [matchModal, setMatchModal] = useState<Card | null>(null);
   const [expanded,   setExpanded]   = useState<number | null>(null);
+  const [search,     setSearch]     = useState("");
+  const [likedCount, setLikedCount] = useState(0);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -445,9 +449,30 @@ export default function Discover() {
     })();
   }, [token]);
 
+  // ?? NEW: client-side skill/name search — helps a LOT on desktop where there's
+  // room for a real search box, and still works fine as a collapsible bar on mobile.
+  const visibleCards = useMemo(() => {
+    if (!search.trim()) return cards;
+    const q = search.trim().toLowerCase();
+    return cards.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.teaches.some(t => t.toLowerCase().includes(q)) ||
+      c.location.toLowerCase().includes(q)
+    );
+  }, [cards, search]);
+
+  // ?? NEW: trending/top skills derived from the current deck, shown in the
+  // desktop sidebar as quick-filter chips.
+  const topSkills = useMemo(() => {
+    const counts: Record<string, number> = {};
+    cards.forEach(c => c.teaches.forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([skill]) => skill);
+  }, [cards]);
+
   const handleGone = useCallback(async (dir: "like" | "pass", card: Card) => {
     setCards(prev => prev.filter(c => c.id !== card.id));
     setExpanded(null);
+    if (dir === "like") setLikedCount(n => n + 1);
 
     if (Capacitor.isNativePlatform())
       Haptics.impact({ style: dir === "like" ? ImpactStyle.Medium : ImpactStyle.Light }).catch(() => {});
@@ -472,6 +497,8 @@ export default function Discover() {
     } catch (e) { console.error("swipe error", e); }
   }, [token]);
 
+  const deck = search.trim() ? visibleCards : cards;
+
   return (
     <div
       className="fixed flex flex-col bg-[#F8FAFC] font-sans"
@@ -482,14 +509,27 @@ export default function Discover() {
       <div className="absolute -bottom-1/4 -right-1/4 w-[400px] h-[400px] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, rgba(236,72,153,0.10) 0%, transparent 70%)" }} />
 
-      <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 bg-white/60 backdrop-blur-xl border-b border-white/60">
-        <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
+      {/* ── Header (search bar shows inline on lg+, as a chip below on mobile) ── */}
+      <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 py-3 bg-white/60 backdrop-blur-xl border-b border-white/60 relative z-20">
+        <h1 className="text-xl font-black text-slate-800 flex items-center gap-2 flex-shrink-0">
           <Zap className="w-5 h-5 text-[#6C3BFF] fill-[#6C3BFF]/20" /> Discover
         </h1>
-        <div className="flex items-center gap-2">
+
+        {/* Desktop search — hidden on mobile, room for it on wider screens */}
+        <div className="hidden md:flex flex-1 max-w-md relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by skill, name, or city..."
+            className="w-full pl-9 pr-3 py-2 rounded-full bg-white border border-slate-200 text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6C3BFF]/30 focus:border-[#6C3BFF]/40 transition-all"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
           {!loading && cards.length > 0 && (
-            <span className="text-[11px] text-slate-400 font-semibold bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-full">
-              {cards.length} mentors
+            <span className="text-[11px] text-slate-400 font-semibold bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-full whitespace-nowrap">
+              {deck.length} mentors
             </span>
           )}
           <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#6C3BFF]">
@@ -498,80 +538,200 @@ export default function Discover() {
         </div>
       </div>
 
-      <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+      {/* Mobile-only search bar (below header, since header is tight on small screens) */}
+      <div className="md:hidden flex-shrink-0 px-4 py-2.5 bg-white/60 backdrop-blur-xl border-b border-white/40 relative z-20">
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search skill, name, city..."
+            className="w-full pl-9 pr-3 py-2.5 rounded-full bg-white border border-slate-200 text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6C3BFF]/30"
+          />
+        </div>
+      </div>
 
-        {loading && (
-          <div
-            className="absolute flex flex-col overflow-hidden rounded-[28px] border border-slate-100 animate-pulse bg-white"
-            style={{ width: "min(360px, 92vw)", height: "min(570px, calc(100dvh - 160px))" }}
-          >
-            <div className="flex-shrink-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center" style={{ height: "52%" }}>
-              <Loader2 className="w-10 h-10 text-slate-300 animate-spin" />
-            </div>
-            <div className="p-5 space-y-3 flex-1">
-              <div className="h-6 w-2/3 bg-slate-100 rounded-xl" />
-              <div className="h-4 w-1/3 bg-slate-50 rounded-lg" />
-              <div className="flex gap-2 mt-3">
-                {[1,2,3].map(i => <div key={i} className="h-7 w-16 bg-indigo-50 rounded-xl" />)}
+      {/* ── Main body: sidebars (desktop only) + swipe stage ── */}
+      <div className="relative flex-1 flex overflow-hidden">
+
+        {/* LEFT SIDEBAR — desktop only: quick stats + how it works */}
+        <div className="hidden lg:flex flex-col w-[260px] flex-shrink-0 gap-4 p-5 overflow-y-auto border-r border-slate-100 bg-white/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Your Session</p>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500">
+                <Heart className="w-4.5 h-4.5" fill="currentColor" strokeWidth={0} />
               </div>
-              <div className="space-y-2 mt-2">
-                <div className="h-3 w-full bg-slate-50 rounded" />
-                <div className="h-3 w-4/5 bg-slate-50 rounded" />
+              <div>
+                <p className="font-black text-slate-800 text-lg leading-none">{likedCount}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Liked today</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#6C3BFF]">
+                <Users className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <p className="font-black text-slate-800 text-lg leading-none">{cards.length}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Mentors left</p>
               </div>
             </div>
           </div>
-        )}
 
-        <AnimatePresence>
-          {!loading && cards.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col items-center text-center bg-white/80 backdrop-blur-xl p-10 rounded-[32px] border border-white shadow-sm"
-              style={{ width: "min(340px, 88vw)" }}
+          <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Filter className="w-3 h-3" /> Trending Skills
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {topSkills.length === 0 && <p className="text-xs text-slate-400 italic">No data yet</p>}
+              {topSkills.map(skill => (
+                <button
+                  key={skill}
+                  onClick={() => setSearch(prev => prev === skill ? "" : skill)}
+                  className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors ${
+                    search === skill
+                      ? "bg-[#6C3BFF] text-white border-[#6C3BFF]"
+                      : "bg-indigo-50 text-[#6C3BFF] border-indigo-100 hover:bg-indigo-100"
+                  }`}
+                >
+                  {skill}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-[20px] border border-indigo-100 p-4">
+            <p className="text-[10px] font-black text-[#6C3BFF] uppercase tracking-widest mb-2 flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3" /> How it works
+            </p>
+            <ul className="space-y-2 text-[12px] font-medium text-slate-600">
+              <li className="flex gap-2"><span className="font-black text-[#6C3BFF]">1.</span> Swipe right to like, left to pass</li>
+              <li className="flex gap-2"><span className="font-black text-[#6C3BFF]">2.</span> Mutual like = instant match</li>
+              <li className="flex gap-2"><span className="font-black text-[#6C3BFF]">3.</span> Chat or book a session right away</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* CENTER — swipe stage */}
+        <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+
+          {loading && (
+            <div
+              className="absolute flex flex-col overflow-hidden rounded-[28px] border border-slate-100 animate-pulse bg-white"
+              style={{ width: "min(400px, 92vw)", height: "min(620px, calc(100dvh - 190px))" }}
             >
-              <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mb-5 border border-indigo-100">
-                <Sparkles className="w-9 h-9 text-[#6C3BFF]" />
+              <div className="flex-shrink-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center" style={{ height: "52%" }}>
+                <Loader2 className="w-10 h-10 text-slate-300 animate-spin" />
               </div>
-              <h2 className="text-2xl font-black text-slate-800 mb-2">You're all caught up!</h2>
-              <p className="text-sm text-slate-500 font-medium mb-7 leading-relaxed">
-                You've seen all available mentors.<br />Come back later for new sparks.
-              </p>
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl active:scale-95 transition-transform"
-              >
-                Refresh Deck
-              </button>
-            </motion.div>
+              <div className="p-5 space-y-3 flex-1">
+                <div className="h-6 w-2/3 bg-slate-100 rounded-xl" />
+                <div className="h-4 w-1/3 bg-slate-50 rounded-lg" />
+                <div className="flex gap-2 mt-3">
+                  {[1,2,3].map(i => <div key={i} className="h-7 w-16 bg-indigo-50 rounded-xl" />)}
+                </div>
+                <div className="space-y-2 mt-2">
+                  <div className="h-3 w-full bg-slate-50 rounded" />
+                  <div className="h-3 w-4/5 bg-slate-50 rounded" />
+                </div>
+              </div>
+            </div>
           )}
-        </AnimatePresence>
 
-        <AnimatePresence>
-          {cards.slice(-3).map((card, i, arr) => {
-            const depth  = arr.length - 1 - i;
-            const isTop  = depth === 0;
-            return (
-              <SwipeCard
-                key={card.id}
-                card={card}
-                isTop={isTop}
-                depth={depth}
-                expanded={isTop && expanded === card.id}
-                onExpand={() => setExpanded(prev => prev === card.id ? null : card.id)}
-                onGone={dir => handleGone(dir, card)}
-              />
-            );
-          })}
-        </AnimatePresence>
+          <AnimatePresence>
+            {!loading && deck.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center text-center bg-white/80 backdrop-blur-xl p-10 rounded-[32px] border border-white shadow-sm"
+                style={{ width: "min(360px, 88vw)" }}
+              >
+                <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mb-5 border border-indigo-100">
+                  <Sparkles className="w-9 h-9 text-[#6C3BFF]" />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 mb-2">
+                  {search.trim() ? "No matches for that search" : "You're all caught up!"}
+                </h2>
+                <p className="text-sm text-slate-500 font-medium mb-7 leading-relaxed">
+                  {search.trim()
+                    ? <>Try a different skill or clear the search.</>
+                    : <>You've seen all available mentors.<br />Come back later for new sparks.</>}
+                </p>
+                {search.trim() ? (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl active:scale-95 transition-transform"
+                  >
+                    Clear Search
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl active:scale-95 transition-transform"
+                  >
+                    Refresh Deck
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {!loading && cards.length > 0 && (
-          <motion.p
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}
-            className="absolute bottom-4 text-[10px] text-slate-300 font-semibold tracking-wider pointer-events-none"
-          >
-            ← pass &nbsp;•&nbsp; like →
-          </motion.p>
-        )}
+          <AnimatePresence>
+            {deck.slice(-3).map((card, i, arr) => {
+              const depth  = arr.length - 1 - i;
+              const isTop  = depth === 0;
+              return (
+                <SwipeCard
+                  key={card.id}
+                  card={card}
+                  isTop={isTop}
+                  depth={depth}
+                  expanded={isTop && expanded === card.id}
+                  onExpand={() => setExpanded(prev => prev === card.id ? null : card.id)}
+                  onGone={dir => handleGone(dir, card)}
+                  cardWidth="min(400px, 92vw)"
+                  cardHeight="min(620px, calc(100dvh - 190px))"
+                />
+              );
+            })}
+          </AnimatePresence>
+
+          {!loading && deck.length > 0 && (
+            <motion.p
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}
+              className="absolute bottom-4 text-[10px] text-slate-300 font-semibold tracking-wider pointer-events-none"
+            >
+              ← pass &nbsp;•&nbsp; like →
+            </motion.p>
+          )}
+        </div>
+
+        {/* RIGHT SIDEBAR — desktop only: currently viewing detail recap */}
+        <div className="hidden xl:flex flex-col w-[280px] flex-shrink-0 gap-4 p-5 overflow-y-auto border-l border-slate-100 bg-white/40 backdrop-blur-sm">
+          {deck.length > 0 ? (
+            <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm p-4 space-y-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Up Next</p>
+              {deck.slice(-3).reverse().map(c => (
+                <div key={c.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-slate-100">
+                    <CardImage src={c.image} name={c.name} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-800 text-sm truncate">{c.name}</p>
+                    <p className="text-[10px] text-slate-400 font-medium truncate">{c.teaches.slice(0, 2).join(", ") || "New mentor"}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-[20px] border border-emerald-100 p-4">
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+              <ShieldCheck className="w-3 h-3" /> Verified & Safe
+            </p>
+            <p className="text-[12px] font-medium text-slate-600 leading-relaxed">
+              Every mentor's sessions are escrow-protected — credits only release once a class is delivered.
+            </p>
+          </div>
+        </div>
       </div>
 
       <AnimatePresence>

@@ -71,10 +71,14 @@ export default function Dashboard() {
   const upcomingView = activeRole === "learner" ? upcomingLearning : upcomingTeaching;
 
   return (
-    <motion.div initial="hidden" animate="show" variants={container} className="space-y-8 pb-10 max-w-6xl mx-auto px-4 sm:px-6">
+    <motion.div
+      initial="hidden" animate="show" variants={container}
+      className="space-y-6 sm:space-y-8 max-w-6xl mx-auto px-4 sm:px-6"
+      style={{ paddingBottom: "max(7.5rem, env(safe-area-inset-bottom))" }}
+    >
       
       {/* 1. HERO CARD */}
-      <motion.div variants={item} className="relative rounded-[32px] p-8 md:p-10 text-white shadow-[0_12px_40px_rgba(108,59,255,0.25)] overflow-hidden bg-gradient-to-br from-[#6C3BFF] to-[#5128C4] flex flex-col lg:flex-row items-center justify-between gap-10">
+      <motion.div variants={item} className="relative rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 md:p-10 text-white shadow-[0_12px_40px_rgba(108,59,255,0.25)] overflow-hidden bg-gradient-to-br from-[#6C3BFF] to-[#5128C4] flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-10">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-[100px] pointer-events-none transform translate-x-1/3 -translate-y-1/3"></div>
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-fuchsia-500/20 rounded-full blur-[100px] pointer-events-none transform -translate-x-1/2 translate-y-1/2"></div>
         
