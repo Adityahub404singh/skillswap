@@ -33,10 +33,38 @@ interface Card {
 const SWIPE_THRESHOLD = 80;
 const VELOCITY_THRESHOLD = 500;
 
-// ─── smooth image with gradient skeleton ─────────────────────────────────────
+// ─── smooth image with gradient skeleton + clean initials fallback ─────────
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function CardImage({ src, name }: { src: string; name: string }) {
   const [ready, setReady] = useState(false);
-  const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6C3BFF&color=fff&size=500&bold=true`;
+  const [broken, setBroken] = useState(false);
+
+  // 🔥 FIX: previously a failed/missing avatar fell back to a ui-avatars.com
+  // square image that got stretched by object-cover into huge, ugly letters.
+  // Now any missing/placeholder/broken avatar renders our own centered,
+  // properly-proportioned initials badge instead — looks clean at any
+  // card aspect ratio, mobile or desktop.
+  const isPlaceholder = !src || src.includes("ui-avatars.com") || broken;
+
+  if (isPlaceholder) {
+    const initials = getInitials(name);
+    return (
+      <div className="w-full h-full relative bg-gradient-to-br from-indigo-900 via-[#6C3BFF] to-purple-900 flex items-center justify-center overflow-hidden">
+        <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-14 -right-10 w-48 h-48 rounded-full bg-fuchsia-400/10 blur-2xl" />
+        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/15 backdrop-blur-md border-2 border-white/30 flex items-center justify-center shadow-xl">
+          <span className="text-3xl sm:text-4xl font-black text-white tracking-wide">{initials}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full relative bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900">
       {!ready && (
@@ -45,7 +73,7 @@ function CardImage({ src, name }: { src: string; name: string }) {
       <img
         src={src}
         alt={name}
-        onError={e => { (e.target as HTMLImageElement).src = fallback; }}
+        onError={() => setBroken(true)}
         onLoad={() => setReady(true)}
         className="w-full h-full object-cover"
         style={{ opacity: ready ? 1 : 0, transition: "opacity 0.4s ease" }}
@@ -324,14 +352,16 @@ function SwipeCard({
                 <Coins className="w-3 h-3 text-slate-500" />{card.price} cr
               </p>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Per Hour</p>
-               <Link href={`/mentor/${card.id}`} onClick={e => e.stopPropagation()}>
+            </div>
+          </div>
+
+          {/* ?? FIX: this button used to be nested inside the "Per Hour" column,
+              causing a cramped/squeezed layout. It's now its own full-width row. */}
+          <Link href={`/mentor/${card.id}`} onClick={e => e.stopPropagation()}>
             <button className="w-full mt-4 py-2.5 rounded-xl border border-[#6C3BFF]/20 text-[#6C3BFF] text-xs font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1.5">
               View Full Profile <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </Link>
-            </div>
-            
-          </div>
         </div>
         
       </div>
