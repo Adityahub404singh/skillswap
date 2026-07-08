@@ -1,14 +1,14 @@
 ﻿import { Router } from "express";
 import { db } from "../db.js";
 import { sql } from "drizzle-orm"; 
-import { requireAuth, type AuthRequest } from "../middlewares/auth.js"; // 🔥 Security Added
+import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 
 const router = Router();
 
 // 💬 POST: Naya message bhejo
 router.post(["/", ""], requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.userId!; // 🔥 FIX: Strictly secure
+        const userId = req.userId!;
         const { receiverId, content } = req.body;
 
         await db.execute(sql`
@@ -26,7 +26,7 @@ router.post(["/", ""], requireAuth, async (req: AuthRequest, res) => {
 // GET: Conversations
 router.get("/conversations", requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.userId!; // 🔥 FIX
+        const userId = req.userId!;
         const convos = await db.execute(sql`
             SELECT DISTINCT u.id, u.name, u.avatar, m.content as lastMessage, m.created_at
             FROM users u
@@ -41,10 +41,10 @@ router.get("/conversations", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 💬 GET: Puraani Chat History nikaalo (🔥 10X OPTIMIZED WITH LIMIT)
+// 💬 GET: Puraani Chat History nikaalo
 router.get("/:otherUserId", requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.userId!; // 🔥 FIX
+        const userId = req.userId!;
         const otherUserId = parseInt(req.params.otherUserId as string);
 
         // Subquery: Pehle latest 50 messages nikalo DESC mein, fir unko UI ke liye ASC mein palat do
