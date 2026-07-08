@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "wouter";
 import { 
   ArrowLeft, Send, Phone, Video, MoreVertical, 
-  Smile, CheckCheck, Check, Sparkles, BookOpen,
-  Star, Shield, Clock, Wifi, WifiOff
+  Smile, CheckCheck, Clock, Sparkles, BookOpen,
+  Star, Shield, Wifi, WifiOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/auth";
@@ -11,9 +11,9 @@ import { useAuthStore } from "@/store/auth";
 // --- types -------------------------------------------------------------------
 interface Message {
   id: number | string;
-  sender_id?: number;
-  senderId?: number;
-  receiver_id?: number;
+  sender_id?: number | string;
+  senderId?: number | string;
+  receiver_id?: number | string;
   content: string;
   created_at: string;
   pending?: boolean;
@@ -92,8 +92,8 @@ export default function Chat() {
         .find((p: any) => p.id === Number(otherUserId));
       if (found) setPartner(found);
       else {
-        // fallback � fetch single user
-        const r2   = await fetch(`/api/users/${otherUserId}`, {
+        // fallback fetching single user
+        const r2   = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/users/${otherUserId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (r2.ok) setPartner(await r2.json());
@@ -104,7 +104,7 @@ export default function Chat() {
   // -- fetch messages -------------------------------------------------------
   const fetchMessages = useCallback(async () => {
     try {
-      const res  = await fetch(`/api/chat/${otherUserId}`, {
+      const res  = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/chat/${otherUserId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -125,7 +125,7 @@ export default function Chat() {
     fetchPartner();
     fetchMessages();
     
-    // ?? 10X EXPERT FIX: Polling ONLY runs if the browser tab is currently visible
+    // Polling ONLY runs if the browser tab is currently visible
     pollRef.current = setInterval(() => {
       if (document.visibilityState === "visible") {
         fetchMessages();
@@ -161,6 +161,7 @@ export default function Chat() {
       created_at: new Date().toISOString(),
       pending:    true,
     };
+    
     setMessages(prev => [...prev, tempMsg]);
     setInputText("");
 
@@ -170,9 +171,15 @@ export default function Chat() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ receiverId: Number(otherUserId), content }),
       });
+      
+      // 🔥 FIX: Remove temp message from state before fetching real messages
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      
       await fetchMessages();
     } catch (e) {
       console.error("send failed", e);
+      // Optional: remove temp message if it fails
+      setMessages(prev => prev.filter(m => m.id !== tempId));
     }
     setSending(false);
   };
@@ -254,7 +261,7 @@ export default function Chat() {
                 ))}
                 <Link href={`/mentor/${partner.id}`}>
                   <span className="text-xs font-bold text-[#6C3BFF] underline underline-offset-2 cursor-pointer">
-                    View profile ?
+                    View profile ↗
                   </span>
                 </Link>
               </div>
@@ -268,7 +275,7 @@ export default function Chat() {
             <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }}
               className="bg-red-50 border-b border-red-100 px-4 py-2 flex items-center gap-2">
               <WifiOff className="w-3.5 h-3.5 text-red-500" />
-              <span className="text-xs font-bold text-red-600">No connection � messages will sync when back online</span>
+              <span className="text-xs font-bold text-red-600">No connection — messages will sync when back online</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -284,7 +291,7 @@ export default function Chat() {
               </div>
               <div>
                 <p className="font-black text-slate-700">Start a conversation!</p>
-                <p className="text-sm text-slate-400 mt-1">Say hi to {partner?.name || "your match"} ??</p>
+                <p className="text-sm text-slate-400 mt-1">Say hi to {partner?.name || "your match"} 👋</p>
               </div>
             </div>
           )}
@@ -303,9 +310,10 @@ export default function Chat() {
 
               <div className="space-y-1">
                 {group.messages.map((msg, idx) => {
-                  const isMe      = msg.sender_id === currentUserId || (msg as any).senderId === currentUserId;
+                  // 🔥 FIX: Number() wrapper applied perfectly here
+                  const isMe      = Number(msg.sender_id) === Number(currentUserId) || Number((msg as any).senderId) === Number(currentUserId);
                   const prevMsg   = group.messages[idx - 1];
-                  const prevIsMe  = prevMsg && (prevMsg.sender_id === currentUserId || (prevMsg as any).senderId === currentUserId);
+                  const prevIsMe  = prevMsg && (Number(prevMsg.sender_id) === Number(currentUserId) || Number((prevMsg as any).senderId) === Number(currentUserId));
                   const showAvatar = !isMe && prevIsMe !== false;
                   const isLast    = idx === group.messages.length - 1;
 
@@ -431,7 +439,7 @@ export default function Chat() {
           </div>
 
           <p className="text-[10px] text-slate-300 text-center mt-1.5 font-medium">
-            Enter to send � Shift+Enter for new line
+            Enter to send — Shift+Enter for new line
           </p>
         </div>
 
@@ -439,7 +447,3 @@ export default function Chat() {
     </div>
   );
 }
-
-
-
-
