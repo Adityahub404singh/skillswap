@@ -439,7 +439,7 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
     
     if (!session) return res.status(404).json({ error: "Not found" });
-    if (session.studentId !== req.userId && session.mentorId !== req.userId) return res.status(403).json({ error: "Unauthorized" });
+    if (session.studentId !== req.userId) return res.status(403).json({ error: "Only the student can mark a session as done" });
     if ((session as any).isGroup === 1) return res.status(400).json({ error: "Use /end-group for group sessions" });
 
     const startedAt = (session as any).startedAt;
@@ -461,7 +461,11 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     // only the MENTOR ending it early can waive their own payout. If the
     // STUDENT ends it early, it falls through to normal proration below —
     // the mentor still gets paid for the real time spent.
-    if (timePct < AUTO_CANCEL_THRESHOLD && completedByMentor) {
+    if (timePct < AUTO_CANCEL_THRESHOLD) {
+      if (!completedByMentor) {
+        const minMins = Math.round(duration * AUTO_CANCEL_THRESHOLD);
+        return res.status(400).json({ error: `Session sirf ${Math.round(wallClockMins)} mins chali. Kam se kam ${minMins} mins baad complete kar sakte ho.` });
+      }
       // ✅ RACE-SAFE: conditional update — only succeeds if session is still
       // "in_progress". If two requests race (double-click, script firing
       // twice), the second one gets rowCount 0 and is rejected instead of
@@ -547,7 +551,7 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
 
     if (!session) return res.status(404).json({ error: "Not found" });
     if (session.mentorId !== req.userId && session.studentId !== req.userId) return res.status(403).json({ error: "Not your session" });
-    if (["cancelled", "completed", "pending_clearance"].includes(session.status)) return res.status(400).json({ error: "Cannot cancel anymore" });
+    if (["cancelled", "completed", "pending_clearance", "in_progress"].includes(session.status)) return res.status(400).json({ error: "Cannot cancel an active or completed session. Use dispute instead." });
 
     await db.update(sessionsTable).set({ status: "cancelled", cancelReason } as any).where(eq(sessionsTable.id, sessionId));
 
@@ -878,7 +882,7 @@ router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
     }
 
     if (!canRate) return res.status(403).json({ error: "Only enrolled students can rate" });
-    if (!["completed", "pending_clearance"].includes(session.status)) return res.status(400).json({ error: "Session must be done to rate" });
+    if (session.status !== "completed") return res.status(400).json({ error: "Session must be fully completed before rating" });
     if ((session as any).teacherRating) return res.status(400).json({ error: "Already rated" });
 
     await db.update(sessionsTable).set({ teacherRating: rating, teacherReview: review } as any).where(eq(sessionsTable.id, sessionId));
