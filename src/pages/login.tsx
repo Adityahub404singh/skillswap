@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { Preferences } from '@capacitor/preferences';
+import { initPushNotifications } from '@/lib/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import {
@@ -47,6 +48,7 @@ export default function Login() {
         setToken(data.token);
         toast({ title: "Welcome back! ??", description: "Successfully logged in." });
         setLocation("/dashboard");
+        initPushNotifications(data.token);
       },
       onError: (error: any, variables: any) => {
         console.error("Login Error:", error);
@@ -92,6 +94,7 @@ export default function Login() {
       setToken(data.token);
       toast({ title: "Welcome! ??", description: "Signed in with Google." });
       setLocation("/dashboard");
+        
     } catch (err: any) {
       toast({
         variant: "destructive",
@@ -361,6 +364,9 @@ export default function Login() {
     </div>
   );
 }
+
+
+
 
 
 
