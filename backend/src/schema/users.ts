@@ -42,6 +42,9 @@ export const usersTable = pgTable("users", {
   // in the DB yet — run the migration step described separately before this
   // goes live, otherwise every query touching this column will error.
   isSuspended:        boolean("is_suspended").default(false),
+  
+  // 🔥 NAYA COLUMN: FCM Token save karne ke liye
+  fcmToken:           text("fcm_token"), 
 }, (table) => ({
   // 🔥 SAFELY ADDED INDEXES (Bandwidth bachane ke liye)
   emailIdx: index("users_email_idx").on(table.email),

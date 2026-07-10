@@ -4,6 +4,8 @@ import { eq, desc, and } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
 import { notificationsTable } from "../schema/index.js";
+// 🔥 NAYA FIX: notify.ts se 'createNotification' import kiya taaki Push Notification jaye
+import { createNotification } from "../notify.js"; 
 
 const router: IRouter = Router();
 
@@ -50,7 +52,8 @@ router.patch("/:id/read", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// POST /api/notifications
+// 🔥 THE BIG FIX (POST /api/notifications)
+// Ab ye route sirf In-App DB entry nahi banayega, balki Firebase (FCM) par Push Notification bhi bhejega!
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { type, title, message, actionUrl } = z.object({
@@ -60,16 +63,17 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       actionUrl: z.string().optional(),
     }).parse(req.body);
 
-    const [notif] = await db.insert(notificationsTable).values({
-      userId: req.userId!, type, title, message, actionUrl: actionUrl ?? null,
-    }).returning();
-    res.status(201).json(notif);
+    // Ye 'createNotification' humara notify.ts ka function hai. 
+    // Ye DB Entry + Email + Firebase Push teeno ek saath handle kar lega.
+    await createNotification(req.userId!, type, title, message, actionUrl);
+    
+    res.status(201).json({ success: true, message: "Notification processed" });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// 🔥 FIX: Naya DELETE route add kiya taki notification permanently hategi
+// DELETE route
 router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id as string);

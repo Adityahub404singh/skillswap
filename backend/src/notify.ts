@@ -4,19 +4,61 @@ import { pgTable, serial, text } from "drizzle-orm/pg-core";
 import { sendEmail } from "./utils/mailer.js";
 import { eq } from "drizzle-orm";
 
+// 🔥 THE 100% BULLETPROOF FIX: Firebase Modular Imports (Red lines gayab ho jayengi)
+import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { getMessaging } from "firebase-admin/messaging";
+
+// 🔥 FIREBASE INITIALIZATION
+if (!getApps().length && process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    initializeApp({
+      credential: cert(serviceAccount)
+    });
+    console.log("🔥 Firebase Admin Initialized Successfully");
+  } catch (error) {
+    console.error("Firebase Initialization Failed. Check JSON format in env.");
+  }
+}
+
+// 🔥 FIX: Query mein fcmToken add kiya
 const usersForEmail = pgTable("users", {
-  id:    serial("id").primaryKey(),
-  name:  text("name").notNull(),
-  email: text("email").notNull(),
+  id:       serial("id").primaryKey(),
+  name:     text("name").notNull(),
+  email:    text("email").notNull(),
+  fcmToken: text("fcm_token"), 
 });
 
 export async function createNotification(userId: number, type: string, title: string, message: string, actionUrl?: string) {
   try {
+    // 1. App Database mein In-App Notifications save karo
     await db.insert(notificationsTable).values({ userId, type, title, message, actionUrl: actionUrl ?? null });
 
-    const [user] = await db.select({ email: usersForEmail.email, name: usersForEmail.name })
-                           .from(usersForEmail).where(eq(usersForEmail.id, userId)).limit(1);
+    // 2. User ka email aur FCM token nikalo
+    const [user] = await db.select({ 
+        email: usersForEmail.email, 
+        name: usersForEmail.name,
+        fcmToken: usersForEmail.fcmToken 
+      })
+      .from(usersForEmail)
+      .where(eq(usersForEmail.id, userId))
+      .limit(1);
 
+    // 3. 🔥 PUSH NOTIFICATION (FCM) - Agar user ke paas token hai
+    if (user?.fcmToken && getApps().length > 0) {
+      try {
+        await getMessaging().send({
+          token: user.fcmToken,
+          notification: { title, body: message },
+          data: { url: actionUrl || "/dashboard", type }
+        });
+        console.log(`[Push] Sent to phone for userId=${userId}`);
+      } catch (pushErr) {
+        console.error(`[Push] FCM Failed for userId=${userId}:`, pushErr);
+      }
+    }
+
+    // 4. Email Notification
     if (user && user.email) {
       const appUrl = process.env.FRONTEND_URL || "https://skillswap.app";
       const emailBody = `Hi ${user.name},\n\n${message}\n\nCheck it out here: ${appUrl}${actionUrl || "/dashboard"}\n\nThanks,\nSkillSwap Team`;
@@ -33,7 +75,7 @@ export async function createNotification(userId: number, type: string, title: st
 }
 
 export const notify = {
-  // 🌟 AUTOMATED RETENTION & ENGAGEMENT
+  // 🚀 AUTOMATED RETENTION & ENGAGEMENT
   inactiveReminder: (userId: number, daysInactive: number) => 
     createNotification(userId, "marketing", "We Miss You!", `It's been ${daysInactive} days! Come back and learn a new skill today.`, "/explore"),
   
@@ -43,14 +85,14 @@ export const notify = {
   adminBroadcast: (userId: number, title: string, message: string, url: string) => 
     createNotification(userId, "marketing", `📢 ${title}`, message, url),
 
-  // 💬 CHATS & MATCHES (🔥 NEWLY ADDED)
+  // 💬 CHATS & MATCHES (🌟 NEWLY ADDED)
   newMatch: (userId: number, matchName: string) =>
     createNotification(userId, "match", "New Match! 🎉", `You and ${matchName} liked each other!`, "/matches"),
     
   newMessage: (userId: number, senderName: string) =>
     createNotification(userId, "message", "New Message", `${senderName} sent you a message.`, "/chats"),
 
-  // 📝 EXISTING ACTION NOTIFICATIONS
+  // 📅 EXISTING ACTION NOTIFICATIONS
   sessionBooked:    (mentorId: number, learnerName: string, skill: string) =>
     createNotification(mentorId, "session", "New Session Booked!", `${learnerName} booked ${skill} session.`, "/sessions"),
 

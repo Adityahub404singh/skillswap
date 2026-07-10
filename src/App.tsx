@@ -127,7 +127,7 @@ function Router() {
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
           <Route path="/forgot-password" component={ForgotPassword} />
-          <Route path="/reset-password" component={ResetPassword} /> {/* 🔥 ADDED THIS ROUTE */}
+          <Route path="/reset-password" component={ResetPassword} />
           <Route path="/explore" component={Explore} />
           <Route path="/mentor/:id" component={MentorProfile} />
           <Route path="/admin" component={AdminPanel} />
@@ -152,6 +152,9 @@ function Router() {
           <Route path="/profile"><ProtectedRoute component={Profile} /></Route>
           <Route path="/quiz"><ProtectedRoute component={Quiz} /></Route>
           <Route path="/notifications"><ProtectedRoute component={NotificationsPage} /></Route>
+          
+          {/* 🚨 THE FIX: Ye route pehle missing tha isliye 404 aa raha tha */}
+          <Route path="/chats"><ProtectedRoute component={Matches} /></Route>
           
           {/* 🚨 These were unprotected before, now they are safe! */}
           <Route path="/matches"><ProtectedRoute component={Matches} /></Route>

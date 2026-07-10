@@ -247,4 +247,20 @@ router.delete("/me", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// 🔥 NAYA ROUTE: App se FCM Token receive karke DB mein save karne ke liye
+router.post("/update-fcm", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) return res.status(400).json({ error: "Token required" });
+
+    await db.update(usersTable)
+      .set({ fcmToken } as any)
+      .where(eq(usersTable.id, req.userId!));
+
+    res.json({ success: true, message: "FCM token saved successfully" });
+  } catch (err: any) { 
+    res.status(500).json({ error: err.message }); 
+  }
+});
+
 export default router;

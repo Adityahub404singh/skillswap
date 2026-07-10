@@ -12,7 +12,7 @@ import {
 } from "../schema/index.js";
 
 // --------------------------------------------------------------
-// ?? INDUSTRY LEVEL CONFIGURATION & CONSTANTS
+// 🛠️ INDUSTRY LEVEL CONFIGURATION & CONSTANTS
 // --------------------------------------------------------------
 const SESSION_CONFIG: Record<string, { duration: number; multiplier: number; label: string }> = {
   micro_15: { duration: 15, multiplier: 0.25, label: "15-min Quick Session" },
@@ -22,27 +22,27 @@ const SESSION_CONFIG: Record<string, { duration: number; multiplier: number; lab
   extended: { duration: 90, multiplier: 1.50, label: "1.5-hour Deep Dive" },
 };
 
-// ??? TRUST & SAFETY CONSTANTS (ANTI-FRAUD)
+// 🛡️ TRUST & SAFETY CONSTANTS (ANTI-FRAUD)
 const PLATFORM_FEE_PCT         = 0.15; // 15% Platform Cut
 const HEARTBEAT_TIMEOUT_SECS   = 90;   // Disconnect threshold for evidence
 const ESCROW_CLEARANCE_HOURS   = 24;   // Funds hold time for disputes
 
-// ?? TIME & PRORATION THRESHOLDS
+// ⏱️ TIME & PRORATION THRESHOLDS
 const MVT_THRESHOLD            = 0.80; // >80% time = 100% Payout
 const AUTO_CANCEL_THRESHOLD    = 0.20; // <20% time = Auto-Cancel (No Payout to Mentor)
 const MAX_SESSIONS_PER_WEEK    = 3;    // Prevent Collusion (Money Laundering via fake sessions)
 
-// ??? GROUP SESSION CAPS (Prevent platform drain)
+// 👥 GROUP SESSION CAPS (Prevent platform drain)
 const MAX_STUDENTS_CAP         = 50;   // No unrealistic 9999 capacity sessions
 const MAX_CREDITS_PER_STUDENT  = 500;  // No unrealistic pricing
 
-// ?? CRON SECRET � set CRON_SECRET in .env, default only for local dev
+// 🔑 CRON SECRET
 const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret-change-in-prod";
 
 const router: IRouter = Router();
 
 // --------------------------------------------------------------
-// ??? CORE UTILITY ENGINES (DO NOT TOUCH)
+// ⚙️ CORE UTILITY ENGINES (DO NOT TOUCH)
 // --------------------------------------------------------------
 
 /** Returns active enrollments for a group session */
@@ -72,7 +72,7 @@ async function refundStudent(studentId: number, amount: number, sessionId: numbe
   } as any);
 }
 
-/** ??? ANTI-FRAUD: Prevents two users from doing endless fake sessions */
+/** 🛡️ ANTI-FRAUD: Prevents two users from doing endless fake sessions */
 async function checkVelocityAndCollusion(studentId: number, mentorId: number) {
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const recentSessions = await db.select().from(sessionsTable).where(
@@ -89,12 +89,12 @@ async function checkVelocityAndCollusion(studentId: number, mentorId: number) {
 }
 
 // --------------------------------------------------------------
-// ?? ROUTE: TYPES & DISCOVERY
+// 🔍 ROUTE: TYPES & DISCOVERY
 // --------------------------------------------------------------
 router.get("/types", (_req, res) => res.json(SESSION_CONFIG));
 
 // --------------------------------------------------------------
-// ?? GROUP SESSION ENGINE (CREATION & BROWSE)
+// 👥 GROUP SESSION ENGINE (CREATION & BROWSE)
 // --------------------------------------------------------------
 
 // Mentor: Create Group
@@ -106,7 +106,6 @@ router.post("/group", requireAuth, async (req: AuthRequest, res) => {
     if (!scheduledDate)  return res.status(400).json({ error: "Date is required" });
     if (!creditsAmount || creditsAmount < 1) return res.status(400).json({ error: "Credits per student required (min 1)" });
 
-    // ??? ANTI-FRAUD: Cap validation � prevents platform drain attacks
     const parsedCredits = parseInt(creditsAmount);
     const parsedMaxStudents = parseInt(maxStudents) || 10;
 
@@ -135,7 +134,7 @@ router.post("/group", requireAuth, async (req: AuthRequest, res) => {
       skill:         skill.trim(),
       sessionType:   sessionType || "standard",
       duration:      cfg.duration,
-      status:        "accepted", // Auto-accepted for groups
+      status:        "accepted", 
       creditsAmount: parsedCredits,
       message:       message?.trim() || null,
       meetLink,
@@ -206,8 +205,6 @@ router.get("/group/browse", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ?? FIXED: Missing route � frontend /group/my-enrollments call karta tha jo exist hi nahi karta tha
-// "My Groups" tab isliye hamesha empty dikhta tha
 router.get("/group/my-enrollments", requireAuth, async (req: AuthRequest, res) => {
   try {
     const enrollments = await db.select().from(groupEnrollmentsTable)
@@ -254,7 +251,7 @@ router.get("/group/my-enrollments", requireAuth, async (req: AuthRequest, res) =
 });
 
 // --------------------------------------------------------------
-// ? FLASH BOARD & DOUBTS (AS IS)
+// ⚡ FLASH BOARD & DOUBTS
 // --------------------------------------------------------------
 router.get("/flash/board", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -272,7 +269,6 @@ router.post("/flash/post", requireAuth, async (req: AuthRequest, res) => {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
     if (user.credits < creditsAmount) return res.status(400).json({ error: "Insufficient credits" });
 
-    // Deduct Escrow
     await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${creditsAmount}` }).where(eq(usersTable.id, req.userId!));
 
     const [doubt] = await db.insert(sessionsTable).values({
@@ -292,12 +288,17 @@ router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
 
     const meetLink = `https://meet.jit.si/SkillSwapFlash_${sessionId}_${Date.now()}`;
     await db.update(sessionsTable).set({ mentorId: req.userId!, status: "accepted", meetLink } as any).where(eq(sessionsTable.id, sessionId));
+    
+    // 🔥 FIX 1: Notify student that their flash doubt was claimed
+    const [mentor] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    await notify.sessionAccepted(session.studentId, mentor?.name || "A Mentor", session.skill);
+
     res.json({ success: true });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // --------------------------------------------------------------
-// ?? 1-ON-1 BOOKING & ESCROW CREATION
+// 📅 1-ON-1 BOOKING & ESCROW CREATION
 // --------------------------------------------------------------
 const BookSchema = z.object({
   mentorId:      z.number().int(),
@@ -320,7 +321,6 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 
     if (data.mentorId === req.userId) return res.status(400).json({ error: "Cannot book session with yourself" });
 
-    // ??? ANTI-FRAUD: Velocity Check
     await checkVelocityAndCollusion(req.userId!, data.mentorId);
 
     const [learner] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
@@ -336,7 +336,6 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 
     const dateStr = data.scheduledDate || data.scheduledAt;
 
-    // 1. Create Session
     const [session] = await db.insert(sessionsTable).values({
       mentorId:      data.mentorId,
       studentId:     req.userId!,
@@ -350,10 +349,8 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       scheduledDate: new Date(dateStr!),
     } as any).returning();
 
-    // 2. Lock Funds in Escrow (Deduct from Student)
     await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${credits}` }).where(eq(usersTable.id, req.userId!));
     
-    // 3. Log as Escrow Hold
     await db.insert(transactionsTable).values({
       userId: req.userId!, type: "escrow_hold", amount: credits,
       description: `[ESCROW] Locked for ${cfg.label} with ${mentor.name}`, sessionId: session.id,
@@ -365,7 +362,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? SESSION LIFECYCLE (START, HEARTBEAT)
+// 🔄 SESSION LIFECYCLE (START, HEARTBEAT)
 // --------------------------------------------------------------
 router.post("/:id/accept", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -413,7 +410,6 @@ router.post("/:id/heartbeat", requireAuth, async (req: AuthRequest, res) => {
     const isGroup   = (session as any).isGroup === 1;
 
     if (isGroup) {
-      // Group heartbeat: update enrollment record
       const [enrollment] = await db.select().from(groupEnrollmentsTable).where(and(
         eq(groupEnrollmentsTable.sessionId, sessionId),
         eq(groupEnrollmentsTable.studentId, req.userId!)
@@ -428,7 +424,6 @@ router.post("/:id/heartbeat", requireAuth, async (req: AuthRequest, res) => {
       }
     } else {
       if (!isStudent && !isMentor) return res.status(403).json({ error: "Unauthorized" });
-      // 1-on-1: just acknowledge
     }
 
     res.json({ success: true });
@@ -436,7 +431,7 @@ router.post("/:id/heartbeat", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? 1-ON-1 COMPLETE
+// ✅ 1-ON-1 COMPLETE
 // --------------------------------------------------------------
 router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -456,13 +451,18 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     const wallClockMins = (Date.now() - new Date(startedAt).getTime()) / 60000;
     const timePct       = wallClockMins / duration;
 
-    // ?? FRAUD GUARD: Fast Exits (<20% Time)
+    // 🛡️ FRAUD GUARD: Fast Exits (<20% Time)
     if (timePct < AUTO_CANCEL_THRESHOLD) {
       await db.update(sessionsTable).set({ 
         status: "cancelled", cancelReason: `Auto-Cancelled: Session ended too early (${Math.round(wallClockMins)} mins).`
       } as any).where(eq(sessionsTable.id, sessionId));
 
       await refundStudent(session.studentId, session.creditsAmount, sessionId, `Fast Exit Refund: Session was only ${Math.round(wallClockMins)} mins.`);
+      
+      // 🔥 FIX 2: Notify Student & Mentor about Auto-Cancel
+      await notify.sessionCancelled(session.studentId, session.skill, session.creditsAmount);
+      await notify.sessionCancelled(session.mentorId, session.skill, 0);
+
       return res.status(400).json({ error: `Session ended at ${Math.round(wallClockMins)} mins. It was auto-cancelled and student refunded.` });
     }
 
@@ -495,7 +495,7 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? DISPUTES & CANCELLATIONS
+// ⚖️ DISPUTES & CANCELLATIONS
 // --------------------------------------------------------------
 router.post("/:id/dispute", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -535,10 +535,21 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
       for (const e of enrollments) {
         await refundStudent(e.studentId, e.creditsAmount, sessionId, `Group cancelled: ${session.skill}`);
         await db.update(groupEnrollmentsTable).set({ status: "refunded", refundAmount: e.creditsAmount, refundedAt: new Date() } as any).where(eq(groupEnrollmentsTable.id, e.id));
+        
+        // 🔥 FIX 3a: Notify Group Students about Cancellation
+        await notify.sessionCancelled(e.studentId, session.skill, e.creditsAmount);
       }
+      // 🔥 FIX 3b: Notify Mentor about Cancellation
+      if (session.mentorId) await notify.sessionCancelled(session.mentorId, session.skill, 0);
     } else {
       if (session.studentId && session.creditsAmount > 0) {
         await refundStudent(session.studentId, session.creditsAmount, sessionId, `Cancelled: ${session.skill}`);
+        // 🔥 FIX 3c: Notify 1-on-1 Student about Cancellation
+        await notify.sessionCancelled(session.studentId, session.skill, session.creditsAmount);
+      }
+      // 🔥 FIX 3d: Notify 1-on-1 Mentor about Cancellation
+      if (session.mentorId) {
+        await notify.sessionCancelled(session.mentorId, session.skill, 0);
       }
     }
 
@@ -547,7 +558,7 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? GROUP SPECIFIC ENDPOINTS (JOIN, START, COMPLETE)
+// 👥 GROUP SPECIFIC ENDPOINTS (JOIN, START, COMPLETE)
 // --------------------------------------------------------------
 router.post("/:id/join-group", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -557,7 +568,6 @@ router.post("/:id/join-group", requireAuth, async (req: AuthRequest, res) => {
     if (!session || (session as any).isGroup !== 1) return res.status(400).json({ error: "Invalid group session" });
     if (session.status !== "accepted") return res.status(400).json({ error: "Not open for enrollment" });
 
-    // ??? ANTI-FRAUD #1: Mentor apna khud ka group join nahi kar sakta (self-credit exploit)
     if (session.mentorId === req.userId) {
       return res.status(400).json({ error: "Mentors cannot join their own group session" });
     }
@@ -568,14 +578,12 @@ router.post("/:id/join-group", requireAuth, async (req: AuthRequest, res) => {
     ));
     if (existing?.status === "active") return res.status(400).json({ error: "Already enrolled in this session" });
 
-    // ??? ANTI-FRAUD #2: Capacity check � real-time se dobara check, race conditions prevent karo
     const activeEnrollments = await getEnrollmentCount(sessionId);
     const maxStudents = (session as any).maxStudents || 10;
     if (activeEnrollments.length >= maxStudents) {
       return res.status(400).json({ error: "Session is full. No spots remaining." });
     }
 
-    // ??? ANTI-FRAUD #3: Collusion check � same mentor ke sath same week mein too many sessions
     await checkVelocityAndCollusion(req.userId!, session.mentorId);
 
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
@@ -584,7 +592,6 @@ router.post("/:id/join-group", requireAuth, async (req: AuthRequest, res) => {
       return res.status(400).json({ error: `Need ${session.creditsAmount} credits, you have ${student.credits}` });
     }
 
-    // Escrow Lock
     await db.update(usersTable)
       .set({ credits: sql`${usersTable.credits} - ${session.creditsAmount}` })
       .where(eq(usersTable.id, req.userId!));
@@ -647,14 +654,21 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
     const elapsedMins = (Date.now() - new Date(startedAt).getTime()) / 60000;
     const timePct    = elapsedMins / duration;
 
-    // ?? FRAUD GUARD
+    // 🛡️ FRAUD GUARD
     if (timePct < AUTO_CANCEL_THRESHOLD) {
       const enrollments = await getEnrollmentCount(sessionId);
       for (const e of enrollments) {
         await refundStudent(e.studentId, e.creditsAmount, sessionId, "Mentor ended group too early (Auto-Refund)");
         await db.update(groupEnrollmentsTable).set({ status: "refunded" } as any).where(eq(groupEnrollmentsTable.id, e.id));
+        
+        // 🔥 FIX 4a: Notify Group Students about Auto-Cancel
+        await notify.sessionCancelled(e.studentId, session.skill, e.creditsAmount);
       }
       await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Ended under 20% limit." } as any).where(eq(sessionsTable.id, sessionId));
+      
+      // 🔥 FIX 4b: Notify Mentor about Auto-Cancel
+      await notify.sessionCancelled(session.mentorId, session.skill, 0);
+
       return res.status(400).json({ error: "Session ended too early. Auto-cancelled & all students refunded." });
     }
 
@@ -694,7 +708,7 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? GET MY SESSIONS
+// 📦 GET MY SESSIONS
 // --------------------------------------------------------------
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -710,7 +724,6 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 
     if (sessions.length === 0) return res.json([]);
 
-    // Batch fetch mentors + students � ek saath, N+1 nahi
     const mentorIds  = [...new Set(sessions.map((s: any) => s.mentorId).filter(Boolean))];
     const studentIds = [...new Set(sessions.map((s: any) => s.studentId).filter((id: number) => id > 0))];
 
@@ -740,15 +753,9 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? THE CLEARANCE ENGINE (CALL THIS VIA CRON JOB)
+// 💰 THE CLEARANCE ENGINE (CALL THIS VIA CRON JOB)
 // --------------------------------------------------------------
-/**
- * ?? PROTECTED: Requires X-Cron-Secret header matching CRON_SECRET env var.
- * Call this from cronJobs.ts every hour.
- * Finds all sessions in "pending_clearance" past 24h and pays mentor.
- */
 router.post("/system/cron/clear-escrow", async (req, res) => {
-  // ??? ANTI-FRAUD: Cron endpoint protection � previously unprotected, anyone could trigger payouts
   const providedSecret = req.headers["x-cron-secret"] as string;
   if (!providedSecret || providedSecret !== CRON_SECRET) {
     console.warn(`[CRON] Unauthorized clear-escrow attempt from IP: ${req.ip}`);
@@ -809,7 +816,7 @@ router.post("/system/cron/clear-escrow", async (req, res) => {
 });
 
 // --------------------------------------------------------------
-// ? RATING
+// ⭐ RATING
 // --------------------------------------------------------------
 router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -848,7 +855,7 @@ router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? LEAVE GROUP (before session starts)
+// 🚪 LEAVE GROUP (before session starts)
 // --------------------------------------------------------------
 router.post("/:id/leave-group", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -874,7 +881,7 @@ router.post("/:id/leave-group", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? GROUP MEMBERS (mentor view)
+// 👨‍🎓 GROUP MEMBERS (mentor view)
 // --------------------------------------------------------------
 router.get("/:id/group-members", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -907,7 +914,7 @@ router.get("/:id/group-members", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// ?? NEGOTIATE PRICE
+// 🤝 NEGOTIATE PRICE
 // --------------------------------------------------------------
 router.post("/:id/negotiate", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -922,7 +929,6 @@ router.post("/:id/negotiate", requireAuth, async (req: AuthRequest, res) => {
     }
     if (session.status !== "requested") return res.status(400).json({ error: "Can only negotiate on requested sessions" });
 
-    // Credit difference � refund or deduct
     const diff = proposedPrice - session.creditsAmount;
     if (diff > 0) {
       const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId));

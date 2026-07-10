@@ -2,43 +2,58 @@
 import { db } from "../db.js";
 import { sql } from "drizzle-orm"; 
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js"; 
-import { notify } from "../notify.js"; // 🔥 Added notify import
+import { notify } from "../notify.js";
 
 const router = Router();
 
-// 💬 POST: Naya message bhejo
+// 💬 POST: Naya message bhejo (🔥 Optimized & TypeScript Fixed)
 router.post(["/", ""], requireAuth, async (req: AuthRequest, res) => {
     try {
         const userId = req.userId!;
         const { receiverId, content } = req.body;
 
-        // 1. Message save karo
-        await db.execute(sql`
-            INSERT INTO messages (sender_id, receiver_id, content) 
-            VALUES (${userId}, ${receiverId}, ${content})
-        `);
+        // Validation
+        if (!receiverId || !content || content.trim() === "") {
+            return res.status(400).json({ error: "Receiver ID and Content are required" });
+        }
 
-        // 2. 🔥 FIX: Receiver ko notification bhejo ki naya message aaya hai
+        // 1. Message save karo aur TURANT return mango (RETURNING *)
+        const insertRes = await db.execute(sql`
+            INSERT INTO messages (sender_id, receiver_id, content) 
+            VALUES (${userId}, ${receiverId}, ${content.trim()})
+            RETURNING *
+        `);
+        
+        // Safely extract the new message
+        const rawResult = insertRes.rows || insertRes;
+        const newMessage = Array.isArray(rawResult) ? rawResult[0] : null;
+
+        // 2. Receiver ko notification bhejo ki naya message aaya hai
         const senderRes = await db.execute(sql`SELECT name FROM users WHERE id = ${userId}`);
         const senderData = senderRes.rows || senderRes;
-        const senderName = (senderData[0] as any)?.name || "Someone";
         
-        await notify.newMessage(receiverId, senderName);
+        // 🔥 FIX: TypeScript ko saaf-saaf bata diya ki ye String hai
+        const senderName = String(Array.isArray(senderData) && senderData[0] ? (senderData[0] as any).name : "Someone");
+        
+        // Background Notification (Number aur String strict types ke sath)
+        notify.newMessage(Number(receiverId), senderName).catch(err => {
+            console.error("Failed to send message notification in background:", err);
+        });
 
-        res.json({ success: true, message: "Message sent!" });
+        res.status(201).json({ success: true, message: "Message sent!", data: newMessage });
     } catch (error) {
         console.error("Message send error:", error);
         res.status(500).json({ error: "Failed to send message" });
     }
 });
 
-// 👥 GET: Conversations List (THE ULTIMATE FIX FOR DUPLICATES)
+// 👥 GET: Conversations List
 router.get("/conversations", requireAuth, async (req: AuthRequest, res) => {
     try {
         const userId = req.userId!;
         
         const convos = await db.execute(sql`
-            SELECT u.id, u.name, u.avatar, m.content as lastMessage, m.created_at
+            SELECT u.id, u.name, u.avatar, m.content as "lastMessage", m.created_at
             FROM users u
             JOIN messages m ON (u.id = m.sender_id OR u.id = m.receiver_id)
             WHERE (m.sender_id = ${userId} OR m.receiver_id = ${userId})
@@ -49,9 +64,11 @@ router.get("/conversations", requireAuth, async (req: AuthRequest, res) => {
         const rawRows = convos.rows || convos;
         const uniqueChatsMap = new Map();
 
-        for (const row of rawRows as any[]) {
-            if (!uniqueChatsMap.has(row.id)) {
-                uniqueChatsMap.set(row.id, row);
+        if (Array.isArray(rawRows)) {
+            for (const row of rawRows) {
+                if (!uniqueChatsMap.has(row.id)) {
+                    uniqueChatsMap.set(row.id, row);
+                }
             }
         }
 
@@ -68,6 +85,10 @@ router.get("/:otherUserId", requireAuth, async (req: AuthRequest, res) => {
     try {
         const userId = req.userId!;
         const otherUserId = parseInt(req.params.otherUserId as string);
+
+        if (isNaN(otherUserId)) {
+            return res.status(400).json({ error: "Invalid User ID" });
+        }
 
         const chatHistoryResult = await db.execute(sql`
             SELECT * FROM (
@@ -92,6 +113,10 @@ router.delete("/:otherUserId", requireAuth, async (req: AuthRequest, res) => {
     try {
         const userId = req.userId!;
         const otherUserId = parseInt(req.params.otherUserId as string);
+
+        if (isNaN(otherUserId)) {
+            return res.status(400).json({ error: "Invalid User ID" });
+        }
 
         await db.execute(sql`
             DELETE FROM messages 

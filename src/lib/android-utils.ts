@@ -3,6 +3,8 @@ import { Preferences } from '@capacitor/preferences';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { App } from '@capacitor/app';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+// 🔥 NAYA: Auth store import kiya taaki user ka token mil sake
+import { useAuthStore } from "@/store/auth";
 
 // =========================================
 // 1. 💽 OFFLINE STORAGE (Phone memory caching)
@@ -86,8 +88,26 @@ export async function setupPushNotifications() {
 
   await PushNotifications.register();
 
-  PushNotifications.addListener('registration', (token) => {
+  PushNotifications.addListener('registration', async (token) => {
     console.log('🔥 Android FCM Token: ', token.value);
+    
+    // 🔥 NAYA CODE: Backend ko API call karke FCM token save karwana
+    const authToken = useAuthStore.getState().token; 
+    if (authToken) {
+      try {
+        await fetch(`${import.meta.env.VITE_API_URL || ""}/api/users/update-fcm`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ fcmToken: token.value })
+        });
+        console.log('✅ FCM Token backend par successfully save ho gaya!');
+      } catch (err) {
+        console.error('❌ Failed to send FCM token to backend', err);
+      }
+    }
   });
 
   PushNotifications.addListener('pushNotificationReceived', (notification) => {

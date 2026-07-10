@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "wouter";
 import { 
-  ArrowLeft, Send, Phone, Video, MoreVertical, 
-  Smile, CheckCheck, Clock, Sparkles, BookOpen,
-  Star, Shield, Wifi, WifiOff
+  ArrowLeft, Send, Phone, Video, 
+  Smile, CheckCheck, Clock, Sparkles, Shield
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/auth";
@@ -30,7 +29,7 @@ interface Partner {
   isVerified?: boolean;
 }
 
-// 🔥 NAYA HELPER: JWT Token se direct ID nikalne ke liye
+// 🔥 HELPER: JWT Token se direct ID nikalne ke liye
 function getUserIdFromToken(token: string | null) {
   if (!token) return null;
   try {
@@ -46,14 +45,25 @@ function getUserIdFromToken(token: string | null) {
   }
 }
 
-// --- helpers -----------------------------------------------------------------
+// 🔥 THE MASTER TIMEZONE FIX (Localhost ke liye 5.5 hours automatically add karega)
+function getSafeDate(dateStr: string) {
+  if (!dateStr) return new Date();
+  let d = new Date(dateStr);
+  
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+     d = new Date(d.getTime() + (5.5 * 60 * 60 * 1000)); 
+  }
+  return d;
+}
+
 function formatTime(dateStr: string) {
   if (!dateStr) return "";
-  return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return getSafeDate(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
+  if (!dateStr) return "";
+  const d = getSafeDate(dateStr);
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -85,7 +95,6 @@ export default function Chat() {
   const token         = useAuthStore(s => s.token);
   const user          = useAuthStore(s => s.user);
   
-  // 🔥 THE MASTER FIX: Ab user.id fail hua toh bhi Token se ID nikal aayega!
   const currentUserId = getUserIdFromToken(token) || user?.id || (user as any)?.userId || (user as any)?.data?.id || 1;
 
   const [messages,       setMessages]       = useState<Message[]>([]);
@@ -129,6 +138,7 @@ export default function Chat() {
       if (Array.isArray(data)) {
         setMessages(prev => {
           const serverIds = new Set(data.map((m: Message) => m.id));
+          // 🔥 Preserve pending messages that haven't been resolved yet
           const filtered  = prev.filter(m => m.pending && !serverIds.has(m.id));
           return [...data, ...filtered];
         });
@@ -160,7 +170,7 @@ export default function Chat() {
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
   }, [inputText]);
 
-  // -- send -----------------------------------------------------------------
+  // -- send (🔥 FAST PERFORMANCE FIX) ----------------------------------------
   const sendMessage = async () => {
     const content = inputText.trim();
     if (!content || sending) return;
@@ -179,14 +189,20 @@ export default function Chat() {
     setInputText("");
 
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || ""}/api/chat`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/chat`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ receiverId: Number(otherUserId), content }),
       });
+      const resData = await res.json();
       
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-      await fetchMessages();
+      if (resData.success && resData.data) {
+        // 🔥 DIRECT SWAP: temp message ki jagah backend wala asli message
+        setMessages(prev => prev.map(m => m.id === tempId ? resData.data : m));
+      } else {
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        await fetchMessages();
+      }
     } catch (e) {
       console.error("send failed", e);
       setMessages(prev => prev.filter(m => m.id !== tempId));
