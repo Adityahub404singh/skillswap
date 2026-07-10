@@ -450,12 +450,29 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     const duration      = (session as any).duration || 60;
     const wallClockMins = (Date.now() - new Date(startedAt).getTime()) / 60000;
     const timePct       = wallClockMins / duration;
+    const completedByMentor = req.userId === session.mentorId;
 
     // 🛡️ FRAUD GUARD: Fast Exits (<20% Time)
-    if (timePct < AUTO_CANCEL_THRESHOLD) {
-      await db.update(sessionsTable).set({ 
+    // 🔥 FIX (free-sampling abuse): Previously ANY caller (student or mentor)
+    // triggering this branch got a full refund with zero payout to the
+    // mentor. That let a dishonest student start a session, take a free
+    // 10-15 min "sample", then call /complete themselves to force a full
+    // refund — repeatable against any mentor, any number of times. Now:
+    // only the MENTOR ending it early can waive their own payout. If the
+    // STUDENT ends it early, it falls through to normal proration below —
+    // the mentor still gets paid for the real time spent.
+    if (timePct < AUTO_CANCEL_THRESHOLD && completedByMentor) {
+      // ✅ RACE-SAFE: conditional update — only succeeds if session is still
+      // "in_progress". If two requests race (double-click, script firing
+      // twice), the second one gets rowCount 0 and is rejected instead of
+      // double-refunding the student.
+      const updated = await db.update(sessionsTable).set({
         status: "cancelled", cancelReason: `Auto-Cancelled: Session ended too early (${Math.round(wallClockMins)} mins).`
-      } as any).where(eq(sessionsTable.id, sessionId));
+      } as any).where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.status, "in_progress"))).returning({ id: sessionsTable.id });
+
+      if (updated.length === 0) {
+        return res.status(409).json({ error: "Session was already completed or cancelled by another request." });
+      }
 
       await refundStudent(session.studentId, session.creditsAmount, sessionId, `Fast Exit Refund: Session was only ${Math.round(wallClockMins)} mins.`);
       
@@ -474,16 +491,23 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
       refundAmount = session.creditsAmount - payoutAmount;
     }
 
-    if (refundAmount > 0) {
-      await refundStudent(session.studentId, refundAmount, sessionId, `Prorated Refund: Class ran for ${Math.round(wallClockMins)}/${duration} mins.`);
-    }
-
-    await db.update(sessionsTable).set({
+    // ✅ RACE-SAFE: same atomic-conditional-update pattern as the fast-exit
+    // branch above — this is the write that actually "locks in" completion,
+    // so it must be the one guarded against concurrent duplicate calls.
+    const updated = await db.update(sessionsTable).set({
       status: "pending_clearance", 
       completedAt: new Date(), 
       actualDuration: Math.round(wallClockMins),
       creditsAmount: payoutAmount
-    } as any).where(eq(sessionsTable.id, sessionId));
+    } as any).where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.status, "in_progress"))).returning({ id: sessionsTable.id });
+
+    if (updated.length === 0) {
+      return res.status(409).json({ error: "Session was already completed or cancelled by another request." });
+    }
+
+    if (refundAmount > 0) {
+      await refundStudent(session.studentId, refundAmount, sessionId, `Prorated Refund: Class ran for ${Math.round(wallClockMins)}/${duration} mins.`);
+    }
 
     notify.sessionCompleted(session.mentorId, session.skill, payoutAmount);
     res.json({ 
@@ -656,6 +680,10 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
 
     // 🛡️ FRAUD GUARD
     if (timePct < AUTO_CANCEL_THRESHOLD) {
+      // ✅ RACE-SAFE: conditional update guards against double-submit
+      const updated = await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Ended under 20% limit." } as any)
+        .where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.status, "in_progress")));
+
       const enrollments = await getEnrollmentCount(sessionId);
       for (const e of enrollments) {
         await refundStudent(e.studentId, e.creditsAmount, sessionId, "Mentor ended group too early (Auto-Refund)");
@@ -664,7 +692,6 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
         // 🔥 FIX 4a: Notify Group Students about Auto-Cancel
         await notify.sessionCancelled(e.studentId, session.skill, e.creditsAmount);
       }
-      await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Ended under 20% limit." } as any).where(eq(sessionsTable.id, sessionId));
       
       // 🔥 FIX 4b: Notify Mentor about Auto-Cancel
       await notify.sessionCancelled(session.mentorId, session.skill, 0);
@@ -693,12 +720,21 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
       } as any).where(eq(groupEnrollmentsTable.id, enrollment.id));
     }
 
-    await db.update(sessionsTable).set({
+    // ✅ RACE-SAFE: conditional update on the final completion write too
+    const updated = await db.update(sessionsTable).set({
       status: "pending_clearance", 
       completedAt: new Date(), 
       actualDuration: Math.round(elapsedMins),
       creditsAmount: totalPendingForMentor,
-    } as any).where(eq(sessionsTable.id, sessionId));
+    } as any).where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.status, "in_progress"))).returning({ id: sessionsTable.id });
+
+    if (updated.length === 0) {
+      return res.status(409).json({ error: "Session was already completed or cancelled by another request." });
+    }
+
+    // 🔥 FIX: Success path never told the mentor their payout was in escrow —
+    // they'd only find out when the weekly clearance cron paid them.
+    notify.sessionCompleted(session.mentorId, session.skill, totalPendingForMentor);
 
     res.json({
       success: true,
@@ -743,7 +779,11 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 
     const enriched = sessions.map((s: any) => ({
       ...s,
-      sessionOtp: undefined,
+      // 🔥 FIX: OTP sirf STUDENT ko dikhna chahiye, jab tak session start na ho.
+      // Mentor ko KABHI nahi — unhe student se poochke type karna hai (yahi security check hai).
+      // Pehle ye hamesha `undefined` set ho raha tha sabke liye, isliye student ko
+      // apna OTP kabhi dikhta hi nahi tha aur mentor session start kar hi nahi paata tha.
+      sessionOtp: (s.studentId === req.userId && ["requested", "accepted"].includes(s.status)) ? s.sessionOtp : undefined,
       mentor:  mentorMap[s.mentorId]  || null,
       student: studentMap[s.studentId] || null,
     }));

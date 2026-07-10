@@ -191,4 +191,78 @@ export function startCronJobs() {
       console.error("❌ [ESCROW CRON ERROR]:", err);
     }
   });
+
+  // =========================================================================
+  // CRON JOB 4: STALE "IN_PROGRESS" SESSION AUTO-RESOLVE (Runs every hour)
+  // =========================================================================
+  // 🔥 FIX (Bug #1): 1-on-1 heartbeat never persisted anything to the session
+  // row, so if a student's app crashed / connection dropped mid-session
+  // without either side calling /complete, the session stayed "in_progress"
+  // FOREVER. It never reaches "pending_clearance", so the escrow-clearance
+  // cron (Job 3) never touches it either — mentor's payout and student's
+  // remaining credits were both permanently stuck with no resolution path.
+  //
+  // This job finds any 1-on-1 session that's been "in_progress" for far
+  // longer than its own duration could ever justify, and auto-resolves it
+  // using the same wall-clock proration math as the manual /complete route
+  // (no special full-refund fast-exit case here, since no one is actively
+  // vouching for an early end — just a fair split based on real time spent).
+  cron.schedule('30 * * * *', async () => {
+    try {
+      const SAFETY_BUFFER_HOURS = 6; // generous cushion over any normal session length
+      const staleCutoff = new Date(Date.now() - SAFETY_BUFFER_HOURS * 60 * 60 * 1000);
+
+      const stuckSessions = await db.select().from(sessionsTable).limit(200).where(
+        and(
+          eq(sessionsTable.status, 'in_progress'),
+          lte(sessionsTable.startedAt as any, staleCutoff)
+        )
+      );
+
+      if (stuckSessions.length > 0) console.log(`🧹 Auto-resolving ${stuckSessions.length} stale in-progress sessions...`);
+
+      for (const session of stuckSessions) {
+        try {
+          const duration      = (session as any).duration || 60;
+          const startedAt     = (session as any).startedAt;
+          const wallClockMins = (Date.now() - new Date(startedAt).getTime()) / 60000;
+          const timePct       = Math.min(wallClockMins / duration, 1);
+
+          const payoutAmount = Math.max(0, Math.floor(session.creditsAmount * timePct));
+          const refundAmount = session.creditsAmount - payoutAmount;
+
+          // Atomic conditional update — safe even if something else touched
+          // this session between the SELECT above and now.
+          await db.update(sessionsTable).set({
+            status: 'pending_clearance',
+            completedAt: new Date(),
+            actualDuration: Math.round(wallClockMins),
+            creditsAmount: payoutAmount,
+            cancelReason: `Auto-resolved: connection lost mid-session, no /complete call received.`,
+          } as any).where(and(eq(sessionsTable.id, session.id), eq(sessionsTable.status, 'in_progress')));
+
+          if (refundAmount > 0) {
+            await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${refundAmount}` })
+              .where(eq(usersTable.id, session.studentId));
+            await db.insert(transactionsTable).values({
+              userId: session.studentId, type: 'refund', amount: refundAmount,
+              description: `Auto-resolved session (connection dropped): partial refund for ${session.skill}`,
+              sessionId: session.id,
+            } as any);
+          }
+
+          await notify.sessionCancelled(session.studentId, session.skill, refundAmount);
+          if (payoutAmount > 0) {
+            await notify.sessionCompleted(session.mentorId, session.skill, payoutAmount);
+          } else {
+            await notify.sessionCancelled(session.mentorId, session.skill, 0);
+          }
+        } catch (innerErr) {
+          console.error(`Stale session ${session.id} auto-resolve failed:`, innerErr);
+        }
+      }
+    } catch (e) {
+      console.error('Stale In-Progress Cleanup Cron Error:', e);
+    }
+  });
 }

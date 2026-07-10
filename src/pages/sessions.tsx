@@ -701,9 +701,18 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* -- TEACHING: 1-on-1 Accepted ? OTP -- */}
+                        {/* -- TEACHING: 1-on-1 Accepted → Join Call + OTP -- */}
                         {tab === "teaching" && !isGroupSession && session.status === "accepted" && (
                           <div className="flex flex-col items-end gap-1.5 w-full md:w-auto">
+                            {/* 🔥 FIX: Pehle sirf OTP button tha, meet link kahi nahi tha —
+                                mentor call join hi nahi kar pata tha OTP poochne ke liye. */}
+                            {session.meetLink && (
+                              <a href={session.meetLink} target="_blank" rel="noopener noreferrer" className="w-full md:w-auto">
+                                <Button size="sm" variant="outline" className="w-full md:w-auto border-[#6C3BFF]/30 text-[#6C3BFF] hover:bg-indigo-50 font-bold rounded-full text-xs h-8">
+                                  <Video className="w-3 h-3 mr-1.5" /> Open Meet
+                                </Button>
+                              </a>
+                            )}
                             <Button size="sm" className="w-full md:w-auto bg-[#6C3BFF] text-white font-bold rounded-full text-xs h-8"
                               onClick={() => setOtpModal(session)}>
                               <Lock className="w-3 h-3 mr-1.5" /> Verify OTP to Start
