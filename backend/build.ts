@@ -7,8 +7,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // server deps to bundle to reduce openat(2) syscalls
-// which helps cold start times without risking some
-// packages that are not bundle compatible
 const allowlist = [
   "@google/generative-ai",
   "axios",
@@ -48,6 +46,8 @@ async function buildAll() {
     ...Object.keys(pkg.dependencies || {}),
     ...Object.keys(pkg.devDependencies || {}),
   ];
+  
+  // Jo dependencies allowlist mein nahi hain, wo external hongi
   const externals = allDeps.filter(
     (dep) =>
       !allowlist.includes(dep) &&
@@ -64,7 +64,9 @@ async function buildAll() {
       "process.env.NODE_ENV": '"production"',
     },
     minify: true,
-    external: externals,
+    // 🔥 ASLI FIX YAHAN HAI: 
+    // Humne 'firebase-admin' aur uske sabhi sub-modules ko explicitly external list mein daal diya
+    external: [...externals, 'firebase-admin', 'firebase-admin/*'],
     logLevel: "info",
   });
 }
