@@ -2,16 +2,16 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { usersTable } from "../schema/users.js";
 import { swipesTable } from "../schema/swipes.js"; 
-
 import { eq, and, notInArray, inArray, desc } from "drizzle-orm";
-import { requireAuth, type AuthRequest } from "../middlewares/auth.js"; // 🔥 Security Added
+import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
+import { notify } from "../notify.js"; // 🔥 Added notify import
 
 const router = Router();
 
 // 🎯 1. GET: Fetch Profiles for Swiping (Discover Page)
 router.get("/profiles", requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.userId!; // 🔥 FIX
+        const userId = req.userId!;
 
         const previousSwipes = await db
             .select({ swipedOnId: swipesTable.swipedOnId })
@@ -67,10 +67,9 @@ router.get("/profiles", requireAuth, async (req: AuthRequest, res) => {
 // 💖 2. POST: Handle Swipe Action
 router.post("/swipe", requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.userId!; // 🔥 FIX
+        const userId = req.userId!;
         const { swipedOnId, action } = req.body;
 
-        // 🔥 FIX 1: Basic validation — fake/garbage data block
         if (!swipedOnId || typeof swipedOnId !== "number") {
             return res.status(400).json({ error: "Invalid swipedOnId" });
         }
@@ -78,14 +77,12 @@ router.post("/swipe", requireAuth, async (req: AuthRequest, res) => {
             return res.status(400).json({ error: "Invalid action" });
         }
 
-        // 🔥 FIX 2: Self-swipe block
         if (swipedOnId === userId) {
             return res.status(400).json({ error: "Cannot swipe on yourself" });
         }
 
-        // 🔥 FIX 3: Fake ID block — target user really exist karta hai check karo
         const [targetUser] = await db
-            .select({ id: usersTable.id })
+            .select({ id: usersTable.id, name: usersTable.name })
             .from(usersTable)
             .where(eq(usersTable.id, swipedOnId));
 
@@ -93,7 +90,6 @@ router.post("/swipe", requireAuth, async (req: AuthRequest, res) => {
             return res.status(404).json({ error: "User not found" });
         }
 
-        // 🔥 FIX 4: Duplicate swipe block — spam/garbage rows prevent karo
         const existing = await db
             .select()
             .from(swipesTable)
@@ -127,6 +123,13 @@ router.post("/swipe", requireAuth, async (req: AuthRequest, res) => {
                 );
 
             if (reverseSwipe.length > 0) {
+                // 🔥 FIX: Mutual Match Notification dono ko bhejo
+                const [me] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+                if (me && targetUser) {
+                    await notify.newMatch(swipedOnId, me.name);   // Target ko notify karo
+                    await notify.newMatch(userId, targetUser.name); // Khud ko notify karo
+                }
+
                 return res.json({ success: true, isMatch: true, message: "It's a Match! 🎉" });
             }
         }
@@ -141,7 +144,7 @@ router.post("/swipe", requireAuth, async (req: AuthRequest, res) => {
 // 💖 3. GET: Fetch Mutual Matches
 router.get("/matches", requireAuth, async (req: AuthRequest, res) => {
     try {
-        const userId = req.userId!; // 🔥 FIX
+        const userId = req.userId!;
 
         const myLikes = await db
             .select()

@@ -36,7 +36,7 @@ const MAX_SESSIONS_PER_WEEK    = 3;    // Prevent Collusion (Money Laundering vi
 const MAX_STUDENTS_CAP         = 50;   // No unrealistic 9999 capacity sessions
 const MAX_CREDITS_PER_STUDENT  = 500;  // No unrealistic pricing
 
-// ?? CRON SECRET — set CRON_SECRET in .env, default only for local dev
+// ?? CRON SECRET ï¿½ set CRON_SECRET in .env, default only for local dev
 const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret-change-in-prod";
 
 const router: IRouter = Router();
@@ -106,7 +106,7 @@ router.post("/group", requireAuth, async (req: AuthRequest, res) => {
     if (!scheduledDate)  return res.status(400).json({ error: "Date is required" });
     if (!creditsAmount || creditsAmount < 1) return res.status(400).json({ error: "Credits per student required (min 1)" });
 
-    // ??? ANTI-FRAUD: Cap validation — prevents platform drain attacks
+    // ??? ANTI-FRAUD: Cap validation ï¿½ prevents platform drain attacks
     const parsedCredits = parseInt(creditsAmount);
     const parsedMaxStudents = parseInt(maxStudents) || 10;
 
@@ -206,7 +206,7 @@ router.get("/group/browse", requireAuth, async (req: AuthRequest, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ?? FIXED: Missing route — frontend /group/my-enrollments call karta tha jo exist hi nahi karta tha
+// ?? FIXED: Missing route ï¿½ frontend /group/my-enrollments call karta tha jo exist hi nahi karta tha
 // "My Groups" tab isliye hamesha empty dikhta tha
 router.get("/group/my-enrollments", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -568,14 +568,14 @@ router.post("/:id/join-group", requireAuth, async (req: AuthRequest, res) => {
     ));
     if (existing?.status === "active") return res.status(400).json({ error: "Already enrolled in this session" });
 
-    // ??? ANTI-FRAUD #2: Capacity check — real-time se dobara check, race conditions prevent karo
+    // ??? ANTI-FRAUD #2: Capacity check ï¿½ real-time se dobara check, race conditions prevent karo
     const activeEnrollments = await getEnrollmentCount(sessionId);
     const maxStudents = (session as any).maxStudents || 10;
     if (activeEnrollments.length >= maxStudents) {
       return res.status(400).json({ error: "Session is full. No spots remaining." });
     }
 
-    // ??? ANTI-FRAUD #3: Collusion check — same mentor ke sath same week mein too many sessions
+    // ??? ANTI-FRAUD #3: Collusion check ï¿½ same mentor ke sath same week mein too many sessions
     await checkVelocityAndCollusion(req.userId!, session.mentorId);
 
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
@@ -710,7 +710,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 
     if (sessions.length === 0) return res.json([]);
 
-    // Batch fetch mentors + students — ek saath, N+1 nahi
+    // Batch fetch mentors + students ï¿½ ek saath, N+1 nahi
     const mentorIds  = [...new Set(sessions.map((s: any) => s.mentorId).filter(Boolean))];
     const studentIds = [...new Set(sessions.map((s: any) => s.studentId).filter((id: number) => id > 0))];
 
@@ -748,7 +748,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
  * Finds all sessions in "pending_clearance" past 24h and pays mentor.
  */
 router.post("/system/cron/clear-escrow", async (req, res) => {
-  // ??? ANTI-FRAUD: Cron endpoint protection — previously unprotected, anyone could trigger payouts
+  // ??? ANTI-FRAUD: Cron endpoint protection ï¿½ previously unprotected, anyone could trigger payouts
   const providedSecret = req.headers["x-cron-secret"] as string;
   if (!providedSecret || providedSecret !== CRON_SECRET) {
     console.warn(`[CRON] Unauthorized clear-escrow attempt from IP: ${req.ip}`);
@@ -922,7 +922,7 @@ router.post("/:id/negotiate", requireAuth, async (req: AuthRequest, res) => {
     }
     if (session.status !== "requested") return res.status(400).json({ error: "Can only negotiate on requested sessions" });
 
-    // Credit difference — refund or deduct
+    // Credit difference ï¿½ refund or deduct
     const diff = proposedPrice - session.creditsAmount;
     if (diff > 0) {
       const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId));

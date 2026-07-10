@@ -3,7 +3,6 @@ import { db } from "../db.js";
 import { eq, desc, and } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
 import { z } from "zod";
-// 🔥 Duplicate table removed, schema imported
 import { notificationsTable } from "../schema/index.js";
 
 const router: IRouter = Router();
@@ -34,11 +33,6 @@ router.patch("/read-all", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // PATCH /api/notifications/:id/read
-// 🔥 SECURITY FIX (IDOR): This route previously updated a notification by ID
-// alone, with NO check that it belonged to the requesting user. Any logged-in
-// user could pass any notification ID and mark someone else's notification
-// as read. Now the WHERE clause requires BOTH the id AND userId to match, so
-// a user can only ever touch their own notifications.
 router.patch("/:id/read", requireAuth, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id as string);
@@ -48,7 +42,6 @@ router.patch("/:id/read", requireAuth, async (req: AuthRequest, res) => {
       .returning({ id: notificationsTable.id });
 
     if (result.length === 0) {
-      // Either it doesn't exist, or it belongs to someone else — don't reveal which.
       return res.status(404).json({ success: false, error: "Notification not found" });
     }
     res.json({ success: true });
@@ -58,14 +51,6 @@ router.patch("/:id/read", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // POST /api/notifications
-// 🔥 SECURITY FIX: Previously any logged-in user could pass an arbitrary
-// `userId` and inject a notification into ANOTHER user's inbox (fake "payment
-// received", phishing-style messages, etc). System-generated notifications
-// (session booked, payment success, etc.) already go through notify.ts
-// server-side and don't need this public endpoint. This route is now
-// restricted to self-notifications only (e.g. a personal reminder feature).
-// If you need server-to-user notifications, call notify.ts directly from
-// backend code — never trust a client-supplied userId here.
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { type, title, message, actionUrl } = z.object({
@@ -81,6 +66,18 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     res.status(201).json(notif);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// 🔥 FIX: Naya DELETE route add kiya taki notification permanently hategi
+router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    await db.delete(notificationsTable)
+      .where(and(eq(notificationsTable.id, id), eq(notificationsTable.userId, req.userId!)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.json({ success: false, error: "Failed to delete" });
   }
 });
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, CheckCheck, Zap, Calendar, Trophy, Flame, MessageSquare, Users, X, Settings, Loader2 } from "lucide-react";
+import { Bell, CheckCheck, Zap, Calendar, Trophy, Flame, MessageSquare, Users, X, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth";
@@ -31,17 +31,29 @@ export default function Notifications() {
 
   const markAllRead = async () => {
     await fetch(`${import.meta.env.VITE_API_URL || ""}/api/notifications/read-all`, { method: "PATCH", headers });
-    setNotifs(p => p.map(n => ({ ...n, isRead: true })));
+    setNotifs(p => p.map(n => ({ ...n, isRead: true, is_read: true })));
   };
 
   const markRead = async (id: number) => {
     await fetch(`${import.meta.env.VITE_API_URL || ""}/api/notifications/${id}/read`, { method: "PATCH", headers });
-    setNotifs(p => p.map(n => n.id === id ? { ...n, isRead: true } : n));
+    setNotifs(p => p.map(n => n.id === id ? { ...n, isRead: true, is_read: true } : n));
   };
 
-  const dismiss = (id: number) => setNotifs(p => p.filter(n => n.id !== id));
+  // 🔥 FIX: Asli database call permanently delete karne ke liye
+  const dismiss = async (id: number) => {
+    setNotifs(p => p.filter(n => n.id !== id)); // Turant screen se hato
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL || ""}/api/notifications/${id}`, { 
+        method: "DELETE", 
+        headers 
+      });
+    } catch (error) {
+      console.error("Failed to delete notification");
+    }
+  };
 
-  const unread = notifs.filter(n => !n.isRead).length;
+  // 🔥 FIX: Safe check for both camelCase and snake_case values
+  const unread = notifs.filter(n => !(n.isRead || n.is_read)).length;
 
   return (
     <div className="py-6 max-w-2xl mx-auto space-y-5">
@@ -78,11 +90,16 @@ export default function Notifications() {
             {notifs.map(notif => {
               const cfg = CFGS[notif.type] ?? CFGS.reminder;
               const Icon = cfg.icon;
+              
+              // 🔥 FIX: Safe fallback for Date and Read flag
+              const isRead = notif.isRead || notif.is_read;
+              const dateStr = notif.createdAt || notif.created_at;
+
               return (
                 <motion.div key={notif.id} layout
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 40 }}
                   className={`group flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
-                    !notif.isRead ? "bg-primary/5 border-primary/20 hover:border-primary/40" : "bg-background border-border hover:border-primary/20"
+                    !isRead ? "bg-primary/5 border-primary/20 hover:border-primary/40" : "bg-background border-border hover:border-primary/20"
                   }`}
                   onClick={() => markRead(notif.id)}>
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${cfg.bg}`}>
@@ -90,20 +107,20 @@ export default function Notifications() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm font-semibold leading-tight ${!notif.isRead ? "" : "text-muted-foreground"}`}>
+                      <p className={`text-sm font-semibold leading-tight ${!isRead ? "" : "text-muted-foreground"}`}>
                         {notif.title}
                       </p>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="text-xs text-muted-foreground">
-                          {new Date(notif.createdAt).toLocaleDateString()}
+                          {dateStr ? new Date(dateStr).toLocaleDateString() : ""}
                         </span>
-                        {!notif.isRead && <div className="w-2 h-2 bg-primary rounded-full" />}
+                        {!isRead && <div className="w-2 h-2 bg-primary rounded-full" />}
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{notif.message}</p>
                     {notif.actionUrl && (
                       <Link href={notif.actionUrl}>
-                        <span className="text-xs text-primary hover:underline mt-1.5 inline-block font-medium">View ?</span>
+                        <span className="text-xs text-primary hover:underline mt-1.5 inline-block font-medium">View ↗</span>
                       </Link>
                     )}
                   </div>
@@ -120,8 +137,3 @@ export default function Notifications() {
     </div>
   );
 }
-
-
-
-
-

@@ -23,16 +23,8 @@ export async function createNotification(userId: number, type: string, title: st
       await sendEmail(user.email, title, emailBody);
     }
 
-    // 🔥 FIX: previously there was no success confirmation at all — you could
-    // only infer "it probably worked" from the absence of an error line.
-    // This makes DB-insert success explicit and traceable per user.
     console.log(`[notify] OK userId=${userId} type=${type}`);
   } catch (err: any) {
-    // 🔥 FIX: the driver's top-level err.message for a failed query is just the
-    // SQL + params echoed back — it never told us WHY it failed. The real
-    // reason (connection timeout, pool exhaustion, constraint violation, etc.)
-    // lives in err.cause. Logging both gives us the actual root cause instead
-    // of a useless "Failed query" line repeated for every user.
     console.error(`[notify] Failed for userId=${userId}, type=${type}:`, err.message);
     if (err.cause) {
       console.error(`[notify] Root cause for userId=${userId}:`, err.cause);
@@ -50,6 +42,13 @@ export const notify = {
     
   adminBroadcast: (userId: number, title: string, message: string, url: string) => 
     createNotification(userId, "marketing", `📢 ${title}`, message, url),
+
+  // 💬 CHATS & MATCHES (🔥 NEWLY ADDED)
+  newMatch: (userId: number, matchName: string) =>
+    createNotification(userId, "match", "New Match! 🎉", `You and ${matchName} liked each other!`, "/matches"),
+    
+  newMessage: (userId: number, senderName: string) =>
+    createNotification(userId, "message", "New Message", `${senderName} sent you a message.`, "/chats"),
 
   // 📝 EXISTING ACTION NOTIFICATIONS
   sessionBooked:    (mentorId: number, learnerName: string, skill: string) =>

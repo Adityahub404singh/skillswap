@@ -2,6 +2,7 @@
 import { db } from "../db.js";
 import { sql } from "drizzle-orm"; 
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js"; 
+import { notify } from "../notify.js"; // 🔥 Added notify import
 
 const router = Router();
 
@@ -11,10 +12,18 @@ router.post(["/", ""], requireAuth, async (req: AuthRequest, res) => {
         const userId = req.userId!;
         const { receiverId, content } = req.body;
 
+        // 1. Message save karo
         await db.execute(sql`
             INSERT INTO messages (sender_id, receiver_id, content) 
             VALUES (${userId}, ${receiverId}, ${content})
         `);
+
+        // 2. 🔥 FIX: Receiver ko notification bhejo ki naya message aaya hai
+        const senderRes = await db.execute(sql`SELECT name FROM users WHERE id = ${userId}`);
+        const senderData = senderRes.rows || senderRes;
+        const senderName = (senderData[0] as any)?.name || "Someone";
+        
+        await notify.newMessage(receiverId, senderName);
 
         res.json({ success: true, message: "Message sent!" });
     } catch (error) {
@@ -23,12 +32,11 @@ router.post(["/", ""], requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 👥 GET: Conversations List (🔥 THE ULTIMATE FIX FOR DUPLICATES)
+// 👥 GET: Conversations List (THE ULTIMATE FIX FOR DUPLICATES)
 router.get("/conversations", requireAuth, async (req: AuthRequest, res) => {
     try {
         const userId = req.userId!;
         
-        // 1. Saare messages uthao jisme ye user involved hai (Latest first)
         const convos = await db.execute(sql`
             SELECT u.id, u.name, u.avatar, m.content as lastMessage, m.created_at
             FROM users u
@@ -38,22 +46,16 @@ router.get("/conversations", requireAuth, async (req: AuthRequest, res) => {
             ORDER BY m.created_at DESC
         `);
 
-        // Database drivers return data differently (rows ya direct array)
         const rawRows = convos.rows || convos;
-        
-        // 2. FOOLPROOF JAVASCRIPT DEDUPLICATION (Ek user sirf 1 baar)
         const uniqueChatsMap = new Map();
 
         for (const row of rawRows as any[]) {
-            // Map mein sirf pehli entry save hogi (aur kyunki ORDER BY DESC hai, pehli entry hamesha latest hogi)
             if (!uniqueChatsMap.has(row.id)) {
                 uniqueChatsMap.set(row.id, row);
             }
         }
 
-        // 3. Map wapas Array mein convert karke frontend ko bhej do
         const uniqueChats = Array.from(uniqueChatsMap.values());
-
         res.json(uniqueChats);
     } catch (e) {
         console.error("Conversations fetch error:", e);
@@ -85,7 +87,7 @@ router.get("/:otherUserId", requireAuth, async (req: AuthRequest, res) => {
     }
 });
 
-// 🗑️ DELETE: Poori Chat Delete karne ka route (Tere pichle request ke liye)
+// 🗑️ DELETE: Poori Chat Delete karne ka route
 router.delete("/:otherUserId", requireAuth, async (req: AuthRequest, res) => {
     try {
         const userId = req.userId!;

@@ -5,14 +5,16 @@ import { sessionsTable } from '../schema/sessions.js';
 import { usersTable } from '../schema/users.js';
 import { transactionsTable } from '../schema/transactions.js';
 import { eq, and, lte, sql } from 'drizzle-orm';
+import { notify } from '../notify.js'; // 🔥 Added notify import
 
-
-// 📧 Email Setup using Nodemailer (Gmail)
+// 📧 Email Setup using Nodemailer (Gmail) - 🔥 FIX: Added port and secure for Render timeout fix
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: process.env.EMAIL_USER, // Set in .env
-    pass: process.env.EMAIL_PASS, // Set in .env (App Password)
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS, 
   },
 });
 
@@ -53,6 +55,9 @@ export function startCronJobs() {
           userId: session.studentId, type: 'refund', amount: session.creditsAmount,
           description: `Auto-Refund: Mentor unresponsive for ${session.skill}`, sessionId: session.id,
         } as any);
+
+        // 🔥 FIX: Notify student about cancellation and refund
+        await notify.sessionCancelled(session.studentId, session.skill, session.creditsAmount);
       }
     } catch (e) {
       console.error('Session Cleanup Cron Error:', e);
@@ -66,7 +71,6 @@ export function startCronJobs() {
     console.log("🚀 Running Daily User Retention Email Engine...");
     
     try {
-      // Get all users from db
       const users = await db.select().from(usersTable).limit(500);
       const now = new Date().getTime();
 
@@ -79,7 +83,6 @@ export function startCronJobs() {
         let subject = "";
         let htmlMessage = "";
 
-        // 🔥 DAY 2: MOTIVATIONAL & CREDIT REMINDER
         if (daysInactive === 2) {
           subject = `🚨 Don't let your skills rust, ${user.name?.split(' ')[0] || 'Champion'}! 🚀`;
           htmlMessage = `
@@ -97,10 +100,7 @@ export function startCronJobs() {
               </div>
             </div>
           `;
-        } 
-        
-        // 🔥 DAY 4: FOMO (FEAR OF MISSING OUT) & SOCIAL PROOF
-        else if (daysInactive === 4) {
+        } else if (daysInactive === 4) {
           subject = `👀 Someone is looking for exactly what you know!`;
           htmlMessage = `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
@@ -137,8 +137,6 @@ export function startCronJobs() {
   // =========================================================================
   // 🌟 CRON JOB 3: ESCROW CLEARANCE ENGINE (Runs every hour)
   // =========================================================================
-  // 🔥 FIX: localhost fetch hata diya — Render pe ECONNREFUSED deta tha
-  // Ab seedha DB call karta hai, koi HTTP request nahi
   cron.schedule('0 * * * *', async () => {
     try {
       const PLATFORM_FEE_PCT = 0.15;
@@ -174,6 +172,9 @@ export function startCronJobs() {
           } as any);
 
           totalClearedAmt += mentorEarnings;
+
+          // 🔥 FIX: Notify mentor about cleared funds
+          await notify.creditsEarned(session.mentorId, mentorEarnings, `Escrow cleared for ${session.skill}`);
         }
 
         await db.update(sessionsTable)
