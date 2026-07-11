@@ -4,7 +4,7 @@ Learn something new. Teach something you're good at. No money involved — just 
 
 That's the whole idea behind SkillSwap. I built it as a peer-to-peer skill exchange platform where anyone can be a mentor and a learner at the same time. Teach a Python session, earn credits, use those credits to finally learn guitar from someone else on the platform.
 
-🌐 **Live app:** [skillswap-fawn-mu.vercel.app](https://skillswap-fawn-mu.vercel.app)
+🌐 **Live app:** [skillswap-fawn-mu.vercel.app](https://skillswap-india.vercel.app/)
 ⚙️ **Backend API:** [skillswap-b59w.onrender.com](https://skillswap-b59w.onrender.com)
 
 ---
