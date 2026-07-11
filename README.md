@@ -1,93 +1,77 @@
-﻿# 🚀 SkillSwap — AI-Powered Peer-to-Peer Skill Exchange Platform
+﻿# 🔄 SkillSwap
 
-> **Teach what you know. Learn what you need. No money involved.**
+**Learn Anything. Teach Everything.**
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-skillswap--fawn--mu.vercel.app-6d28d9?style=for-the-badge&logo=vercel)](https://skillswap-fawn-mu.vercel.app)
-[![Backend](https://img.shields.io/badge/Backend-Render-46E3B7?style=for-the-badge&logo=render)](https://skillswap-b59w.onrender.com)
-[![GitHub](https://img.shields.io/badge/GitHub-Adityahub404singh-181717?style=for-the-badge&logo=github)](https://github.com/Adityahub404singh/skillswap)
+SkillSwap is a peer-to-peer skill exchange platform where people trade knowledge instead of money — teach what you know, learn what you love, and earn credits along the way.
+
+<div align="center">
+
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Visit_App-6C3BFF?style=for-the-badge)](https://skillswap-fawn-mu.vercel.app)
+[![Backend API](https://img.shields.io/badge/⚙️_Backend-API_Status-8B5CF6?style=for-the-badge)](https://skillswap-b59w.onrender.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+
+</div>
 
 ---
 
-## 🌟 What is SkillSwap?
+## 📖 Table of Contents
 
-SkillSwap is a **credit-based peer-to-peer learning platform** where users teach skills to earn credits, and spend credits to learn from others. No real money involved — just knowledge exchange!
+- [Overview](#-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Getting Started](#-getting-started)
+- [Environment Variables](#-environment-variables)
+- [Admin Panel](#️-admin-panel)
+- [Project Structure](#-project-structure)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+---
+
+## 🎯 Overview
+
+SkillSwap connects learners and mentors through a credit-based economy — no cash changes hands. Teach a session, earn credits; spend credits to learn from someone else. Built as a full-stack web app with a native mobile companion (Android/iOS via Capacitor).
 
 ---
 
 ## ✨ Features
 
-- 🎓 **Teach to Earn** — Conduct sessions and earn 10 credits/hour
-- 📚 **Learn from Experts** — Book sessions using earned credits
-- 🤖 **SkillAI** — AI-powered learning assistant (Anthropic Claude)
-- 💳 **Credit Economy** — 1 Credit = ₹1, platform takes 10% commission
-- 🎁 **200 Free Credits** on signup
-- 👥 **Referral System** — Earn 50 credits for first referral, 25 for subsequent
-- 🛡️ **Admin Panel** — Full platform management
-- 📊 **Analytics Dashboard** — Track sessions, credits, users
-- 🌙 **Dark/Light Mode**
-- 📱 **Fully Responsive** — Works on mobile too
+### For Learners
+- 🔍 **Discover** — Tinder-style swipe deck to find mentors by skill, rating, and location
+- 📅 **1-on-1 & Group Sessions** — Book individual sessions or join group classes (up to 10 learners)
+- 🧠 **Daily Quiz** — Answer skill-based questions to earn bonus credits
+- 🏆 **Leaderboard & Streaks** — Stay engaged with daily streaks and trust score progression
+- 💬 **In-app Chat** — Message mentors directly before or after booking
+
+### For Mentors
+- 👨‍🏫 **Group Classes** — Teach up to 10 students at once and earn credits faster
+- 💰 **Wallet & Withdrawals** — Track earnings and request payouts
+- ⭐ **Ratings & Badges** — Build reputation through reviews and achievement badges
+- 📊 **Session Management** — Accept, negotiate, or decline booking requests
+
+### Platform-Wide
+- 🎁 **Referral Program** — "Give 50, Get 50" — invite friends, both sides earn credits
+- 🔔 **Notifications** — Real-time in-app alerts, push notifications (FCM), and email digests
+- 🔒 **Escrow-Protected Credits** — Session payments are held in escrow until completion
+- 📱 **Native Mobile App** — Full Android/iOS support via Capacitor
+- 🛡️ **Admin Dashboard** — Full platform moderation and analytics suite
 
 ---
 
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, TypeScript, Vite, TailwindCSS |
-| UI Components | Shadcn/UI, Radix UI, Framer Motion |
-| State Management | Zustand, TanStack Query |
-| Backend | Node.js, Express, TypeScript |
-| Database | PostgreSQL (Drizzle ORM) |
-| Authentication | JWT |
-| AI | Anthropic Claude API |
-| Deployment | Vercel (Frontend) + Render (Backend) |
-
----
-
-## 🔗 Live Links
-
-| Service | URL |
-|---------|-----|
-| 🌐 Frontend | [skillswap-fawn-mu.vercel.app](https://skillswap-fawn-mu.vercel.app) |
-| ⚙️ Backend API | [skillswap-b59w.onrender.com](https://skillswap-b59w.onrender.com) |
-| 🛡️ Admin Panel | [skillswap-fawn-mu.vercel.app/admin](https://skillswap-fawn-mu.vercel.app/admin) |
-
----
-
-## 📁 Project Structure
-```
-skillswap/
-├── src/                    # Frontend source
-│   ├── components/         # UI components
-│   ├── pages/              # App pages
-│   ├── store/              # Zustand state
-│   ├── lib/                # API client
-│   └── hooks/              # Custom hooks
-├── backend/                # Backend source
-│   └── src/
-│       ├── routes/         # API routes
-│       ├── middlewares/    # Auth middleware
-│       └── utils/          # JWT utils
-├── database/               # DB schema
-│   └── src/schema/
-├── lib/                    # Shared libraries
-└── public/                 # Static assets
-```
-
----
-
-## 💰 Credit Economy
-
-| Action | Credits |
-|--------|---------|
-| Signup Bonus | +200 |
-| First Referral | +50 |
-| Next Referrals | +25 each |
-| Beginner Session (30 min) | 15 credits |
-| Intermediate Session (45 min) | 30 credits |
-| Advanced Session (60 min) | 50 credits |
-| Micro Help (15 min) | 10 credits |
-| Minimum Withdrawal | 500 credits = ₹500 |
+|---|---|
+| **Frontend** | React, Vite, TypeScript, TailwindCSS, Framer Motion |
+| **Backend** | Node.js, Express, TypeScript |
+| **Database** | PostgreSQL (Neon), Drizzle ORM |
+| **Auth** | JWT, Google OAuth |
+| **Storage** | Cloudinary (avatar uploads) |
+| **Notifications** | Firebase Cloud Messaging (push), Nodemailer (email) |
+| **Mobile** | Capacitor (Android & iOS) |
+| **AI** | Anthropic Claude API |
+| **Payments** | Razorpay |
+| **Deployment** | Vercel (frontend), Render (backend) |
 
 ---
 
@@ -95,8 +79,8 @@ skillswap/
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL
-- pnpm
+- PostgreSQL database (or a free [Neon](https://neon.tech) instance)
+- pnpm (`npm install -g pnpm`)
 
 ### Frontend Setup
 ```bash
@@ -111,53 +95,101 @@ npm install
 npm run dev
 ```
 
-### Environment Variables
+The backend runs on `http://localhost:3001` by default, and the frontend dev server proxies API calls to it.
+
+---
+
+## 🔐 Environment Variables
+
+Create a `.env` file in the root **and** in `backend/` with the following:
 
 **Frontend** (`.env`):
-```
+```env
 VITE_API_URL=https://skillswap-b59w.onrender.com
 ```
 
-**Backend** (`.env`):
-```
+**Backend** (`backend/.env`):
+```env
 DATABASE_URL=your_postgresql_url
 JWT_SECRET=your_jwt_secret
 ANTHROPIC_API_KEY=your_anthropic_key
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+FIREBASE_SERVICE_ACCOUNT=your_firebase_service_account_json
+FRONTEND_URL=https://skillswap-fawn-mu.vercel.app
 ```
+
+> ⚠️ Never commit your `.env` files. Both are already covered by `.gitignore`.
 
 ---
 
 ## 🛡️ Admin Panel
 
-Access at `/admin` with admin credentials.
+Access the admin dashboard at **`/admin`** with an admin account.
 
-Features:
-- 📊 Platform statistics
-- 👥 User management (add/remove credits, delete users)
-- 📅 Session monitoring & cancellation
-- 💳 Transaction history
+**Capabilities:**
+- 📊 Platform-wide statistics (users, sessions, revenue, growth trends)
+- 👥 User management — grant/deduct credits, suspend, ban, or delete accounts
+- 📅 Session monitoring — cancel, resolve disputes, force-refund or force-pay
+- 💳 Transaction history & withdrawal approvals
+- 📢 Broadcast notifications to all users, mentors, or students
+- 🚩 Fraud detection reports (suspicious cancellations, fake accounts)
+
+---
+
+## 📁 Project Structure
+
+```
+skillswap/
+├── src/                  # Frontend (React + Vite)
+│   ├── pages/            # Route-level pages (Dashboard, Discover, Sessions, etc.)
+│   ├── components/       # Shared UI components
+│   ├── lib/               # API client, utilities, push notifications
+│   └── store/             # Auth & global state
+├── backend/
+│   └── src/
+│       ├── routes/        # Express route handlers
+│       ├── schema/        # Drizzle ORM schema
+│       ├── middlewares/   # Auth & request middleware
+│       └── notify.ts      # Notification dispatch (push + email)
+├── android/               # Capacitor Android native project
+└── ios/                   # Capacitor iOS native project
+```
 
 ---
 
 ## 🤝 Contributing
 
 1. Fork the repo
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create your feature branch
+   ```bash
+   git checkout -b feature/AmazingFeature
+   ```
+3. Commit your changes
+   ```bash
+   git commit -m "Add AmazingFeature"
+   ```
+4. Push to the branch
+   ```bash
+   git push origin feature/AmazingFeature
+   ```
 5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-MIT License — feel free to use this project!
+Distributed under the **MIT License** — feel free to use this project!
 
 ---
 
 <div align="center">
-  <strong>Built with ❤️ for Hackathon 2026</strong><br/><br/>
-  <a href="https://skillswap-fawn-mu.vercel.app">🌐 Live Demo</a> •
-  <a href="https://skillswap-b59w.onrender.com">⚙️ Backend API</a> •
-  <a href="https://github.com/Adityahub404singh/skillswap">⭐ Star on GitHub</a>
+
+**Built with ❤️ for Hackathon 2026**
+
+<a href="https://skillswap-fawn-mu.vercel.app">🌐 Live Demo</a> •
+<a href="https://skillswap-b59w.onrender.com">⚙️ Backend API</a> •
+<a href="https://github.com/Adityahub404singh/skillswap">⭐ Star on GitHub</a>
+
 </div>
