@@ -289,7 +289,6 @@ router.post("/:id/claim-flash", requireAuth, async (req: AuthRequest, res) => {
     const meetLink = `https://meet.jit.si/SkillSwapFlash_${sessionId}_${Date.now()}`;
     await db.update(sessionsTable).set({ mentorId: req.userId!, status: "accepted", meetLink } as any).where(eq(sessionsTable.id, sessionId));
     
-    // 🔥 FIX 1: Notify student that their flash doubt was claimed
     const [mentor] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
     await notify.sessionAccepted(session.studentId, mentor?.name || "A Mentor", session.skill);
 
@@ -452,24 +451,12 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
     const timePct       = wallClockMins / duration;
     const completedByMentor = req.userId === session.mentorId;
 
-    // 🛡️ FRAUD GUARD: Fast Exits (<20% Time)
-    // 🔥 FIX (free-sampling abuse): Previously ANY caller (student or mentor)
-    // triggering this branch got a full refund with zero payout to the
-    // mentor. That let a dishonest student start a session, take a free
-    // 10-15 min "sample", then call /complete themselves to force a full
-    // refund — repeatable against any mentor, any number of times. Now:
-    // only the MENTOR ending it early can waive their own payout. If the
-    // STUDENT ends it early, it falls through to normal proration below —
-    // the mentor still gets paid for the real time spent.
     if (timePct < AUTO_CANCEL_THRESHOLD) {
       if (!completedByMentor) {
         const minMins = Math.round(duration * AUTO_CANCEL_THRESHOLD);
         return res.status(400).json({ error: `Session sirf ${Math.round(wallClockMins)} mins chali. Kam se kam ${minMins} mins baad complete kar sakte ho.` });
       }
-      // ✅ RACE-SAFE: conditional update — only succeeds if session is still
-      // "in_progress". If two requests race (double-click, script firing
-      // twice), the second one gets rowCount 0 and is rejected instead of
-      // double-refunding the student.
+      
       const updated = await db.update(sessionsTable).set({
         status: "cancelled", cancelReason: `Auto-Cancelled: Session ended too early (${Math.round(wallClockMins)} mins).`
       } as any).where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.status, "in_progress"))).returning({ id: sessionsTable.id });
@@ -480,7 +467,6 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
 
       await refundStudent(session.studentId, session.creditsAmount, sessionId, `Fast Exit Refund: Session was only ${Math.round(wallClockMins)} mins.`);
       
-      // 🔥 FIX 2: Notify Student & Mentor about Auto-Cancel
       await notify.sessionCancelled(session.studentId, session.skill, session.creditsAmount);
       await notify.sessionCancelled(session.mentorId, session.skill, 0);
 
@@ -495,9 +481,6 @@ router.post("/:id/complete", requireAuth, async (req: AuthRequest, res) => {
       refundAmount = session.creditsAmount - payoutAmount;
     }
 
-    // ✅ RACE-SAFE: same atomic-conditional-update pattern as the fast-exit
-    // branch above — this is the write that actually "locks in" completion,
-    // so it must be the one guarded against concurrent duplicate calls.
     const updated = await db.update(sessionsTable).set({
       status: "pending_clearance", 
       completedAt: new Date(), 
@@ -563,19 +546,14 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
       for (const e of enrollments) {
         await refundStudent(e.studentId, e.creditsAmount, sessionId, `Group cancelled: ${session.skill}`);
         await db.update(groupEnrollmentsTable).set({ status: "refunded", refundAmount: e.creditsAmount, refundedAt: new Date() } as any).where(eq(groupEnrollmentsTable.id, e.id));
-        
-        // 🔥 FIX 3a: Notify Group Students about Cancellation
         await notify.sessionCancelled(e.studentId, session.skill, e.creditsAmount);
       }
-      // 🔥 FIX 3b: Notify Mentor about Cancellation
       if (session.mentorId) await notify.sessionCancelled(session.mentorId, session.skill, 0);
     } else {
       if (session.studentId && session.creditsAmount > 0) {
         await refundStudent(session.studentId, session.creditsAmount, sessionId, `Cancelled: ${session.skill}`);
-        // 🔥 FIX 3c: Notify 1-on-1 Student about Cancellation
         await notify.sessionCancelled(session.studentId, session.skill, session.creditsAmount);
       }
-      // 🔥 FIX 3d: Notify 1-on-1 Mentor about Cancellation
       if (session.mentorId) {
         await notify.sessionCancelled(session.mentorId, session.skill, 0);
       }
@@ -682,9 +660,7 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
     const elapsedMins = (Date.now() - new Date(startedAt).getTime()) / 60000;
     const timePct    = elapsedMins / duration;
 
-    // 🛡️ FRAUD GUARD
     if (timePct < AUTO_CANCEL_THRESHOLD) {
-      // ✅ RACE-SAFE: conditional update guards against double-submit
       const updated = await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Ended under 20% limit." } as any)
         .where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.status, "in_progress")));
 
@@ -692,12 +668,9 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
       for (const e of enrollments) {
         await refundStudent(e.studentId, e.creditsAmount, sessionId, "Mentor ended group too early (Auto-Refund)");
         await db.update(groupEnrollmentsTable).set({ status: "refunded" } as any).where(eq(groupEnrollmentsTable.id, e.id));
-        
-        // 🔥 FIX 4a: Notify Group Students about Auto-Cancel
         await notify.sessionCancelled(e.studentId, session.skill, e.creditsAmount);
       }
       
-      // 🔥 FIX 4b: Notify Mentor about Auto-Cancel
       await notify.sessionCancelled(session.mentorId, session.skill, 0);
 
       return res.status(400).json({ error: "Session ended too early. Auto-cancelled & all students refunded." });
@@ -724,7 +697,6 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
       } as any).where(eq(groupEnrollmentsTable.id, enrollment.id));
     }
 
-    // ✅ RACE-SAFE: conditional update on the final completion write too
     const updated = await db.update(sessionsTable).set({
       status: "pending_clearance", 
       completedAt: new Date(), 
@@ -736,8 +708,6 @@ router.post("/:id/end-group", requireAuth, async (req: AuthRequest, res) => {
       return res.status(409).json({ error: "Session was already completed or cancelled by another request." });
     }
 
-    // 🔥 FIX: Success path never told the mentor their payout was in escrow —
-    // they'd only find out when the weekly clearance cron paid them.
     notify.sessionCompleted(session.mentorId, session.skill, totalPendingForMentor);
 
     res.json({
@@ -783,10 +753,6 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 
     const enriched = sessions.map((s: any) => ({
       ...s,
-      // 🔥 FIX: OTP sirf STUDENT ko dikhna chahiye, jab tak session start na ho.
-      // Mentor ko KABHI nahi — unhe student se poochke type karna hai (yahi security check hai).
-      // Pehle ye hamesha `undefined` set ho raha tha sabke liye, isliye student ko
-      // apna OTP kabhi dikhta hi nahi tha aur mentor session start kar hi nahi paata tha.
       sessionOtp: (s.studentId === req.userId && ["requested", "accepted"].includes(s.status)) ? s.sessionOtp : undefined,
       mentor:  mentorMap[s.mentorId]  || null,
       student: studentMap[s.studentId] || null,
@@ -851,10 +817,8 @@ router.post("/system/cron/clear-escrow", async (req, res) => {
       clearedCount++;
     }
 
-    console.log(`[ESCROW CRON] Cleared ${clearedCount} sessions. Total paid: ${totalClearedAmt} cr.`);
     res.json({ success: true, clearedCount, totalClearedAmt });
   } catch (err: any) { 
-    console.error("[ESCROW CRON ERROR]", err);
     res.status(500).json({ error: err.message }); 
   }
 });
@@ -899,7 +863,7 @@ router.post("/:id/rate", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// 🚪 LEAVE GROUP (before session starts)
+// 🚪 LEAVE GROUP
 // --------------------------------------------------------------
 router.post("/:id/leave-group", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -925,7 +889,7 @@ router.post("/:id/leave-group", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// 👨‍🎓 GROUP MEMBERS (mentor view)
+// 👨‍🎓 GROUP MEMBERS
 // --------------------------------------------------------------
 router.get("/:id/group-members", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -958,7 +922,7 @@ router.get("/:id/group-members", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --------------------------------------------------------------
-// 🤝 NEGOTIATE PRICE
+// 🤝 NEGOTIATE PRICE (🔥 EXTREME SECURITY FIX APPLIED)
 // --------------------------------------------------------------
 router.post("/:id/negotiate", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -974,12 +938,18 @@ router.post("/:id/negotiate", requireAuth, async (req: AuthRequest, res) => {
     if (session.status !== "requested") return res.status(400).json({ error: "Can only negotiate on requested sessions" });
 
     const diff = proposedPrice - session.creditsAmount;
+    
+    // 🔥 CRITICAL FIX: Mentor cannot increase price to drain student wallet.
+    if (diff > 0 && req.userId === session.mentorId) {
+       return res.status(403).json({ error: "Mentors can only offer a discount. To request a higher price, please ask the student to update it." });
+    }
+
     if (diff > 0) {
       const [student] = await db.select().from(usersTable).where(eq(usersTable.id, session.studentId));
       if ((student?.credits || 0) < diff) return res.status(400).json({ error: `Need ${diff} more credits` });
       await db.update(usersTable).set({ credits: sql`${usersTable.credits} - ${diff}` }).where(eq(usersTable.id, session.studentId));
     } else if (diff < 0) {
-      await refundStudent(session.studentId, Math.abs(diff), sessionId, "Price negotiation refund");
+      await refundStudent(session.studentId, Math.abs(diff), sessionId, "Price negotiation discount refund");
     }
 
     await db.update(sessionsTable).set({ creditsAmount: proposedPrice } as any).where(eq(sessionsTable.id, sessionId));

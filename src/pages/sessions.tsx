@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useGetMySessions, useAcceptSession, useCompleteSession, useCancelSession, useCreateRating, useGetMe } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
@@ -17,6 +17,7 @@ import {
   Lock, Key, User, Compass, Timer, ArrowRightLeft, UserCheck,
   PlayCircle, StopCircle, BadgeCheck, TrendingUp,
 } from "lucide-react";
+
 const BASE = import.meta.env.VITE_API_URL || "";
 
 type SessionTab   = "learning" | "teaching" | "groups";
@@ -39,26 +40,25 @@ export default function Sessions() {
   const { toast }   = useToast();
   const [location]  = useLocation();
 
-  const [tab,            setTab]           = useState<SessionTab>("learning");
-  const [statusFilter,   setStatusFilter]  = useState<StatusFilter>("all");
-  const [ratingId,       setRatingId]      = useState<number | null>(null);
-  const [ratingVal,      setRatingVal]     = useState(5);
-  const [reviewText,     setReviewText]    = useState("");
-  const [groupModal,     setGroupModal]    = useState(false);
-  const [negotiateModal, setNegotiateModal]= useState<any>(null);
-  const [proposedPrice,  setProposedPrice] = useState("");
-  const [otpModal,       setOtpModal]      = useState<any>(null);
-  const [otpInput,       setOtpInput]      = useState("");
-  const [membersModal,   setMembersModal]  = useState<any>(null);
-  const [groupMembers,   setGroupMembers]  = useState<any[]>([]);
-  const [membersLoading, setMembersLoading]= useState(false);
-  const [groupForm,      setGroupForm]     = useState({ skill: "", scheduledDate: "", creditsAmount: "20", maxStudents: "10", message: "", sessionType: "standard" });
+  const [tab,              setTab]             = useState<SessionTab>("learning");
+  const [statusFilter,     setStatusFilter]    = useState<StatusFilter>("all");
+  const [ratingId,         setRatingId]        = useState<number | null>(null);
+  const [ratingVal,        setRatingVal]       = useState(5);
+  const [reviewText,       setReviewText]      = useState("");
+  const [groupModal,       setGroupModal]      = useState(false);
+  const [negotiateModal,   setNegotiateModal]  = useState<any>(null);
+  const [proposedPrice,    setProposedPrice]   = useState("");
+  const [otpModal,         setOtpModal]        = useState<any>(null);
+  const [otpInput,         setOtpInput]        = useState("");
+  const [membersModal,     setMembersModal]    = useState<any>(null);
+  const [groupMembers,     setGroupMembers]    = useState<any[]>([]);
+  const [membersLoading,   setMembersLoading]  = useState(false);
+  const [groupForm,        setGroupForm]       = useState({ skill: "", scheduledDate: "", creditsAmount: "20", maxStudents: "10", message: "", sessionType: "standard" });
 
-  // Group browse state
-  const [groupBrowse,    setGroupBrowse]   = useState<any[]>([]);
-  const [myEnrolled,     setMyEnrolled]    = useState<any[]>([]);
-  const [groupLoading,   setGroupLoading]  = useState(false);
-  const [joinLoading,    setJoinLoading]   = useState<number | null>(null);
+  const [groupBrowse,      setGroupBrowse]     = useState<any[]>([]);
+  const [myEnrolled,       setMyEnrolled]      = useState<any[]>([]);
+  const [groupLoading,     setGroupLoading]    = useState(false);
+  const [joinLoading,      setJoinLoading]     = useState<number | null>(null);
 
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -66,7 +66,6 @@ export default function Sessions() {
     return () => clearInterval(t);
   }, []);
 
-  // Read ?tab=teaching/learning/groups & ?action=create from URL (e.g. coming from Dashboard links)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get("tab");
@@ -80,17 +79,15 @@ export default function Sessions() {
     }
   }, [location]);
 
-  const { data: user }        = useGetMe(options);
+  const { data: user }                 = useGetMe(options);
   const { data: allSessions, isLoading } = useGetMySessions({ role: tab === "learning" ? "student" : "mentor" }, options);
 
-  // Heartbeat for in_progress sessions
   useEffect(() => {
     const live = (allSessions || []).filter((s: any) => s.status === "in_progress");
     const enrolled = myEnrolled.filter(s => s.status === "in_progress");
     const allLive = [...live, ...enrolled];
     if (allLive.length === 0) return;
     const interval = setInterval(() => {
-      // ?? EXPERT FIX: Prevent background polling & Reduced frequency to 60s
       if (document.visibilityState !== "visible") return;
       
       allLive.forEach((s: any) => {
@@ -99,11 +96,10 @@ export default function Sessions() {
           headers: { Authorization: `Bearer ${token}` },
         }).catch(() => {});
       });
-    }, 60000); // Shifted to 60 seconds
+    }, 60000);
     return () => clearInterval(interval);
   }, [allSessions, myEnrolled, token]);
 
-  // Fetch group browse when Groups tab active
   useEffect(() => {
     if (tab !== "groups" || !token) return;
     fetchGroupBrowse();
@@ -192,7 +188,7 @@ export default function Sessions() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast({ title: "Session Ended! ??", description: data.message });
+        toast({ title: "Session Ended! 🏁", description: data.message });
         invalidate();
       } else {
         toast({ title: "Error", description: data.error, variant: "destructive" });
@@ -209,7 +205,7 @@ export default function Sessions() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast({ title: "Joined! ??", description: `${creditsAmount} credits deducted. You're in!` });
+        toast({ title: "Joined! 🎉", description: `${creditsAmount} credits deducted. You're in!` });
         fetchGroupBrowse(); fetchMyEnrollments(); invalidate();
       } else {
         toast({ title: "Couldn't join", description: data.error, variant: "destructive" });
@@ -265,7 +261,7 @@ export default function Sessions() {
         }),
       });
       if (res.ok) {
-        toast({ title: "Group Class Created! ??", description: "Students can now join your session." });
+        toast({ title: "Group Class Created! 🎉", description: "Students can now join your session." });
         setGroupModal(false);
         setGroupForm({ skill: "", scheduledDate: "", creditsAmount: "20", maxStudents: "10", message: "", sessionType: "standard" });
         invalidate();
@@ -284,9 +280,12 @@ export default function Sessions() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ proposedPrice: parseInt(proposedPrice) }),
       });
+      const data = await res.json();
       if (res.ok) {
-        toast({ title: `Price proposed: ${proposedPrice} credits` });
+        toast({ title: `Price updated to ${proposedPrice} credits` });
         setNegotiateModal(null); setProposedPrice(""); invalidate();
+      } else {
+        toast({ title: "Notice", description: data.error, variant: "destructive" });
       }
     } catch { toast({ title: "Error", variant: "destructive" }); }
   };
@@ -294,8 +293,6 @@ export default function Sessions() {
   const myId = (user as any)?.id;
 
   const sessions = (allSessions || []).filter((s: any) => {
-    // Hard isolation: teaching tab shows ONLY sessions where I'm the mentor,
-    // learning tab shows ONLY sessions where I'm the student.
     if (tab === "teaching" && s.mentorId !== myId) return false;
     if (tab === "learning" && s.studentId !== myId) return false;
     if (s.isGroup === 1 && tab === "learning" && s.mentorId === myId) return false;
@@ -338,7 +335,6 @@ export default function Sessions() {
 
   return (
     <div className="space-y-6 pb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
       {/* Header */}
       <div className="bg-gradient-to-br from-[#6C3BFF] to-[#8B5CF6] p-6 rounded-[24px] text-white shadow-md relative overflow-hidden">
         <div className="absolute -top-12 -right-12 w-48 h-48 bg-white opacity-5 rounded-full blur-2xl pointer-events-none" />
@@ -389,14 +385,12 @@ export default function Sessions() {
           </div>
         )}
       </div>
-      
 
       {/* -------------------------------------------
           GROUP BROWSE TAB
           ------------------------------------------- */}
       {tab === "groups" && (
         <div className="space-y-4">
-
           {/* My Enrolled Group Sessions */}
           {myEnrolled.length > 0 && (
             <div>
@@ -418,7 +412,7 @@ export default function Sessions() {
                         <p className="font-black text-slate-800 text-sm">{session.skill}</p>
                         <p className="text-[11px] text-slate-500 font-medium">by {session.mentor?.name || "Mentor"}</p>
                         <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                          {format(new Date(session.scheduledDate), "EEE, MMM d � h:mm a")}
+                          {format(new Date(session.scheduledDate), "EEE, MMM d • h:mm a")}
                           <span className="ml-2 text-emerald-600 font-bold">{session.enrolledCount}/{session.maxStudents} students</span>
                         </p>
                       </div>
@@ -445,7 +439,6 @@ export default function Sessions() {
             </div>
           )}
 
-          {/* Divider */}
           {myEnrolled.length > 0 && <div className="border-t border-slate-100 pt-2" />}
 
           {/* Browse Available Group Sessions */}
@@ -461,7 +454,7 @@ export default function Sessions() {
             <div className="p-12 text-center rounded-[24px] border border-gray-100 bg-white shadow-sm">
               <Users className="w-12 h-12 text-slate-200 mx-auto mb-3" />
               <h3 className="text-xl font-black mb-1 text-slate-800">No group classes available</h3>
-              <p className="text-slate-500 text-sm font-medium">Check back soon � mentors are creating new group sessions!</p>
+              <p className="text-slate-500 text-sm font-medium">Check back soon – mentors are creating new group sessions!</p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -469,8 +462,6 @@ export default function Sessions() {
                 <motion.div key={session.id}
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   className="bg-white rounded-[20px] border border-gray-100 shadow-sm overflow-hidden hover:border-[#6C3BFF]/20 transition-all">
-
-                  {/* Card Header */}
                   <div className="bg-gradient-to-r from-[#6C3BFF]/5 to-[#8B5CF6]/5 p-4 border-b border-slate-50">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-[14px] bg-indigo-100 border border-indigo-200 flex items-center justify-center font-black text-[#6C3BFF] text-lg flex-shrink-0 overflow-hidden">
@@ -493,19 +484,17 @@ export default function Sessions() {
                     </div>
                   </div>
 
-                  {/* Card Body */}
                   <div className="p-4 space-y-3">
                     <div className="flex flex-wrap gap-2 text-[11px] font-bold">
                       <span className="text-slate-600 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
                         <CalendarDays className="w-3 h-3 text-[#6C3BFF]" />
-                        {format(new Date(session.scheduledDate), "EEE, MMM d � h:mm a")}
+                        {format(new Date(session.scheduledDate), "EEE, MMM d • h:mm a")}
                       </span>
                       <span className="text-[#6C3BFF] bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
                         <Coins className="w-3 h-3" /> {session.creditsAmount} cr / student
                       </span>
                     </div>
 
-                    {/* Spots progress */}
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
                         <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
@@ -529,7 +518,6 @@ export default function Sessions() {
                       </p>
                     )}
 
-                    {/* Action Button */}
                     <div className="pt-1">
                       {session.status === "in_progress" && session.isEnrolled ? (
                         <a href={session.meetLink} target="_blank" rel="noopener noreferrer">
@@ -540,7 +528,7 @@ export default function Sessions() {
                       ) : session.isEnrolled ? (
                         <div className="flex gap-2">
                           <Button disabled className="flex-1 bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold rounded-full h-9 text-xs">
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Enrolled ?
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Enrolled ✔️
                           </Button>
                           {session.status === "accepted" && (
                             <Button variant="outline" size="sm" onClick={() => leaveGroupSession(session.id)}
@@ -550,8 +538,6 @@ export default function Sessions() {
                           )}
                         </div>
                       ) : session.status !== "accepted" ? (
-                        // ?? FIX: Not enrolled AND session already started/ended � never show a joinable button.
-                        // Backend already blocks this (status !== accepted), this just fixes the misleading UI.
                         <Button disabled className="w-full bg-slate-100 text-slate-400 font-bold rounded-full h-9 text-xs">
                           {session.status === "in_progress" ? "Already Started" : "Class Ended"}
                         </Button>
@@ -566,7 +552,7 @@ export default function Sessions() {
                           className="w-full bg-gradient-to-r from-[#6C3BFF] to-[#8B5CF6] text-white font-bold rounded-full h-9 text-xs shadow-sm">
                           {joinLoading === session.id
                             ? <Loader2 className="w-4 h-4 animate-spin" />
-                            : <><Coins className="w-3.5 h-3.5 mr-1.5" /> Join � {session.creditsAmount} credits</>}
+                            : <><Coins className="w-3.5 h-3.5 mr-1.5" /> Join • {session.creditsAmount} credits</>}
                         </Button>
                       )}
                     </div>
@@ -622,8 +608,6 @@ export default function Sessions() {
                     className={`bg-white rounded-[24px] shadow-sm border overflow-hidden group transition-all ${isGroupSession ? "border-emerald-100 hover:border-emerald-200" : "border-gray-100 hover:border-[#6C3BFF]/20"}`}>
 
                     <div className="p-5 sm:p-6 flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
-
-                      {/* User Info */}
                       <div className="flex items-start gap-4 flex-1 min-w-0 w-full">
                         <div className={`w-14 h-14 rounded-[16px] flex items-center justify-center text-[#6C3BFF] font-bold text-xl flex-shrink-0 shadow-inner transition-transform group-hover:scale-105 ${isGroupSession ? "bg-emerald-50 border border-emerald-100 text-emerald-600" : tab === "learning" ? "bg-indigo-50 border border-indigo-100" : "bg-purple-50 border border-purple-100"}`}>
                           {isGroupSession ? <Users className="w-6 h-6" />
@@ -643,24 +627,22 @@ export default function Sessions() {
                             )}
                           </div>
 
-                          {/* ✅ Isko change karke aise likhein: */}
-<p className="text-xs font-medium text-slate-500 mb-3 flex items-center gap-1.5">
-  <User className="w-3.5 h-3.5" />
-  {tab === "learning" ? "Mentor: " : "Student: "}
-  
-  {tab === "learning" && otherUser?.id ? (
-    <Link href={`/mentor/${otherUser.id}`} className="text-[#6C3BFF] font-bold hover:underline cursor-pointer">
-      {otherName}
-    </Link>
-  ) : (
-    <span className="text-slate-800 font-bold">{otherName}</span>
-  )}
-</p>
+                          <p className="text-xs font-medium text-slate-500 mb-3 flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5" />
+                            {tab === "learning" ? "Mentor: " : "Student: "}
+                            {tab === "learning" && otherUser?.id ? (
+                              <Link href={`/mentor/${otherUser.id}`} className="text-[#6C3BFF] font-bold hover:underline cursor-pointer">
+                                {otherName}
+                              </Link>
+                            ) : (
+                              <span className="text-slate-800 font-bold">{otherName}</span>
+                            )}
+                          </p>
 
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-md flex items-center gap-1.5">
                               <CalendarDays className="w-3 h-3 text-[#6C3BFF]" />
-                              {format(new Date(session.scheduledDate), "EEE, MMM d � h:mm a")}
+                              {format(new Date(session.scheduledDate), "EEE, MMM d • h:mm a")}
                             </span>
                             <span className="text-[11px] font-bold text-[#6C3BFF] bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md flex items-center gap-1.5">
                               <Coins className="w-3 h-3" />{session.creditsAmount} cr
@@ -682,13 +664,12 @@ export default function Sessions() {
 
                       {/* ACTION BUTTONS */}
                       <div className="flex flex-col items-end gap-2 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-100 shrink-0">
-
-                        {/* -- TEACHING: 1-on-1 Requested -- */}
+                        {/* TEACHING: 1-on-1 Requested */}
                         {tab === "teaching" && !isGroupSession && session.status === "requested" && (
                           <div className="flex gap-2 w-full md:w-auto">
                             <Button variant="outline" size="sm" className="flex-1 md:flex-none text-blue-600 border-blue-100 hover:bg-blue-50 font-bold rounded-full text-xs"
                               onClick={() => { setNegotiateModal(session); setProposedPrice(String(session.creditsAmount)); }}>
-                              Negotiate
+                              Offer Discount
                             </Button>
                             <Button size="sm" className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full text-xs"
                               onClick={() => acceptMut.mutate({ sessionId: session.id })}>
@@ -701,11 +682,9 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* -- TEACHING: 1-on-1 Accepted → Join Call + OTP -- */}
+                        {/* TEACHING: 1-on-1 Accepted → Join Call + OTP */}
                         {tab === "teaching" && !isGroupSession && session.status === "accepted" && (
                           <div className="flex flex-col items-end gap-1.5 w-full md:w-auto">
-                            {/* 🔥 FIX: Pehle sirf OTP button tha, meet link kahi nahi tha —
-                                mentor call join hi nahi kar pata tha OTP poochne ke liye. */}
                             {session.meetLink && (
                               <a href={session.meetLink} target="_blank" rel="noopener noreferrer" className="w-full md:w-auto">
                                 <Button size="sm" variant="outline" className="w-full md:w-auto border-[#6C3BFF]/30 text-[#6C3BFF] hover:bg-indigo-50 font-bold rounded-full text-xs h-8">
@@ -724,7 +703,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* -- TEACHING: GROUP Accepted ? Start Group -- */}
+                        {/* TEACHING: GROUP Accepted */}
                         {tab === "teaching" && isGroupSession && session.status === "accepted" && (
                           <div className="flex flex-col gap-2 w-full md:w-auto">
                             <div className="text-[11px] text-slate-500 font-bold text-right">
@@ -748,7 +727,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* -- TEACHING: GROUP In Progress ? End Group -- */}
+                        {/* TEACHING: GROUP In Progress */}
                         {tab === "teaching" && isGroupSession && session.status === "in_progress" && (
                           <div className="flex flex-col gap-2 w-full md:w-auto">
                             {session.meetLink && (
@@ -771,7 +750,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* -- LEARNING: Requested -- */}
+                        {/* LEARNING: Requested */}
                         {tab === "learning" && session.status === "requested" && (
                           <Button variant="outline" size="sm"
                             className="w-full md:w-auto text-red-500 border-red-100 hover:bg-red-50 font-bold rounded-full text-xs h-8"
@@ -780,14 +759,14 @@ export default function Sessions() {
                           </Button>
                         )}
 
-                        {/* -- LEARNING: Accepted (OTP + Meet Link) -- */}
+                        {/* LEARNING: Accepted */}
                         {tab === "learning" && session.status === "accepted" && (
                           <div className="flex flex-col gap-2 w-full md:w-auto bg-slate-50 p-3 rounded-[16px] border border-gray-100">
                             {!isGroupSession && (
                               <div className="flex items-center justify-between w-full gap-4">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase">Your OTP:</span>
                                 <span className="font-mono font-black text-[#6C3BFF] tracking-widest text-sm bg-white px-2 py-0.5 rounded border border-gray-200">
-                                  {session.sessionOtp || "������"}
+                                  {session.sessionOtp || "••••••"}
                                 </span>
                               </div>
                             )}
@@ -806,7 +785,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* -- BOTH: In Progress -- */}
+                        {/* BOTH: In Progress */}
                         {session.status === "in_progress" && (
                           <div className="flex flex-col gap-2 w-full md:w-auto">
                             {session.meetLink && (
@@ -816,7 +795,6 @@ export default function Sessions() {
                                 </Button>
                               </a>
                             )}
-                            {/* Only student can mark 1-on-1 complete; group sessions ended by mentor */}
                             {tab === "learning" && !isGroupSession && (
                               <Button size="sm"
                                 className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full text-xs h-8"
@@ -827,7 +805,7 @@ export default function Sessions() {
                           </div>
                         )}
 
-                        {/* -- LEARNING: Completed ? Rate -- */}
+                        {/* LEARNING: Completed -> Rate */}
                         {tab === "learning" && session.status === "completed" && !session.teacherRating && !isGroupSession && (
                           <Button variant="outline" size="sm"
                             className="w-full md:w-auto border-orange-200 text-orange-500 hover:bg-orange-50 font-bold rounded-full text-xs h-8"
@@ -835,7 +813,6 @@ export default function Sessions() {
                             <Star className="w-3 h-3 mr-1.5" /> Rate Mentor
                           </Button>
                         )}
-
                         {session.status === "completed" && session.teacherRating && (
                           <div className="px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-full flex items-center gap-1 w-full md:w-auto justify-center">
                             <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
@@ -857,7 +834,6 @@ export default function Sessions() {
           MODALS
           ------------------------------------------- */}
 
-      {/* OTP Dialog */}
       <Dialog open={!!otpModal} onOpenChange={o => !o && setOtpModal(null)}>
         <DialogContent className="sm:max-w-md rounded-[24px] p-6 border border-gray-100 shadow-xl bg-white">
           <DialogHeader>
@@ -869,7 +845,7 @@ export default function Sessions() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 flex flex-col items-center">
-            <Input type="text" maxLength={6} placeholder="� � � � � �" value={otpInput}
+            <Input type="text" maxLength={6} placeholder="• • • • • •" value={otpInput}
               onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
               className="text-center text-3xl tracking-[0.5em] font-mono h-16 w-full bg-slate-50 border border-slate-200 focus-visible:ring-[#6C3BFF] rounded-2xl" />
           </div>
@@ -883,7 +859,6 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* Rating Dialog */}
       <Dialog open={!!ratingId} onOpenChange={o => !o && setRatingId(null)}>
         <DialogContent className="sm:max-w-md rounded-[24px] border border-gray-100 shadow-xl bg-white p-6">
           <DialogHeader>
@@ -909,7 +884,6 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Group Class Dialog */}
       <Dialog open={groupModal} onOpenChange={setGroupModal}>
         <DialogContent className="sm:max-w-md rounded-[24px] border border-gray-100 shadow-xl bg-white p-6">
           <DialogHeader>
@@ -964,7 +938,7 @@ export default function Sessions() {
                 className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm font-medium" />
             </div>
             <p className="text-[10px] text-slate-400 font-medium bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-              ?? You earn: (students � credits) - 15% platform fee, paid when you end the session.
+              💡 You earn: (students × credits) - 15% platform fee, paid when you end the session.
             </p>
           </div>
           <DialogFooter className="mt-2 gap-2">
@@ -976,7 +950,6 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* Group Members Dialog */}
       <Dialog open={!!membersModal} onOpenChange={o => !o && setMembersModal(null)}>
         <DialogContent className="sm:max-w-md rounded-[24px] border border-gray-100 shadow-xl bg-white p-6">
           <DialogHeader>
@@ -984,7 +957,7 @@ export default function Sessions() {
               <Users className="w-5 h-5 text-[#6C3BFF]" /> Enrolled Students
             </DialogTitle>
             <DialogDescription className="text-slate-500 text-xs font-medium mt-1">
-              {membersModal?.skill} � {groupMembers.length}/{membersModal?.maxStudents} enrolled
+              {membersModal?.skill} — {groupMembers.length}/{membersModal?.maxStudents} enrolled
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-2 max-h-64 overflow-y-auto">
@@ -1019,17 +992,18 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      {/* Negotiate Dialog */}
       <Dialog open={!!negotiateModal} onOpenChange={o => !o && setNegotiateModal(null)}>
         <DialogContent className="sm:max-w-sm rounded-[24px] border border-gray-100 shadow-xl bg-white p-6">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
-              <ArrowRightLeft className="w-5 h-5 text-[#6C3BFF]" /> Negotiate Price
+              <ArrowRightLeft className="w-5 h-5 text-[#6C3BFF]" /> {tab === "learning" ? "Negotiate Price" : "Offer a Discount"}
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Proposed Credits</label>
-            <Input type="number" placeholder="Enter amount..." value={proposedPrice}
+            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">
+              {tab === "learning" ? "Proposed Credits" : "Discounted Credits (Lower Price)"}
+            </label>
+            <Input type="number" placeholder={tab === "learning" ? "Enter amount..." : "Enter lower amount..."} value={proposedPrice}
               onChange={e => setProposedPrice(e.target.value)}
               className="h-12 text-base rounded-xl bg-slate-50 border border-slate-200 font-bold text-slate-800" />
           </div>
@@ -1041,8 +1015,6 @@ export default function Sessions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
-

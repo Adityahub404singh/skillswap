@@ -36,16 +36,15 @@ export default function Wallet() {
   const { data: transactions, isLoading: txLoading }     = useGetTransactions(options);
   const { data: sessions,     isLoading: sessLoading }   = useGetMySessions(undefined, { request: options.request });
 
-  const [copied,         setCopied]         = useState(false);
-  const [showWithdraw,   setShowWithdraw]   = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [upiId,          setUpiId]          = useState("");
-  const [withdrawLoading,setWithdrawLoading]= useState(false);
+  const [copied,          setCopied]          = useState(false);
+  const [showWithdraw,    setShowWithdraw]    = useState(false);
+  const [withdrawAmount,  setWithdrawAmount]  = useState("");
+  const [upiId,           setUpiId]           = useState("");
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
-  // ── history tabs state ──────────────────────────────────────────────────
-  const [historyTab,   setHistoryTab]   = useState<"transactions" | "sessions">("transactions");
-  const [txFilter,     setTxFilter]     = useState<string>("all");
-  const [sessFilter,   setSessFilter]   = useState<string>("all");
+  const [historyTab, setHistoryTab] = useState<"transactions" | "sessions">("transactions");
+  const [txFilter,   setTxFilter]   = useState<string>("all");
+  const [sessFilter, setSessFilter] = useState<string>("all");
 
   const referralCode = "SKILL" + (token?.slice(-6) || Math.random().toString(36).slice(2, 8)).toUpperCase();
   const referralLink = `https://skillswap.app/register?ref=${referralCode}`;
@@ -62,30 +61,39 @@ export default function Wallet() {
       toast({ variant: "destructive", title: "Please fill all fields" }); return;
     }
     const amount = parseInt(withdrawAmount);
-    if (amount < 500)                      { toast({ variant: "destructive", title: "Minimum 500 credits required" }); return; }
-    if (amount > (wallet?.balance || 0))   { toast({ variant: "destructive", title: "Insufficient balance" }); return; }
+    
+    // 🔥 FRONTEND VALIDATION: 500 Credits Check
+    if (amount < 500) { 
+      toast({ variant: "destructive", title: "Minimum 500 credits required" }); return; 
+    }
+    if (amount > (wallet?.balance || 0)) { 
+      toast({ variant: "destructive", title: "Insufficient balance" }); return; 
+    }
 
     setWithdrawLoading(true);
     try {
-      const res  = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/wallet/withdraw`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/wallet/withdraw`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ amount, upiId }),
       });
       const data = await res.json();
       if (res.ok) {
-        toast({ title: "Withdrawal Requested!", description: `Rs ${(amount * 0.85).toFixed(0)} will be credited to your UPI within 24–48 hrs.` });
-        setShowWithdraw(false); setWithdrawAmount(""); setUpiId("");
+        toast({ title: "Withdrawal Requested!", description: `Rs ${(amount * 0.85).toFixed(0)} will be credited to your UPI.` });
+        setShowWithdraw(false); 
+        setWithdrawAmount(""); 
+        setUpiId("");
         queryClient.invalidateQueries({ queryKey: ["/api/wallet/history"] } as any);
         queryClient.invalidateQueries({ queryKey: ["/api/users/me"] } as any);
       } else {
-        toast({ variant: "destructive", title: "Failed", description: data.error || "Cannot withdraw promotional credits." });
+        toast({ variant: "destructive", title: "Failed", description: data.error });
       }
-    } catch { toast({ variant: "destructive", title: "Something went wrong" }); }
+    } catch { 
+      toast({ variant: "destructive", title: "Something went wrong" }); 
+    }
     setWithdrawLoading(false);
   };
 
-  // ── filtered lists ──────────────────────────────────────────────────────
   const filteredTx = (transactions ?? []).filter((tx: any) =>
     txFilter === "all" ? true : tx.type === txFilter
   );
@@ -116,7 +124,7 @@ export default function Wallet() {
                 <X className="w-5 h-5" />
               </button>
               <h2 className="text-xl font-black mb-1 flex items-center gap-2"><Send className="w-5 h-5 text-primary" /> Withdraw Credits</h2>
-              <p className="text-sm text-muted-foreground mb-6">Withdraw earned credits to your bank account via UPI. (Min 500 cr)</p>
+              <p className="text-sm text-muted-foreground mb-6">Withdraw earned credits to your bank account via UPI. (Min 500 cr = ₹500)</p>
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Amount (Credits)</label>
@@ -160,10 +168,10 @@ export default function Wallet() {
                 <span className="text-xl font-medium text-white/70">credits</span>
               </div>
             )}
-            <p className="text-white/60 text-sm mb-6">≈ ₹{wallet?.balance ?? 0} withdrawal value • 1 cr = ₹1</p>
+            <p className="text-white/60 text-sm mb-6">1 Credit = ₹1 • Minimum withdrawal is 500 cr</p>
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => setShowWithdraw(true)} disabled={(wallet?.balance || 0) < 500}
-                className="bg-white text-primary hover:bg-white/90 font-bold rounded-full h-10 px-5 shadow-lg">
+                className="bg-white text-primary hover:bg-white/90 font-bold rounded-full h-10 px-5 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                 <Send className="w-4 h-4 mr-2" /> Withdraw
               </Button>
               <Link href="/buy-credits">
@@ -195,6 +203,30 @@ export default function Wallet() {
         </div>
       </motion.div>
 
+      {/* ── Platform Fees & RULES (Clear & Explicit) ───────────────────── */}
+      <motion.div variants={item} className="p-6 rounded-2xl bg-background border border-orange-500/20">
+        <h2 className="font-bold text-base mb-4 flex items-center gap-2 text-orange-600">⚖️ Platform Rules & Fees</h2>
+        <div className="space-y-3">
+          {[
+            // 🔥 YAHAN ADD KIYA HAI EXPLICIT RULE 
+            { n: "1", title: "Minimum Withdrawal: 500 Credits", desc: "You need at least 500 cleared credits in your wallet to request a bank transfer via UPI. (1 Credit = ₹1)" },
+            { n: "2", title: "15% Withdrawal Fee", desc: "When you withdraw money, a 15% platform processing fee is applied. (e.g., Withdraw 1000 cr, get ₹850 in bank)." },
+            { n: "3", title: "15% Session Commission", desc: "To maintain the platform, a 15% fee is deducted from the mentor's earnings per completed session." },
+            { n: "4", title: "7-Day Security Policy", desc: "For security and anti-fraud purposes, all earned credits take 7 days to clear before they can be withdrawn." },
+          ].map(r => (
+            <div key={r.n} className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
+              <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-orange-600 text-xs font-bold">{r.n}</span>
+              </div>
+              <div>
+                <p className="font-bold text-sm">{r.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{r.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
       {/* ── How Credits Work ───────────────────────────────────────────── */}
       <motion.div variants={item} className="p-6 rounded-2xl bg-gradient-to-br from-primary/5 to-violet-500/5 border border-primary/15">
         <h2 className="font-bold text-base mb-4 flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> How Credits Work</h2>
@@ -208,28 +240,6 @@ export default function Wallet() {
               <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center mb-3"><c.icon className={`w-4 h-4 ${c.color}`} /></div>
               <p className="font-bold text-sm mb-1">{c.title}</p>
               <p className="text-xs text-muted-foreground leading-relaxed">{c.desc}</p>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ── Platform Fees ──────────────────────────────────────────────── */}
-      <motion.div variants={item} className="p-6 rounded-2xl bg-background border border-orange-500/20">
-        <h2 className="font-bold text-base mb-4 flex items-center gap-2 text-orange-600">⚖️ Platform Fees & Rules</h2>
-        <div className="space-y-3">
-          {[
-            { n: "1", title: "20% Withdrawal Fee",    desc: "When you withdraw money to your bank account, a 20% platform processing fee is applied. (e.g., Withdraw 1000 cr, get ₹800)." },
-            { n: "2", title: "15% Session Commission", desc: "To maintain the platform, a 15% fee is deducted from the mentor's earnings per completed session." },
-            { n: "3", title: "7-Day Security Policy",  desc: "For security and anti-fraud purposes, all withdrawal requests take 24–48 hours to process, and up to 7 days for new users." },
-          ].map(r => (
-            <div key={r.n} className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
-              <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-orange-600 text-xs font-bold">{r.n}</span>
-              </div>
-              <div>
-                <p className="font-bold text-sm">{r.title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{r.desc}</p>
-              </div>
             </div>
           ))}
         </div>
@@ -281,13 +291,13 @@ export default function Wallet() {
               {/* Filter chips */}
               <div className="flex flex-wrap gap-2">
                 {[
-                  { key: "all",                 label: "All" },
-                  { key: "earned",              label: "💰 Earned" },
-                  { key: "spent",               label: "💸 Spent" },
-                  { key: "bonus",               label: "🎁 Bonus" },
-                  { key: "referral",            label: "👥 Referral" },
-                  { key: "refund",              label: "↩️ Refund" },
-                  { key: "withdrawal_pending",  label: "🏦 Withdrawal" },
+                  { key: "all",                label: "All" },
+                  { key: "earned",             label: "💰 Earned" },
+                  { key: "spent",              label: "💸 Spent" },
+                  { key: "bonus",              label: "🎁 Bonus" },
+                  { key: "referral",           label: "👥 Referral" },
+                  { key: "refund",             label: "↩️ Refund" },
+                  { key: "withdrawal_pending", label: "🏦 Withdrawal" },
                 ].map(f => (
                   <button
                     key={f.key}
@@ -376,7 +386,6 @@ export default function Wallet() {
                   {filteredSessions.map((s: any) => {
                     const meta     = statusMeta[s.status] ?? statusMeta.requested;
                     const StatusIcon = meta.icon;
-                    const isStudent = s.student?.id !== undefined; // both sides shown
                     const dateStr   = s.scheduledDate || s.scheduledAt;
 
                     return (
@@ -396,19 +405,16 @@ export default function Wallet() {
                           </div>
 
                           <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            {/* Mentor name */}
                             {s.mentor && (
                               <p className="text-xs text-muted-foreground">
                                 👨‍🏫 {s.mentor.name}
                               </p>
                             )}
-                            {/* Date */}
                             {dateStr && (
                               <p className="text-xs text-muted-foreground">
                                 📅 {format(new Date(dateStr), "MMM d, yyyy")}
                               </p>
                             )}
-                            {/* Rating */}
                             {s.teacherRating && (
                               <p className="text-xs text-yellow-600 flex items-center gap-0.5">
                                 <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> {s.teacherRating}/5
@@ -440,7 +446,3 @@ export default function Wallet() {
     </motion.div>
   );
 }
-
-
-
-
