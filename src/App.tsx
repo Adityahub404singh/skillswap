@@ -6,7 +6,7 @@ import { Layout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuthStore } from "@/store/auth";
 import { useState, useEffect, useRef } from "react";
-
+import SessionPage from './pages/SessionPage';
 // Capacitor Plugins
 import { Preferences } from "@capacitor/preferences";
 import { App as CapacitorApp } from "@capacitor/app";
@@ -40,7 +40,7 @@ import Invite from "@/pages/invite";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import ForgotPassword from "@/pages/forgot-password";
-import ResetPassword from "@/pages/ResetPassword"; // 🔥 ADDED THIS IMPORT
+import ResetPassword from "@/pages/ResetPassword"; 
 import SkillPage from "@/pages/skill-page";
 import Leaderboard from "@/pages/leaderboard";
 import Subscription from "@/pages/subscription";
@@ -140,7 +140,7 @@ function Router() {
           <Route path="/terms" component={Terms} />
           <Route path="/u/:slug" component={PublicPortfolio} />
 
-          {/* 🔥 PROTECTED ROUTES (Fixed Security Issue) */}
+          {/* 🔥 PROTECTED ROUTES */}
           <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
           <Route path="/book/:mentorId"><ProtectedRoute component={BookSession} /></Route>
           <Route path="/sessions"><ProtectedRoute component={Sessions} /></Route>
@@ -153,10 +153,8 @@ function Router() {
           <Route path="/quiz"><ProtectedRoute component={Quiz} /></Route>
           <Route path="/notifications"><ProtectedRoute component={NotificationsPage} /></Route>
           
-          {/* 🚨 THE FIX: Ye route pehle missing tha isliye 404 aa raha tha */}
+          <Route path="/session/:id"><ProtectedRoute component={SessionPage} /></Route>
           <Route path="/chats"><ProtectedRoute component={Matches} /></Route>
-          
-          {/* 🚨 These were unprotected before, now they are safe! */}
           <Route path="/matches"><ProtectedRoute component={Matches} /></Route>
           <Route path="/chat/:id"><ProtectedRoute component={Chat} /></Route>
           <Route path="/discover"><ProtectedRoute component={Discover} /></Route>
@@ -178,14 +176,9 @@ function App() {
         // 🔥 NATIVE FEATURES SETUP
         if (Capacitor.isNativePlatform()) {
           try {
-            // Set Status bar to White Background with Dark text/icons
             await StatusBar.setStyle({ style: Style.Dark });
             await StatusBar.setBackgroundColor({ color: "#FFFFFF" });
-            
-            // Set Keyboard to push content smoothly up instead of shrinking
             await Keyboard.setResizeMode({ mode: KeyboardResize.Ionic });
-
-            // Hide Splash Screen once app is ready
             await SplashScreen.hide();
           } catch (nativeErr) {
             console.warn("Native plugins failed to load or skipped", nativeErr);
@@ -198,7 +191,6 @@ function App() {
         
         if (savedToken) {
           useAuthStore.getState().setToken(savedToken);
-          // Sync localStorage for custom-fetch compatibility
           localStorage.setItem("skillswap_token", savedToken);
         }
 
@@ -210,11 +202,6 @@ function App() {
         setupDeepLinks();
 
         // 🔥 FIREBASE PUSH ENABLED
-        // Chhota delay taaki Android native side pe FirebaseApp.initializeApp()
-        // poora ho jaye is se pehle ki hum PushNotifications.register() call karein.
-        // Race condition fix: "Default FirebaseApp is not initialized" crash isi
-        // wajah se aata tha jab register() Firebase ke initialize hone se pehle hi
-        // fire ho jata tha cold-start ke turant baad.
         if (savedToken) {
           setTimeout(() => {
             setupPushNotifications();
