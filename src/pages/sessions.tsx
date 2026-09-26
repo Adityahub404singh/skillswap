@@ -26,10 +26,12 @@ type StatusFilter = "all" | "requested" | "accepted" | "in_progress" | "complete
 const getCountdown = (targetDateStr: string) => {
   const diff = new Date(targetDateStr).getTime() - Date.now();
   if (diff <= 0) return "Ready to Start";
-  const hours   = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours > 24) return `In ${Math.floor(hours / 24)} days`;
-  if (hours > 0)  return `In ${hours}h ${minutes}m`;
+  const totalMinutes = Math.floor(diff / (1000 * 60));
+  const days    = Math.floor(totalMinutes / (60 * 24));
+  const hours   = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0)  return `In ${days} day${days > 1 ? "s" : ""} ${hours}h`;
+  if (hours > 0) return `In ${hours}h ${minutes}m`;
   return `In ${minutes} mins`;
 };
 
@@ -39,7 +41,23 @@ export default function Sessions() {
   const queryClient = useQueryClient();
   const { toast }   = useToast();
   const [location]  = useLocation();
+const isClassReadyToJoin = (scheduledDateString: string, status: string) => {
+  if (!status || ["cancelled", "completed", "pending_clearance"].includes(status)) {
+    return false;
+  }
+  
+  if (status === "in_progress") return true;
 
+  if (status === "accepted" && scheduledDateString) {
+    const classTime = new Date(scheduledDateString).getTime();
+    if (isNaN(classTime)) return false;
+
+    const diffInMinutes = (classTime - Date.now()) / (1000 * 60);
+    return diffInMinutes <= 15 && diffInMinutes >= -60;
+  }
+
+  return false;
+};
   const [tab,              setTab]             = useState<SessionTab>("learning");
   const [statusFilter,     setStatusFilter]    = useState<StatusFilter>("all");
   const [ratingId,         setRatingId]        = useState<number | null>(null);
@@ -173,7 +191,10 @@ export default function Sessions() {
       const data = await res.json();
       if (res.ok) {
         toast({ title: "Group Session Started!", description: data.message });
+        fetchGroupBrowse(); 
+  fetchMyEnrollments();
         invalidate();
+
       } else {
         toast({ title: "Error", description: data.error, variant: "destructive" });
       }
@@ -189,6 +210,8 @@ export default function Sessions() {
       const data = await res.json();
       if (res.ok) {
         toast({ title: "Session Ended! 🏁", description: data.message });
+        fetchGroupBrowse(); 
+  fetchMyEnrollments();
         invalidate();
       } else {
         toast({ title: "Error", description: data.error, variant: "destructive" });
@@ -292,13 +315,25 @@ export default function Sessions() {
 
   const myId = (user as any)?.id;
 
+  const UPCOMING_STATUSES = ["requested", "accepted", "in_progress"];
+
   const sessions = (allSessions || []).filter((s: any) => {
     if (tab === "teaching" && s.mentorId !== myId) return false;
     if (tab === "learning" && s.studentId !== myId) return false;
     if (s.isGroup === 1 && tab === "learning" && s.mentorId === myId) return false;
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     return true;
-  }).sort((a: any, b: any) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+  }).sort((a: any, b: any) => {
+    const aUpcoming = UPCOMING_STATUSES.includes(a.status);
+    const bUpcoming = UPCOMING_STATUSES.includes(b.status);
+    if (aUpcoming && bUpcoming) {
+      // soonest first for anything still pending/live
+      return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime();
+    }
+    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1; // active sessions above history
+    // completed/cancelled -> most recent first
+    return new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime();
+  });
 
   const counts = {
     all:         (allSessions || []).length,
@@ -418,21 +453,27 @@ export default function Sessions() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                      {getStatusBadge(session.status)}
-                      {session.status === "in_progress" && session.meetLink && (
-                        <a href={session.meetLink} target="_blank" rel="noopener noreferrer">
-                          <Button size="sm" className="bg-[#6C3BFF] text-white font-bold rounded-full text-xs h-8">
-                            <Video className="w-3 h-3 mr-1" /> Join Meet
-                          </Button>
-                        </a>
-                      )}
-                      {session.status === "accepted" && (
-                        <Button size="sm" variant="outline" onClick={() => leaveGroupSession(session.id)}
-                          className="border-red-200 text-red-500 hover:bg-red-50 font-bold rounded-full text-xs h-8">
-                          Leave
-                        </Button>
-                      )}
-                    </div>
+  {getStatusBadge(session.status)}
+
+  {isClassReadyToJoin(session.scheduledDate, session.status) && (
+    <a 
+  href={session.meetLink || `https://meet.jit.si/SkillSwapGroup_${session.id}`} 
+  target="_blank" 
+  rel="noopener noreferrer"
+>
+  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold animate-pulse rounded-full text-xs h-8 shadow-md">
+    <Video className="w-3 h-3 mr-1" /> Join Class Now
+  </Button>
+</a>
+  )}
+
+  {session.status === "accepted" && (
+    <Button size="sm" variant="outline" onClick={() => leaveGroupSession(session.id)}
+      className="border-red-200 text-red-500 hover:bg-red-50 font-bold rounded-full text-xs h-8">
+      Leave
+    </Button>
+  )}
+</div>
                   </motion.div>
                 ))}
               </div>
@@ -519,13 +560,18 @@ export default function Sessions() {
                     )}
 
                     <div className="pt-1">
-                      {session.status === "in_progress" && session.isEnrolled ? (
-                        <a href={session.meetLink} target="_blank" rel="noopener noreferrer">
-                          <Button className="w-full bg-[#6C3BFF] text-white font-bold rounded-full h-9 text-xs shadow-sm">
-                            <Video className="w-3.5 h-3.5 mr-1.5" /> Join Live Session
-                          </Button>
-                        </a>
-                      ) : session.isEnrolled ? (
+                      {session.isEnrolled && isClassReadyToJoin(session.scheduledDate, session.status) ? (
+  <a 
+  href={session.meetLink || `https://meet.jit.si/SkillSwapGroup_${session.id}`} 
+  target="_blank" 
+  rel="noopener noreferrer"
+  className="w-full"
+>
+  <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full animate-pulse h-9 text-xs shadow-md">
+    <Video className="w-3.5 h-3.5 mr-1.5" /> Join Live Class Now
+  </Button>
+</a>
+) :session.isEnrolled ? (
                         <div className="flex gap-2">
                           <Button disabled className="flex-1 bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold rounded-full h-9 text-xs">
                             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Enrolled ✔️
@@ -775,7 +821,7 @@ export default function Sessions() {
                                 Waiting for mentor to start the class
                               </p>
                             )}
-                            {session.meetLink && (
+                            {session.meetLink && isClassReadyToJoin(session.scheduledDate, session.status) && (
                               <a href={session.meetLink} target="_blank" rel="noopener noreferrer" className="w-full">
                                 <Button size="sm" className="w-full bg-[#6C3BFF] text-white font-bold rounded-full text-xs h-8">
                                   <Video className="w-3 h-3 mr-1.5" /> Join Meet
