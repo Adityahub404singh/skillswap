@@ -162,7 +162,6 @@ export default function Dashboard() {
           <motion.div initial={{ opacity: 0, height: 0, marginBottom: 0 }} animate={{ opacity: 1, height: "auto", marginBottom: 32 }} exit={{ opacity: 0, height: 0, marginBottom: 0 }} className="overflow-hidden">
             <div className="bg-amber-50 border border-amber-200 p-5 rounded-[24px] flex flex-col md:flex-row gap-4 shadow-sm">
               
-              {/* 1-on-1 Requests Alert */}
               {pending1on1Requests.length > 0 && (
                 <div className="flex-1 flex items-center gap-4 bg-white p-4 rounded-xl border border-amber-100 shadow-sm">
                   <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 flex-shrink-0 animate-bounce">
@@ -178,7 +177,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Group Classes Alert */}
               {activeGroupClasses.length > 0 && (
                 <div className="flex-1 flex items-center gap-4 bg-white p-4 rounded-xl border border-emerald-100 shadow-sm">
                   <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 flex-shrink-0">
@@ -207,7 +205,6 @@ export default function Dashboard() {
           </h3>
         </div>
         
-        {/* Actions for Learner */}
         {activeRole === "learner" && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link href="/explore">
@@ -237,7 +234,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Actions for Teacher */}
         {activeRole === "mentor" && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link href="/sessions?tab=teaching">
@@ -270,12 +266,10 @@ export default function Dashboard() {
 
       {/* ==========================================
           💰 EARN & GROW — INCENTIVE / "LALACH" BANNER
-          Always visible, role-aware, drives referrals + earnings/booking
           ========================================== */}
       <motion.div variants={item} className="grid md:grid-cols-2 gap-4">
         {activeRole === "learner" ? (
           <>
-            {/* Learner Lalach 1: Refer & Earn */}
             <Link href="/invite">
               <motion.div whileHover={{ y: -4, scale: 1.01 }} className="relative overflow-hidden rounded-[24px] p-6 bg-gradient-to-br from-fuchsia-500 via-purple-600 to-indigo-600 text-white shadow-[0_10px_30px_rgba(168,85,247,0.35)] cursor-pointer h-full flex flex-col justify-between min-h-[150px]">
                 <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
@@ -295,7 +289,6 @@ export default function Dashboard() {
               </motion.div>
             </Link>
 
-            {/* Learner Lalach 2: Book & Save streak */}
             <Link href="/explore">
               <motion.div whileHover={{ y: -4, scale: 1.01 }} className="relative overflow-hidden rounded-[24px] p-6 bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.35)] cursor-pointer h-full flex flex-col justify-between min-h-[150px]">
                 <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
@@ -321,7 +314,6 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            {/* Teacher Lalach 1: Refer fellow mentors */}
             <Link href="/invite">
               <motion.div whileHover={{ y: -4, scale: 1.01 }} className="relative overflow-hidden rounded-[24px] p-6 bg-gradient-to-br from-fuchsia-500 via-purple-600 to-indigo-600 text-white shadow-[0_10px_30px_rgba(168,85,247,0.35)] cursor-pointer h-full flex flex-col justify-between min-h-[150px]">
                 <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
@@ -341,7 +333,6 @@ export default function Dashboard() {
               </motion.div>
             </Link>
 
-            {/* Teacher Lalach 2: Earnings boost via Group Class */}
             <Link href="/sessions?tab=teaching&action=create">
               <motion.div whileHover={{ y: -4, scale: 1.01 }} className="relative overflow-hidden rounded-[24px] p-6 bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-[0_10px_30px_rgba(251,146,60,0.35)] cursor-pointer h-full flex flex-col justify-between min-h-[150px]">
                 <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
@@ -376,13 +367,9 @@ export default function Dashboard() {
           <SponsorCard />
           {upcomingView.length === 0 ? (
             
-            // ==========================================
-            // DYNAMIC EMPTY STATES (THE "LALACH")
-            // ==========================================
             <div className="bg-white p-8 md:p-12 rounded-[28px] border border-dashed border-slate-300 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden">
               
               {activeRole === "learner" ? (
-                // LEARNER EMPTY STATE
                 <>
                   <div className="w-20 h-20 bg-slate-50 rounded-[20px] flex items-center justify-center mb-4 border border-slate-100">
                     <BookOpen className="w-10 h-10 text-slate-300" />
@@ -394,7 +381,6 @@ export default function Dashboard() {
                   </Link>
                 </>
               ) : (
-                // TEACHER EMPTY STATE (WITH LALACH!)
                 <>
                   <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-50 rounded-full blur-3xl opacity-50"></div>
                   <div className="absolute bottom-0 left-0 w-40 h-40 bg-emerald-50 rounded-full blur-3xl opacity-50"></div>
@@ -455,7 +441,7 @@ export default function Dashboard() {
           )}
         </motion.div>
 
-        {/* KEEP QUIZ WIDGET ON RIGHT */}
+        {/* DAILY REWARD WIDGET */}
         <motion.div variants={item} className="space-y-5">
           <h3 className="font-black text-slate-800 text-xl tracking-tight mb-1 px-2">Daily Reward</h3>
           <Link href="/quiz">
@@ -471,7 +457,6 @@ export default function Dashboard() {
                 <h3 className="font-black text-2xl mb-1 drop-shadow-sm">Daily Challenge</h3>
                 <p className="text-[15px] text-white/90 font-medium leading-tight">Answer 10 Qs & Win <strong className="text-yellow-200">20 Credits!</strong></p>
               </div>
-
             </motion.div>
           </Link>
         </motion.div>
