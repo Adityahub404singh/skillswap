@@ -2,6 +2,7 @@
 import { useAuthStore } from "@/store/auth";
 import { useGetMe, useGetMySessions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
+import { SponsorCard } from "@/components/SponsorCard";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { motion, Variants, AnimatePresence } from "framer-motion";
@@ -372,7 +373,7 @@ export default function Dashboard() {
             </h3>
             <Link href={activeRole === "learner" ? "/sessions?tab=learning" : "/sessions?tab=teaching"} className="text-sm font-bold text-[#6C3BFF] hover:text-indigo-800 transition-colors bg-[#6C3BFF]/10 px-4 py-2 rounded-full">See All</Link>
           </div>
-          
+          <SponsorCard />
           {upcomingView.length === 0 ? (
             
             // ==========================================
@@ -470,6 +471,7 @@ export default function Dashboard() {
                 <h3 className="font-black text-2xl mb-1 drop-shadow-sm">Daily Challenge</h3>
                 <p className="text-[15px] text-white/90 font-medium leading-tight">Answer 10 Qs & Win <strong className="text-yellow-200">20 Credits!</strong></p>
               </div>
+
             </motion.div>
           </Link>
         </motion.div>
