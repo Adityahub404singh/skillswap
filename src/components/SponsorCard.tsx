@@ -31,12 +31,12 @@ export function SponsorCard({
           </p>
         </div>
 
-        {/* Right Side: Action Link & Close Button */}
+        {/* Right Side: Safe Affiliate Action Link & Close Button */}
         <div className="flex items-center gap-2 shrink-0">
           <a
             href={affiliateUrl}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener noreferrer nofollow"
             className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-sm transition-all active:scale-95"
           >
             <span>Free Try</span>
