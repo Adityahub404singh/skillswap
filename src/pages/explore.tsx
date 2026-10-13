@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { useGetSkills } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
+import { SponsorCard } from "@/components/SponsorCard";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Search, Compass, ArrowRight, Star, Sparkles, Monitor, Palette, Briefcase, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,9 @@ export default function Explore() {
           );
         })}
       </div>
+
+      {/* 🔥 SAHI JAGAH: ADMITAD SPONSOR BANNER HERE */}
+      <SponsorCard />
 
       {/* The Magic Grid */}
       {isLoading ? (
