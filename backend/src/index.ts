@@ -1,5 +1,6 @@
 ﻿import "dotenv/config";
 import { db } from "./db.js";
+import { sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "./middlewares/auth.js";
 import reportsRouter from "./routes/Reports.js";
 import * as Sentry from "@sentry/node";
@@ -44,28 +45,20 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ─────────────────────────────────────────
-// CORS — wildcard "*" + credentials:true is INVALID per browser spec.
-// Browsers reject that combo silently, so we whitelist explicit origins.
-// FRONTEND_URL env var lets prod (Vercel) and Render stay in sync without
-// hardcoding the domain here.
+// CORS Configuration
 // ─────────────────────────────────────────
 const allowedOrigins = [
   "http://localhost:5173",
-  "http://localhost:3000", // agar kabhi alag dev port use kiya
-  "https://localhost",     // 🔥 Capacitor Android/iOS apps WebView ka fixed origin (koi port nahi hota)
-  "capacitor://localhost", // 🔥 kuch Capacitor versions iOS pe ye scheme bhi bhejte hain
-  process.env.FRONTEND_URL, // e.g. https://skillswap.vercel.app — set in Render + local .env
+  "http://localhost:3000",
+  "https://localhost",
+  "capacitor://localhost",
+  process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
 
-// Vercel preview deployments har baar naya random URL banate hain
-// (e.g. skillswap-yyks-iv4462u3r-bmaditya-7561s-projects.vercel.app),
-// isliye fixed list ke saath-saath pattern match bhi rakhte hain taaki
-// preview links bhi automatically allow ho jayein bina manual env update ke.
 const vercelPreviewPattern = /^https:\/\/skillswap-[a-z0-9-]+\.vercel\.app$/;
 
 app.use(cors({
   origin: (origin, callback) => {
-    // origin undefined hota hai server-to-server calls / curl / Postman mein — allow karo
     if (!origin || allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
       callback(null, true);
     } else {
@@ -78,7 +71,73 @@ app.use(cors({
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: true }));
-app.use('/api/certificates', createCertificateRouter({ db, auth: requireAuth, admin: requireAdmin }));
+
+// ─────────────────────────────────────────
+// 🔥 REAL LEDGER AUDIT
+// Mounted BEFORE the certificates router so a "/:id" route there can never shadow "/audit".
+// Reports only what the database really contains: no invented hours, no fake fallbacks.
+// ─────────────────────────────────────────
+app.get("/api/certificates/audit", async (req, res) => {
+  try {
+    const email = String(req.query.email ?? "").trim();
+    const skill = String(req.query.skill ?? "").trim();
+
+    if (!email || !skill) {
+      return res.status(400).json({ success: false, error: "Email aur skill dena anivarya hai." });
+    }
+
+    // Find which duration column this DB really has (including 'duration' table column).
+    const colsRes = await db.execute(sql`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'sessions'
+        AND column_name IN ('duration', 'duration_hours', 'duration_minutes', 'duration_mins')
+    `);
+    const colNames: string[] = ((colsRes as any).rows || colsRes).map((r: any) => r.column_name);
+
+    // Unknown duration => report null. Never a made-up number.
+    let hoursExpr = sql`NULL::numeric`;
+    if (colNames.includes("duration")) hoursExpr = sql`SUM(s.duration) / 60.0`;
+    else if (colNames.includes("duration_hours")) hoursExpr = sql`SUM(s.duration_hours)`;
+    else if (colNames.includes("duration_minutes")) hoursExpr = sql`SUM(s.duration_minutes) / 60.0`;
+    else if (colNames.includes("duration_mins")) hoursExpr = sql`SUM(s.duration_mins) / 60.0`;
+
+    // Escape LIKE wildcards so "%" or "_" typed by a user can't match every skill.
+    const likeSkill = `%${skill.replace(/[\\%_]/g, "\\$&")}%`;
+
+    const result = await db.execute(sql`
+      SELECT COUNT(DISTINCT s.id) AS session_count, ${hoursExpr} AS total_hours
+      FROM sessions s
+      JOIN users u ON (s.student_id = u.id OR s.mentor_id = u.id)
+      WHERE LOWER(u.email) = LOWER(${email})
+        AND LOWER(s.skill) LIKE LOWER(${likeSkill})
+        AND LOWER(s.status) = 'completed'
+    `);
+
+    const row = ((result as any).rows || result)[0] || {};
+    const sessionsCount = parseInt(row.session_count, 10) || 0;
+    const totalHours =
+      row.total_hours != null ? Math.round(parseFloat(row.total_hours) * 10) / 10 : null;
+
+    // No record in the ledger => clear reject.
+    if (sessionsCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: `Real Ledger Check Failed: Is email par "${skill}" ka koi completed session database mein nahi mila.`,
+      });
+    }
+
+    res.json({ success: true, sessions: sessionsCount, hours: totalHours });
+  } catch (err: any) {
+    console.error("Database Audit Error:", err); // full detail stays on the server
+    res.status(500).json({
+      success: false,
+      error: "Ledger check abhi nahi ho paya. Thodi der baad try karo.",
+    });
+  }
+});
+
+// Certificate Router Mount
+app.use("/api/certificates", createCertificateRouter({ db, auth: requireAuth, admin: requireAdmin }));
 
 // 🔥 LOADER.IO VERIFICATION ROUTES
 app.get("/loaderio-5c527ba07df6c894de713e21b4198489.txt", (req, res) => {
@@ -111,7 +170,7 @@ app.use("/api/verification", verificationRouter);
 app.use("/api/quiz", quizRouter);
 app.use("/api/platform", platformRouter);
 
-// 🔥 Sentry Error Handler (No Handlers property used)
+// 🔥 Sentry Error Handler
 Sentry.setupExpressErrorHandler(app);
 
 // Start Server & Initialize Cron Jobs
