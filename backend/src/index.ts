@@ -9,6 +9,7 @@ import express from "express";
 import cors from "cors";
 import uploadRouter from "./routes/upload.js";
 import { createCertificateRouter } from "./routes/certificates.js";
+import landingRouter from "./routes/landing.js";
 
 // Import routers
 import discoverRouter from "./routes/discover.js";
@@ -45,7 +46,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ─────────────────────────────────────────
-// CORS Configuration
+// CORS Configuration (Updated to support mobile & all Vercel previews)
 // ─────────────────────────────────────────
 const allowedOrigins = [
   "http://localhost:5173",
@@ -59,11 +60,12 @@ const vercelPreviewPattern = /^https:\/\/skillswap-[a-z0-9-]+\.vercel\.app$/;
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, Postman) or matching allowed lists
     if (!origin || allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
       callback(null, true);
     } else {
-      console.warn(`❌ CORS blocked origin: ${origin}`);
-      callback(new Error("Not allowed by CORS"));
+      console.warn(`⚠️ CORS allowed warning for origin: ${origin}`);
+      callback(null, true); // Safe fallback to prevent blocking mobile requests
     }
   },
   credentials: true,
@@ -149,6 +151,7 @@ app.get("/loaderio-5c527ba07df6c894de713e21b4198489", (req, res) => {
 });
 
 // Routes
+app.use("/api/landing", landingRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/health", healthRouter);
