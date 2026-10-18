@@ -12,7 +12,7 @@ import {
   Search, Brain, HelpCircle, Coins, 
   Calendar, Clock, Flame, 
   Star, Wallet, BookOpen, Sparkles, Trophy, Play, Target,
-  Users, BellDot, GraduationCap, TrendingUp, Gift, Zap, ArrowRight
+  Users, BellDot, GraduationCap, TrendingUp, Gift, Zap, ArrowRight,Award
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -79,6 +79,7 @@ export default function Dashboard() {
     >
       
       {/* 1. HERO CARD */}
+     
       <motion.div variants={item} className="relative rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 md:p-10 text-white shadow-[0_12px_40px_rgba(108,59,255,0.25)] overflow-hidden bg-gradient-to-br from-[#6C3BFF] to-[#5128C4] flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-10">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-[100px] pointer-events-none transform translate-x-1/3 -translate-y-1/3"></div>
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-fuchsia-500/20 rounded-full blur-[100px] pointer-events-none transform -translate-x-1/2 translate-y-1/2"></div>
@@ -196,8 +197,7 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* 2. DYNAMIC QUICK ACTIONS */}
+{/* 2. DYNAMIC QUICK ACTIONS */}
       <motion.div variants={item}>
         <div className="flex justify-between items-center mb-5 px-2">
           <h3 className="font-black text-slate-800 text-xl tracking-tight">
@@ -206,58 +206,96 @@ export default function Dashboard() {
         </div>
         
         {activeRole === "learner" && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            
+            {/* 1. Find Mentor */}
             <Link href="/explore">
-              <motion.div whileHover={{ y: -4 }} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group">
-                <div className="w-16 h-16 bg-[#6C3BFF]/10 rounded-2xl flex items-center justify-center text-[#6C3BFF] group-hover:bg-[#6C3BFF] group-hover:text-white transition-colors shadow-inner"><Search className="w-7 h-7" /></div>
-                <span className="font-bold text-slate-700 text-sm">Find Mentor</span>
+              <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-[#6C3BFF]/10 rounded-2xl flex items-center justify-center text-[#6C3BFF] group-hover:bg-[#6C3BFF] group-hover:text-white transition-colors shadow-inner">
+                  <Search className="w-6 h-6 sm:w-7 sm:h-7" />
+                </div>
+                <span className="font-bold text-slate-700 text-xs sm:text-sm">Find Mentor</span>
               </motion.div>
             </Link>
+
+            {/* 2. Start Quiz */}
             <Link href="/quiz">
-              <motion.div whileHover={{ y: -4 }} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group">
-                <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors shadow-inner"><Brain className="w-7 h-7" /></div>
-                <span className="font-bold text-slate-700 text-sm">Start Quiz</span>
+              <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors shadow-inner">
+                  <Brain className="w-6 h-6 sm:w-7 sm:h-7" />
+                </div>
+                <span className="font-bold text-slate-700 text-xs sm:text-sm">Start Quiz</span>
               </motion.div>
             </Link>
+
+            {/* 3. Get Certified (CLEAN & SEPARATE ROUTE) */}
+           <a href={`/certificate.html?email=${encodeURIComponent(user.email)}`} rel="external" className="block h-full">
+  <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-purple-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-inner">
+      <Award className="w-6 h-6 sm:w-7 sm:h-7" />
+    </div>
+    <span className="font-bold text-purple-700 text-xs sm:text-sm">Get Certified</span>
+  </motion.div>
+</a>
+
+            {/* 4. Ask Doubt */}
             <Link href="/flash-board">
-              <motion.div whileHover={{ y: -4 }} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group">
-                <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-inner"><HelpCircle className="w-7 h-7" /></div>
-                <span className="font-bold text-slate-700 text-sm">Ask Doubt</span>
+              <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-inner">
+                  <HelpCircle className="w-6 h-6 sm:w-7 sm:h-7" />
+                </div>
+                <span className="font-bold text-slate-700 text-xs sm:text-sm">Ask Doubt</span>
               </motion.div>
             </Link>
-            <Link href="/buy-credits">
-              <motion.div whileHover={{ y: -4 }} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group">
-                <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 group-hover:bg-green-500 group-hover:text-white transition-colors shadow-inner"><Coins className="w-7 h-7" /></div>
-                <span className="font-bold text-slate-700 text-sm">Buy Credits</span>
+
+            {/* 5. Buy Credits */}
+            <Link href="/buy-credits" className="col-span-2 sm:col-span-1">
+              <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 group-hover:bg-green-500 group-hover:text-white transition-colors shadow-inner">
+                  <Coins className="w-6 h-6 sm:w-7 sm:h-7" />
+                </div>
+                <span className="font-bold text-slate-700 text-xs sm:text-sm">Buy Credits</span>
               </motion.div>
             </Link>
+
           </div>
         )}
 
         {activeRole === "mentor" && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <Link href="/sessions?tab=teaching">
-              <motion.div whileHover={{ y: -4 }} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group">
-                <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors shadow-inner"><Calendar className="w-7 h-7" /></div>
-                <span className="font-bold text-slate-700 text-sm">Manage Classes</span>
+              <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors shadow-inner">
+                  <Calendar className="w-6 h-6 sm:w-7 sm:h-7" />
+                </div>
+                <span className="font-bold text-slate-700 text-xs sm:text-sm">Manage Classes</span>
               </motion.div>
             </Link>
+
             <Link href="/sessions?tab=teaching&action=create">
-              <motion.div whileHover={{ y: -4 }} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group">
-                <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shadow-inner"><Users className="w-7 h-7" /></div>
-                <span className="font-bold text-slate-700 text-sm">Create Group Class</span>
+              <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shadow-inner">
+                  <Users className="w-6 h-6 sm:w-7 sm:h-7" />
+                </div>
+                <span className="font-bold text-slate-700 text-xs sm:text-sm">Create Group Class</span>
               </motion.div>
             </Link>
+
             <Link href="/flash-board">
-              <motion.div whileHover={{ y: -4 }} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group">
-                <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-inner"><HelpCircle className="w-7 h-7" /></div>
-                <span className="font-bold text-slate-700 text-sm">Answer Doubts</span>
+              <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-inner">
+                  <HelpCircle className="w-6 h-6 sm:w-7 sm:h-7" />
+                </div>
+                <span className="font-bold text-slate-700 text-xs sm:text-sm">Answer Doubts</span>
               </motion.div>
             </Link>
+
             <Link href="/profile">
-              <motion.div whileHover={{ y: -4 }} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group">
-                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition-colors shadow-inner"><GraduationCap className="w-7 h-7" /></div>
-                <span className="font-bold text-slate-700 text-sm">Update Skills</span>
+              <motion.div whileHover={{ y: -4 }} className="bg-white p-5 sm:p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-3 cursor-pointer group h-full">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition-colors shadow-inner">
+                  <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7" />
+                </div>
+                <span className="font-bold text-slate-700 text-xs sm:text-sm">Update Skills</span>
               </motion.div>
             </Link>
           </div>

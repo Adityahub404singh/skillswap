@@ -150,6 +150,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3 z-10">
               {token && user ? (
                 <>
+                <a href="/certificate.html" className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 font-bold text-xs hover:bg-purple-100 transition-colors"></a>
                   <Link href="/wallet">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-sm">
                       <Wallet className="w-4 h-4" />

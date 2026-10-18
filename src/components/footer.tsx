@@ -48,6 +48,7 @@ export default function Footer() {
         { href: "/terms", label: "Terms of Service" },
         { href: "/privacy-policy", label: "Privacy Policy" },
         { href: "/leaderboard", label: "Global Leaderboard" },
+        { href: "/certificate.html", label: "Get Certified" },
       ]
     }
   ];
@@ -127,6 +128,7 @@ export default function Footer() {
                     </div>
                   </motion.form>
                 )}
+                
               </AnimatePresence>
             </div>
           </div>

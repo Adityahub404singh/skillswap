@@ -1,10 +1,11 @@
-﻿import { Link } from "wouter";
+import { Link } from "wouter";
 import { motion, useScroll, useTransform, useMotionValue, useSpring, useReducedMotion, AnimatePresence } from "framer-motion";
 import { 
   ArrowRight, BookOpen, Users, Star, ShieldCheck, Zap, Sparkles, 
   Globe, Play, CheckCircle, Code2, Palette, Languages, Brain, Trophy, 
   MessageSquare, Flame, Target, Award, Wallet, Lock, ArrowLeftRight, 
-  Activity, ChevronDown, Check, Github, Twitter, Linkedin, Instagram, Heart, Briefcase 
+  Activity, ChevronDown, Check, Github, Twitter, Linkedin, Instagram, Heart, Briefcase,
+  QrCode, BadgeCheck, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Capacitor } from "@capacitor/core";
@@ -114,35 +115,20 @@ const TRENDING_SUBJECTS = [
   { name: "Freelancing", icon: Briefcase, color: "text-amber-700 bg-amber-50 border-amber-200" },
 ];
 
-const FLOATING_USERS = [
-  { name: "Priya", action: "Cracked TCS Ninja", img: "👩🏽‍💻", x: "6%", y: "22%", delay: 0 },
-  { name: "Rahul", action: "Earned ₹50K Freelancing", img: "👨🏽‍🏫", x: "82%", y: "15%", delay: 2 },
-  { name: "Aditi", action: "Fluent English Now", img: "👩🏽‍🎨", x: "10%", y: "65%", delay: 4 },
-  { name: "Aman", action: "Completed FAANG DSA", img: "👨🏽‍🎓", x: "80%", y: "60%", delay: 1.5 },
+// Positions for the floating "live activity" chips (content comes from REAL platform activity only)
+const FLOAT_SLOTS = [
+  { x: "6%", y: "22%", delay: 0 },
+  { x: "78%", y: "15%", delay: 2 },
+  { x: "9%", y: "65%", delay: 4 },
+  { x: "76%", y: "62%", delay: 1.5 },
 ];
 
-const TESTIMONIALS = [
-  { 
-    name: "Arjun Kumar", role: "Tier-3 College ➡️ SDE @ Google", avatar: "👨🏽‍💻", 
-    text: "I couldn't afford a ₹50,000 coding bootcamp. On SkillSwap, I taught basic Hindi to foreigners, earned credits, and used them to learn Advanced DSA from a Microsoft engineer. I just got placed at Google. This platform literally changed my family's life.", 
-    rating: 5, streak: 124 
-  },
-  { 
-    name: "Sneha Patel", role: "Homemaker ➡️ Freelance Writer", avatar: "👩🏽‍🏫", 
-    text: "I had a 5-year career gap. I felt lost. SkillSwap gave me a community. I taught conversational Gujarati, learned Copywriting, and now I have 3 international clients paying in dollars. This isn't just an app, it's hope.", 
-    rating: 5, streak: 62 
-  },
-  { 
-    name: "Rahul Verma", role: "UI Designer ➡️ Full Stack Dev", avatar: "👨🏽‍🎨", 
-    text: "The Escrow system is pure genius! On other freelancing platforms, people run away without paying. Here, my credits are locked safely before the session even begins. 100% scam-proof and secure.", 
-    rating: 5, streak: 85 
-  },
-  { 
-    name: "Pooja Sharma", role: "Hindi Medium ➡️ MNC Executive", avatar: "👩🏽‍💼", 
-    text: "I always failed interviews because of my broken English. I joined a free group class here, practiced daily with real people without being judged, and completely lost my fear. Got my dream job last week!", 
-    rating: 5, streak: 90 
-  },
-];
+type Review = { name: string; text: string; rating: number | null; skill?: string };
+type CertSummary = {
+  total: number;
+  topSkills: { skill: string; count: number }[];
+  recent: { certId: string; skill: string; role: string; level: string; dateStr: string }[];
+};
 
 const FEATURES = [
   { 
@@ -151,7 +137,7 @@ const FEATURES = [
     desc: "Why pay thousands for courses? Teach your native language, Excel, or any basic skill to earn credits. Use those exact credits to learn coding, design, or marketing. 1 Credit = 1 Minute."
   },
   { 
-    icon: Lock, emoji: "🛡️", title: "100% Scam-Proof Escrow", tag: "Highly Secure", 
+    icon: Lock, emoji: "🛡️", title: "Escrow-Protected Credits", tag: "Highly Secure", 
     color: "from-emerald-500/10 to-teal-500/5", iconColor: "text-emerald-600",
     desc: "When a student books your session, their credits are securely locked in our vault. You are guaranteed to get paid after the session is completed via our secure 6-digit OTP verification."
   },
@@ -177,17 +163,6 @@ const FEATURES = [
   },
 ];
 
-const DEFAULT_TICKER = [
-  "🔥 Aman earned 60 credits teaching Node.js", 
-  "🤝 Priya (Delhi) just matched with Rahul (Pune)", 
-  "✨ Sneha successfully verified her 'UI/UX Expert' badge",
-  "💸 Arjun paid 45 credits to learn Advanced Excel",
-  "🚀 Group Class 'Crack DSA' just went LIVE with 40 students!",
-  "🏆 Nikhil hit a 30-day learning streak!",
-  "🤝 Karan swapped Video Editing for SEO Consultation",
-  "🔥 Aditi earned 120 credits hosting a Spanish Masterclass"
-];
-
 const FAQS = [
   {
     q: "Is SkillSwap really 100% free? Is there a hidden catch?",
@@ -207,7 +182,7 @@ const FAQS = [
   },
   {
     q: "What if the mentor doesn't show up for the class?",
-    a: "You are fully protected. If the mentor doesn't show up, or if the class was bad, you simply don't share the OTP. You can raise a 'Dispute' with one click, and our team will refund your 100% credits back to your wallet instantly."
+    a: "You are fully protected. If the mentor doesn't show up, or if the class was bad, you simply don't share the OTP. You can raise a 'Dispute' with one click, and our team will review it and refund your credits to your wallet."
   }
 ];
 
@@ -222,51 +197,88 @@ export default function Landing() {
   
   const typed = useTypewriter(["Full-Stack Dev 💻", "Fluent English 🗣️", "UI/UX Design 🎨", "DSA & Coding 🚀", "Freelancing 💰", "Data Science 📊"], 65, 1800);
   
-  const [activeT, setActiveT] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  // Real Data States
-  const [realStats, setRealStats] = useState({
-    totalUsers: 10432,
-    moneySaved: 50000,
-    sessionsCompleted: 1200,
-    matchRate: 98
-  });
-  const [liveTicker, setLiveTicker] = useState<string[]>(DEFAULT_TICKER);
+  // ALL numbers below come from the backend. No made-up fallbacks.
+  const [realStats, setRealStats] = useState<{
+    totalUsers: number | null; moneySaved: number | null;
+    sessionsCompleted: number | null; matchRate: number | null;
+  }>({ totalUsers: null, moneySaved: null, sessionsCompleted: null, matchRate: null });
+  const [statsLoaded, setStatsLoaded] = useState(false);
+  const [liveTicker, setLiveTicker] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [certs, setCerts] = useState<CertSummary | null>(null);
+  const [verifyId, setVerifyId] = useState("");
 
   const reduceMotionPref = useReducedMotion();
   const isNative = Capacitor.isNativePlatform();
   const lightweightMode = isNative || !!reduceMotionPref;
 
   useEffect(() => {
-    const fetchRealData = async () => {
+    const API = import.meta.env.VITE_API_URL || "";
+    const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+    let cancelled = false;
+
+    (async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/public-stats`);
+        const res = await fetch(`${API}/api/public-stats`);
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
+          if (json.success && json.data && !cancelled) {
+            const d = json.data;
             setRealStats({
-              totalUsers: json.data.totalUsers || 10432,
-              moneySaved: json.data.moneySaved || 50000,
-              sessionsCompleted: json.data.completedSessions || 1200,
-              matchRate: json.data.matchSuccessRate || 98
+              totalUsers: num(d.totalUsers),
+              moneySaved: num(d.moneySaved),
+              sessionsCompleted: num(d.completedSessions),
+              matchRate: num(d.matchSuccessRate),
             });
-            if (json.data.liveExchanges && json.data.liveExchanges.length > 0) {
-              setLiveTicker(json.data.liveExchanges);
+            if (Array.isArray(d.liveExchanges)) {
+              setLiveTicker(d.liveExchanges.filter((x: unknown) => typeof x === "string" && (x as string).trim()));
+            }
+            if (Array.isArray(d.recentReviews)) {
+              setReviews(
+                d.recentReviews
+                  .map((r: any) => ({
+                    name: String(r.name || "SkillSwap member"),
+                    text: String(r.text || r.comment || "").trim(),
+                    rating: num(r.rating),
+                    skill: r.skill ? String(r.skill) : undefined,
+                  }))
+                  .filter((r: Review) => r.text.length > 0)
+                  .slice(0, 4)
+              );
             }
           }
         }
-      } catch (err) {
-        console.log("Using fallback data.");
+      } catch {
+        /* stay empty — never show fake numbers */
+      } finally {
+        if (!cancelled) setStatsLoaded(true);
       }
-    };
-    fetchRealData();
+    })();
+
+    (async () => {
+      try {
+        const r = await fetch(`${API}/api/certificates/public/summary`);
+        if (r.ok && !cancelled) setCerts(await r.json());
+      } catch { /* section simply shows its empty state */ }
+    })();
+
+    return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    const t = setInterval(() => setActiveT(i => (i + 1) % TESTIMONIALS.length), 6000);
-    return () => clearInterval(t);
-  }, []);
+  const statItems = [
+    { label: "Members", value: realStats.totalUsers, prefix: "", suffix: "" },
+    { label: "Money Saved", value: realStats.moneySaved, prefix: "₹", suffix: "" },
+    { label: "Classes Completed", value: realStats.sessionsCompleted, prefix: "", suffix: "" },
+    { label: "Match Success", value: realStats.matchRate, prefix: "", suffix: "%" },
+  ].filter((s) => (s.value ?? 0) > 0);
+
+  const goVerify = (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = verifyId.trim().toUpperCase();
+    if (id) window.location.href = `/verify.html?id=${encodeURIComponent(id)}`;
+  };
 
   return (
     <div ref={ref} className="relative flex flex-col -mx-4 sm:-mx-6 lg:-mx-8 overflow-hidden bg-[#FAFAFA] font-sans selection:bg-violet-200 selection:text-violet-900">
@@ -315,26 +327,23 @@ export default function Landing() {
         <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.3]"
           style={{ backgroundImage: "linear-gradient(#cbd5e1 1px,transparent 1px),linear-gradient(90deg,#cbd5e1 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
 
-        {/* Floating Success Stories */}
-        <div className="hidden lg:block absolute inset-0 z-10 pointer-events-none">
-          {FLOATING_USERS.map((user: any, i: number) => (
-            <motion.div key={i} 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: [0, 1, 1, 0], y: [20, 0, -10, -30] }}
-              transition={{ duration: 7, repeat: Infinity, delay: user.delay, ease: "easeInOut" }}
-              className="absolute flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/80 backdrop-blur-md border border-white/50 shadow-xl shadow-violet-100/50"
-              style={{ left: user.x, top: user.y }}
-            >
-              <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-2xl shadow-inner border border-slate-100">
-                {user.img}
-              </div>
-              <div>
-                <p className="text-sm font-extrabold text-slate-800">{user.name}</p>
-                <p className="text-[11px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full mt-0.5 inline-block border border-violet-100">{user.action}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        {/* Floating chips — REAL recent platform activity only (hidden when there is none) */}
+        {!lightweightMode && liveTicker.length > 0 && (
+          <div className="hidden lg:block absolute inset-0 z-10 pointer-events-none">
+            {liveTicker.slice(0, FLOAT_SLOTS.length).map((text, i) => (
+              <motion.div key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: [0, 1, 1, 0], y: [20, 0, -10, -30] }}
+                transition={{ duration: 7, repeat: Infinity, delay: FLOAT_SLOTS[i].delay, ease: "easeInOut" }}
+                className="absolute flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/80 backdrop-blur-md border border-white/50 shadow-xl shadow-violet-100/50 max-w-[260px]"
+                style={{ left: FLOAT_SLOTS[i].x, top: FLOAT_SLOTS[i].y }}
+              >
+                <span className="text-2xl leading-none">{text.split(" ")[0]}</span>
+                <p className="text-[12px] font-bold text-slate-700 leading-snug">{text.substring(text.indexOf(" ") + 1)}</p>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         <motion.div style={{ y: headerY }} className="relative z-20 flex-1 flex flex-col justify-center max-w-6xl mx-auto py-12 w-full mt-4">
           <motion.div initial="hidden" animate="show"
@@ -349,7 +358,13 @@ export default function Landing() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                 </span>
-                <span>Join <span className="text-violet-700 font-bold">{realStats.totalUsers.toLocaleString()}+</span> active learners sharing knowledge.</span>
+                <span>
+                  {realStats.totalUsers && realStats.totalUsers > 0 ? (
+                    <>Join <span className="text-violet-700 font-bold">{realStats.totalUsers.toLocaleString()}</span> members sharing knowledge.</>
+                  ) : (
+                    <>Learn by teaching. <span className="text-violet-700 font-bold">No money needed.</span></>
+                  )}
+                </span>
               </motion.div>
             </motion.div>
 
@@ -393,15 +408,16 @@ export default function Landing() {
                 </div>
               </Link>
 
-              {/* Secondary Play Button */}
-              <Link href="/explore">
-                <Button variant="outline" className="w-full sm:w-auto h-16 px-8 rounded-full text-lg font-bold border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-transform hover:scale-105 active:scale-95 group">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-violet-100 text-violet-600 mr-3 group-hover:bg-violet-200 transition-colors">
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                  </span>
-                  See How It Works
-                </Button>
-              </Link>
+              {/* Secondary: smooth-scroll to the explainer */}
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                className="w-full sm:w-auto h-16 px-8 rounded-full text-lg font-bold border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-transform hover:scale-105 active:scale-95 group">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-violet-100 text-violet-600 mr-3 group-hover:bg-violet-200 transition-colors">
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                </span>
+                See How It Works
+              </Button>
 
               {/* Tertiary Text Link */}
               <Link href="/explore">
@@ -413,7 +429,7 @@ export default function Landing() {
 
             {/* Trending Skills Hook */}
             <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.6 } } }} className="pt-6 border-t border-slate-200/60 max-w-4xl mx-auto">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Highly Demanded Skills Today</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Skills you can learn or teach</p>
               <div className="flex flex-wrap justify-center gap-3">
                 {TRENDING_SUBJECTS.map((sub: any, i: number) => (
                   <Link href="/explore" key={i}>
@@ -434,76 +450,68 @@ export default function Landing() {
       {/* ==========================================
           🔥 FIXED STATS SECTION (Floating Card to avoid clipping)
           ========================================== */}
-      <section className="relative z-30 -mt-16 sm:-mt-24 px-4 sm:px-6 lg:px-8 mb-20">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-gradient-to-r from-violet-950 via-indigo-950 to-violet-950 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-2xl relative overflow-hidden border border-violet-800/50">
-            {/* Background Texture for Card */}
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay pointer-events-none" />
-            
-            <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-4 divide-y md:divide-y-0 md:divide-x divide-violet-800/50">
-              <div className="text-center px-2 py-4 md:py-0">
-                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-violet-200 to-white mb-2 whitespace-nowrap tracking-tight">
-                  <Counter target={realStats.totalUsers} suffix="+" />
-                </div>
-                <div className="text-[10px] sm:text-xs font-bold text-violet-300 uppercase tracking-widest">Active Users</div>
-              </div>
-              <div className="text-center px-2 py-4 md:py-0">
-                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-violet-200 to-white mb-2 whitespace-nowrap tracking-tight">
-                  <Counter target={realStats.moneySaved} prefix="₹" suffix="+" />
-                </div>
-                <div className="text-[10px] sm:text-xs font-bold text-violet-300 uppercase tracking-widest">Money Saved</div>
-              </div>
-              <div className="text-center px-2 py-4 md:py-0">
-                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-violet-200 to-white mb-2 whitespace-nowrap tracking-tight">
-                  <Counter target={realStats.sessionsCompleted} suffix="+" />
-                </div>
-                <div className="text-[10px] sm:text-xs font-bold text-violet-300 uppercase tracking-widest">Classes Done</div>
-              </div>
-              <div className="text-center px-2 py-4 md:py-0">
-                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-violet-200 to-white mb-2 whitespace-nowrap tracking-tight">
-                  <Counter target={realStats.matchRate} suffix="%" />
-                </div>
-                <div className="text-[10px] sm:text-xs font-bold text-violet-300 uppercase tracking-widest">Match Success</div>
+      {(!statsLoaded || statItems.length > 0) && (
+        <section className="relative z-30 -mt-16 sm:-mt-24 px-4 sm:px-6 lg:px-8 mb-20">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-gradient-to-r from-violet-950 via-indigo-950 to-violet-950 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-2xl relative overflow-hidden border border-violet-800/50">
+              <div className="relative z-10 flex flex-wrap justify-around gap-8">
+                {!statsLoaded
+                  ? Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="text-center min-w-[140px]">
+                        <div className="h-12 w-28 mx-auto rounded-xl bg-violet-800/40 animate-pulse mb-3" />
+                        <div className="h-3 w-20 mx-auto rounded bg-violet-800/30 animate-pulse" />
+                      </div>
+                    ))
+                  : statItems.map((st) => (
+                      <div key={st.label} className="text-center min-w-[140px]">
+                        <div className="text-3xl sm:text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-violet-200 to-white mb-2 whitespace-nowrap tracking-tight">
+                          <Counter target={st.value as number} prefix={st.prefix} suffix={st.suffix} />
+                        </div>
+                        <div className="text-[10px] sm:text-xs font-bold text-violet-300 uppercase tracking-widest">{st.label}</div>
+                      </div>
+                    ))}
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ==========================================
           LIVE FOMO TICKER (Real Platform Activity)
           ========================================== */}
-      <div className="w-full bg-slate-900 border-y border-slate-800 py-6 overflow-hidden flex relative z-20 shadow-lg">
-        <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-slate-900 to-transparent z-10" />
-        <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-slate-900 to-transparent z-10" />
-        
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2 bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase px-3 py-1.5 rounded-full border border-emerald-500/30 backdrop-blur-md">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Pulse
-        </div>
+      {liveTicker.length > 0 && (
+        <div className="w-full bg-slate-900 border-y border-slate-800 py-5 overflow-hidden flex relative z-20 shadow-lg">
+          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-slate-900 to-transparent z-10" />
+          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-slate-900 to-transparent z-10" />
 
-        <motion.div 
-          animate={{ x: ["0%", "-50%"] }} 
-          transition={{ ease: "linear", duration: 40, repeat: Infinity }}
-          className="flex flex-nowrap gap-8 whitespace-nowrap pl-40 pr-4"
-        >
-          {liveTicker.map((exchange: string, idx: number) => (
-            <div key={idx} className="flex items-center gap-3 text-slate-300 font-bold text-base bg-slate-800/80 px-8 py-3.5 rounded-full border border-slate-700 shadow-sm backdrop-blur-md">
-              <span className="text-xl leading-none">{exchange.split(' ')[0]}</span>
-              {exchange.substring(exchange.indexOf(' ') + 1)}
-            </div>
-          ))}
-        </motion.div>
-      </div>
+          <div className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2 bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase px-3 py-1.5 rounded-full border border-emerald-500/30 backdrop-blur-md">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
+          </div>
+
+          <motion.div
+            animate={lightweightMode ? undefined : { x: ["0%", "-50%"] }}
+            transition={{ ease: "linear", duration: Math.max(20, liveTicker.length * 8), repeat: Infinity }}
+            className="flex flex-nowrap gap-6 whitespace-nowrap pl-32 sm:pl-40 pr-4"
+          >
+            {[...liveTicker, ...liveTicker].map((exchange, idx) => (
+              <div key={idx} className="flex items-center gap-3 text-slate-300 font-bold text-sm sm:text-base bg-slate-800/80 px-6 py-3 rounded-full border border-slate-700 shadow-sm">
+                <span className="text-xl leading-none">{exchange.split(" ")[0]}</span>
+                {exchange.substring(exchange.indexOf(" ") + 1)}
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      )}
 
       {/* ==========================================
           HOW IT WORKS (Trust & Economy)
           ========================================== */}
-      <section className="py-24 relative z-10 bg-[#FAFAFA]">
+      <section id="how-it-works" className="py-24 relative z-10 bg-[#FAFAFA] scroll-mt-4">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-multiply" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-20">
             <span className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-sm font-black mb-6 uppercase tracking-widest shadow-sm">
-              <ShieldCheck className="w-5 h-5" /> 100% Trust & Scam-Proof System
+              <ShieldCheck className="w-5 h-5" /> Escrow-Protected Sessions
             </span>
             <h2 className="text-4xl md:text-6xl font-black mb-6 text-slate-900 tracking-tight">How the Credit Economy Works</h2>
             <p className="text-xl md:text-2xl text-slate-600 font-medium max-w-3xl mx-auto">No money involved. Complete transparency. <b className="text-slate-900 bg-white px-3 py-1 rounded-lg shadow-sm border border-slate-200">1 Credit = 1 Minute of Learning.</b></p>
@@ -578,37 +586,174 @@ export default function Landing() {
       {/* ==========================================
           TESTIMONIALS (Real emotional stories)
           ========================================== */}
-      <section className="px-4 sm:px-6 lg:px-8 py-32 relative overflow-hidden bg-[#FAFAFA]">
-        <div className="max-w-6xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-20">
-            <h2 className="text-5xl md:text-6xl font-black mb-6 text-slate-900 tracking-tight">Life-Changing Stories</h2>
-            <div className="flex justify-center gap-1 mb-4">{Array.from({length:5}).map((_,i)=><Star key={i} className="w-10 h-10 fill-amber-400 text-amber-400"/>)}</div>
-            <p className="text-slate-600 font-bold text-xl">Rated 4.9/5 by 2,000+ Indians who stopped paying for expensive courses.</p>
+      {/* ==========================================
+          VERIFIABLE CERTIFICATES (real data from the certificates API)
+          ========================================== */}
+      <section id="certificates" className="px-4 sm:px-6 lg:px-8 py-28 relative overflow-hidden bg-[#FAFAFA] scroll-mt-4">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
+
+          {/* Left: message + real numbers + verify box */}
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+            <span className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-sm font-black mb-6 uppercase tracking-widest">
+              <BadgeCheck className="w-5 h-5" /> Verifiable Certificates
+            </span>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-5">
+              Prove your skills.<br />
+              <span className="bg-gradient-to-r from-violet-600 to-fuchsia-500 bg-clip-text text-transparent">Anyone can verify.</span>
+            </h2>
+            <p className="text-lg text-slate-600 font-medium mb-8 max-w-xl">
+              Every SkillSwap certificate gets a unique ID, a server-signed hash and a QR code. Employers and friends can scan it and confirm it is real, on any phone.
+            </p>
+
+            <ul className="space-y-3 mb-8">
+              {[
+                { icon: QrCode, text: "Scan the QR or enter the ID to verify instantly" },
+                { icon: ShieldCheck, text: "Signed by our server, so edited or fake certificates fail" },
+                { icon: Award, text: "Separate tracks for learners and mentors" },
+              ].map((p) => (
+                <li key={p.text} className="flex items-center gap-3 text-slate-700 font-semibold">
+                  <span className="w-9 h-9 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center flex-shrink-0">
+                    <p.icon className="w-5 h-5" />
+                  </span>
+                  {p.text}
+                </li>
+              ))}
+            </ul>
+
+            {/* Real numbers (or an honest empty state) */}
+            {certs && certs.total > 0 ? (
+              <div className="mb-8 p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="flex items-end gap-3 mb-3">
+                  <span className="text-4xl font-black text-slate-900"><Counter target={certs.total} /></span>
+                  <span className="text-sm font-bold text-slate-500 pb-1.5">certificates issued</span>
+                </div>
+                {certs.topSkills.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {certs.topSkills.map((t) => (
+                      <span key={t.skill} className="px-3 py-1 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-xs font-bold">
+                        {t.skill} · {t.count}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="mb-8 text-sm font-bold text-slate-500 bg-white border border-dashed border-slate-300 rounded-2xl p-4">
+                Be among the first members to earn a verified SkillSwap certificate.
+              </p>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <a href="/certificate.html" className="flex-1">
+                <Button className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0">
+                  Get Your Certificate <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              </a>
+            </div>
+
+            <form onSubmit={goVerify} className="flex gap-2 max-w-md" aria-label="Verify a certificate">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  value={verifyId}
+                  onChange={(e) => setVerifyId(e.target.value)}
+                  placeholder="Verify an ID: SWAP-IND-XXXXXX"
+                  className="w-full h-12 pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold uppercase tracking-wide placeholder:normal-case placeholder:tracking-normal focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                />
+              </div>
+              <Button type="submit" variant="outline" className="h-12 rounded-xl font-bold px-5">Verify</Button>
+            </form>
           </motion.div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {TESTIMONIALS.map((t: any, i: number) => (
-              <motion.div key={i} initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                className="p-10 rounded-[2.5rem] bg-white border border-slate-200 shadow-xl relative hover:shadow-2xl transition-shadow">
-                <div className="absolute top-8 right-10 text-8xl text-slate-200 font-serif leading-none opacity-40">"</div>
-                <p className="text-xl font-bold text-slate-700 leading-relaxed mb-10 relative z-10 italic">"{t.text}"</p>
-                <div className="flex items-center gap-5 mt-auto">
-                  <div className={`w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl shadow-inner border-2 border-white`}>
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <div className="font-black text-slate-900 text-xl">{t.name}</div>
-                    <div className="text-sm font-bold text-violet-600 mt-1">{t.role}</div>
-                  </div>
-                  <div className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 shadow-sm text-sm font-bold text-slate-500">
-                    <Flame className="w-5 h-5 text-orange-500" /> {t.streak} Days
+
+          {/* Right: sample preview + real recent certificates */}
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.15 }}>
+            <div className="relative rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-300/40 overflow-hidden">
+              <div className="absolute top-3 right-3 z-10 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-white/90 border border-slate-200 rounded-full px-3 py-1">Sample design</div>
+              <div className="flex">
+                <div className="w-14 sm:w-20 bg-gradient-to-b from-[#0E2A47] to-[#08203A] flex flex-col items-center py-6 gap-3">
+                  <img src="/pwa-192x192.png" alt="" className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl" />
+                  <div className="flex-1 w-1 rounded-full bg-gradient-to-b from-teal-400 to-amber-300/70" />
+                </div>
+                <div className="flex-1 p-6 sm:p-8 text-center">
+                  <p className="text-[10px] font-black tracking-[0.3em] text-slate-500">SKILLSWAP INDIA</p>
+                  <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-2">CERTIFICATE</p>
+                  <p className="text-[11px] font-bold tracking-[0.25em] text-amber-600 mt-1">OF SKILL PROFICIENCY</p>
+                  <div className="h-px bg-gradient-to-r from-transparent via-amber-300 to-transparent my-5" />
+                  <p className="text-xs text-slate-500 font-medium">presented to</p>
+                  <p className="text-xl font-black text-slate-900 mt-1">YOUR NAME</p>
+                  <p className="text-xs text-slate-500 font-medium mt-4">for completing</p>
+                  <p className="text-lg font-black text-[#0E2A47] mt-1">YOUR SKILL</p>
+                  <div className="flex items-center justify-center gap-3 mt-6">
+                    <div className="w-14 h-14 rounded-xl bg-[#06182A] flex items-center justify-center"><QrCode className="w-8 h-8 text-white" /></div>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black text-teal-600 uppercase tracking-wider">Scan to verify</p>
+                      <p className="text-[11px] font-mono text-slate-500">SWAP-IND-XXXXXX</p>
+                    </div>
                   </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
+              </div>
+            </div>
+
+            {certs && certs.recent.length > 0 && (
+              <div className="mt-6">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Recently issued</p>
+                <div className="space-y-2">
+                  {certs.recent.slice(0, 4).map((c) => (
+                    <a key={c.certId} href={`/verify.html?id=${encodeURIComponent(c.certId)}`}
+                       className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 hover:border-violet-300 hover:shadow-md transition-all">
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 text-sm truncate">{c.skill}</p>
+                        <p className="text-xs text-slate-500 font-medium">{c.level} · {c.role === "teacher" ? "Mentor" : "Learner"} · {c.dateStr}</p>
+                      </div>
+                      <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 flex-shrink-0">
+                        <BadgeCheck className="w-4 h-4" /> Verify
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
         </div>
       </section>
+
+      {/* ==========================================
+          REAL MEMBER REVIEWS (rendered only when real reviews exist)
+          ========================================== */}
+      {reviews.length > 0 && (
+        <section className="px-4 sm:px-6 lg:px-8 py-28 relative overflow-hidden bg-white border-y border-slate-100">
+          <div className="max-w-6xl mx-auto">
+            <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-14">
+              <h2 className="text-4xl md:text-5xl font-black mb-4 text-slate-900 tracking-tight">What members say</h2>
+              <p className="text-slate-500 font-semibold">Recent reviews from real SkillSwap sessions.</p>
+            </motion.div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {reviews.map((r, i) => (
+                <motion.div key={i} initial={{ opacity: 0, scale: 0.97 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
+                  className="p-8 rounded-[2rem] bg-[#FAFAFA] border border-slate-200 shadow-sm">
+                  {r.rating !== null && (
+                    <div className="flex gap-1 mb-4">
+                      {Array.from({ length: 5 }).map((_, k) => (
+                        <Star key={k} className={`w-5 h-5 ${k < Math.round(r.rating as number) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-lg font-semibold text-slate-700 leading-relaxed mb-6">“{r.text}”</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-violet-100 text-violet-700 font-black flex items-center justify-center">
+                      {r.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="font-black text-slate-900">{r.name}</div>
+                      {r.skill && <div className="text-xs font-bold text-violet-600">{r.skill}</div>}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ==========================================
           FAQ SECTION (Addressing objections)
@@ -663,7 +808,7 @@ export default function Landing() {
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} className="relative z-10 px-4 max-w-5xl mx-auto">
           <h2 className="text-6xl md:text-8xl font-black text-white mb-8 tracking-tight">Stop Paying.<br/>Start Swapping.</h2>
-          <p className="text-2xl text-slate-300 font-medium mb-16 max-w-3xl mx-auto">Join 10,000+ ambitious Indians who are building their careers without spending a rupee. Your knowledge is enough.</p>
+          <p className="text-2xl text-slate-300 font-medium mb-16 max-w-3xl mx-auto">{realStats.totalUsers && realStats.totalUsers > 0 ? `Join ${realStats.totalUsers.toLocaleString()} members who learn and teach without spending a rupee.` : "Learn and teach without spending a rupee."} Your knowledge is enough.</p>
           
           <Link href="/register">
             <Button className="h-24 px-16 rounded-full bg-white hover:bg-slate-100 text-violet-700 font-black text-3xl shadow-[0_0_80px_rgba(124,58,237,0.6)] transition-all hover:scale-105 active:scale-95 border-0">
@@ -672,7 +817,7 @@ export default function Landing() {
             </Button>
           </Link>
           <p className="mt-10 text-base font-bold text-slate-400 flex items-center justify-center gap-2">
-            <Lock className="w-5 h-5 text-emerald-400" /> Secure platform. Takes exactly 30 seconds to sign up.
+            <Lock className="w-5 h-5 text-emerald-400" /> Secure platform. Quick sign up.
           </p>
         </motion.div>
       </section>
