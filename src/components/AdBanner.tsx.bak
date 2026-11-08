@@ -1,0 +1,58 @@
+import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+// 🔥 Galti yahan hoti hai jab hum web me native module direct call kar dete hain. 
+// Capacitor plugin dynamically import hona chahiye ya safety wrapper me hona chahiye.
+
+export default function AdBanner() {
+  const [isWeb, setIsWeb] = useState(false);
+
+  useEffect(() => {
+    // Check if it's running in browser
+    if (!Capacitor.isNativePlatform()) {
+      setIsWeb(true);
+      return; // Agar browser hai to yahi se wapas laut jao, AdMob touch mat karo
+    }
+
+    // Sirf mobile me chalao
+    const loadAds = async () => {
+      try {
+        // Dynamically import AdMob so it doesn't crash the web bundle
+        const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
+        
+        await AdMob.initialize({
+          initializeForTesting: true,
+        });
+
+        const options = {
+          adId: 'ca-app-pub-2311219549845157/1602813475', 
+          adSize: BannerAdSize.ADAPTIVE_BANNER,
+          position: BannerAdPosition.BOTTOM_CENTER,
+          margin: 0,
+          isTesting: true 
+        };
+
+        await AdMob.showBanner(options);
+      } catch (error) {
+        console.error("AdMob Native Error:", error);
+      }
+    };
+
+    loadAds();
+
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        import('@capacitor-community/admob').then(({ AdMob }) => {
+           AdMob.removeBanner().catch(console.error);
+        });
+      }
+    };
+  }, []);
+
+  // Web user ke liye fallback (Optional) ya just return null
+  if (isWeb) {
+    return null; 
+    // Agar aap website par AdSense dikhana chahte the, to aap iske return me Google AdSense wala <ins> tag daal sakte hain.
+  }
+
+  return null; 
+}

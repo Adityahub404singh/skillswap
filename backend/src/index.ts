@@ -10,7 +10,7 @@ import cors from "cors";
 import uploadRouter from "./routes/upload.js";
 import { createCertificateRouter } from "./routes/certificates.js";
 import landingRouter from "./routes/landing.js";
-
+import landingPulseRouter from "./routes/landing-pulse.js";
 // Import routers
 import discoverRouter from "./routes/discover.js";
 import authRouter from "./routes/auth.js";
@@ -157,6 +157,8 @@ app.use("/api/upload", uploadRouter);
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/landing", landingRouter);
+app.use("/api/landing", landingPulseRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/sessions", sessionsRouter);
 app.use("/api/skills", skillsRouter);

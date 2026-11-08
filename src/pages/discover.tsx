@@ -3,13 +3,13 @@ import {
   motion, AnimatePresence, PanInfo,
   useMotionValue, useTransform, animate,
 } from "framer-motion";
-import{ ArrowRight } from "lucide-react";
+import AIMatchPanel from "@/components/AIMatchPanel";
 import {
   X, Heart, BadgeCheck, Star, Sparkles, Zap, ChevronUp,
   MessageCircle, Calendar, Loader2, MapPin, ShieldCheck,
-  Award, Coins, BookOpen, Info, Search, Users, Filter,
+  Award, Coins, BookOpen, Info, Search, Users, Filter, ArrowRight,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import confetti from "canvas-confetti";
 import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import { Capacitor } from "@capacitor/core";
@@ -208,6 +208,7 @@ function SwipeCard({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             ONLINE
           </div>
+          
           <div className="bg-black/30 backdrop-blur-md border border-white/20 text-white text-[10px] px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
             <Coins className="w-2.5 h-2.5" />{card.price} cr/hr
           </div>
@@ -429,6 +430,7 @@ function MatchModal({ card, onClose }: { card: Card; onClose: () => void }) {
 // ─── main ─────────────────────────────────────────────────────────────────────
 export default function Discover() {
   const token = useAuthStore(s => s.token);
+  const [, setLocation] = useLocation();
 
   const [cards,      setCards]      = useState<Card[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -436,6 +438,17 @@ export default function Discover() {
   const [expanded,   setExpanded]   = useState<number | null>(null);
   const [search,     setSearch]     = useState("");
   const [likedCount, setLikedCount] = useState(0);
+  const [showAiMatches, setShowAiMatches] = useState(false);
+
+  // Close the AI matching dialog with Escape and keep keyboard users in control.
+  useEffect(() => {
+    if (!showAiMatches) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowAiMatches(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showAiMatches]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -573,6 +586,15 @@ export default function Discover() {
               {deck.length} mentors
             </span>
           )}
+          <button
+            type="button"
+            onClick={() => setShowAiMatches(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6C3BFF] to-[#8b5cf6] px-3 py-2 text-[11px] sm:text-xs font-extrabold text-white shadow-md shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-violet-200"
+            aria-label="Open AI mentor matching"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>AI Match</span>
+          </button>
           <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#6C3BFF]">
             <ShieldCheck className="w-4 h-4" />
           </div>
@@ -774,6 +796,63 @@ export default function Discover() {
           </div>
         </div>
       </div>
+
+      {/* AI MATCH — independent overlay, not nested inside the swipe card */}
+      <AnimatePresence>
+        {showAiMatches && (
+          <motion.div
+            key="ai-match-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[180] flex items-start justify-center overflow-y-auto bg-slate-950/70 px-3 py-4 backdrop-blur-md sm:px-6 sm:py-8"
+            onMouseDown={event => {
+              if (event.target === event.currentTarget) setShowAiMatches(false);
+            }}
+          >
+            <motion.section
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 280, damping: 28 }}
+              className="relative my-auto w-full max-w-5xl overflow-hidden rounded-[28px] bg-slate-50 shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-label="AI mentor recommendations"
+            >
+              <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-violet-100 bg-white/95 px-5 py-4 backdrop-blur">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 text-sm font-black text-slate-900 sm:text-base">
+                    <Sparkles className="h-5 w-5 text-violet-600" />
+                    AI Mentor Match
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
+                    Find people whose skills and learning goals match yours.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAiMatches(false)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                  aria-label="Close AI matching"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="max-h-[calc(100dvh-100px)] overflow-y-auto p-3 sm:p-6">
+                <AIMatchPanel
+                  accessToken={token || ""}
+                  apiBase={import.meta.env.VITE_API_URL || ""}
+                  onChooseMentor={(memberId) => {
+                    setShowAiMatches(false);
+                    setLocation(`/mentor/${memberId}`);
+                  }}
+                />
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {matchModal && (

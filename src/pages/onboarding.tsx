@@ -1,57 +1,85 @@
-﻿import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence, PanInfo } from "framer-motion";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, PanInfo, useReducedMotion } from "framer-motion";
 import { Preferences } from "@capacitor/preferences";
 import {
-  Sparkles, Coins, ShieldCheck, ArrowRight, ArrowLeft,
-  Users, Repeat, Star, CheckCircle2, Award, Wallet,
+  Sparkles,
+  Coins,
+  ShieldCheck,
+  ArrowRight,
+  ArrowLeft,
+  Users,
+  Repeat2,
+  Star,
+  CheckCircle2,
+  Award,
+  Wallet,
+  BookOpen,
+  GraduationCap,
+  X,
+  Play,
+  Pause,
 } from "lucide-react";
 
 const ONBOARDING_KEY = "has_seen_onboarding";
-const AUTO_MS = 5200;   // time per slide before auto-advance
-const TICK_MS = 50;
+const AUTO_ADVANCE_MS = 6500;
 
-// ─── per-slide content ─────────────────────────────────────────────────────
-const slides = [
+type Slide = {
+  eyebrow: string;
+  title: string;
+  titleAccent: string;
+  desc: string;
+  gradient: string;
+  glow: string;
+  icon: typeof Sparkles;
+  points: string[];
+};
+
+const slides: Slide[] = [
   {
+    eyebrow: "A community built around sharing",
     icon: Sparkles,
     title: "Learn Anything.",
     titleAccent: "Teach Everything.",
-    desc: "Swap skills with real people. Teach what you know, learn what you love — no money needed.",
-    gradient: "from-[#6C3BFF] to-[#8B5CF6]",
-    glow: "rgba(108,59,255,0.45)",
+    desc: "Connect with people who have the skills you want—and share the knowledge you already have.",
+    gradient: "from-[#6335F5] via-[#7545F6] to-[#9A63F8]",
+    glow: "rgba(147,90,255,0.42)",
+    points: ["Discover people with useful skills", "Share what you know with others"],
   },
   {
+    eyebrow: "Your knowledge has value",
     icon: Coins,
-    title: "Earn Credits.",
-    titleAccent: "Spend Credits.",
-    desc: "Every hour you teach earns you credits. Use them to book sessions and learn from real experts.",
-    gradient: "from-orange-500 to-pink-500",
-    glow: "rgba(249,115,22,0.45)",
+    title: "Teach to Earn.",
+    titleAccent: "Learn with Credits.",
+    desc: "Earn SkillSwap credits through eligible teaching sessions, then use your credits to book sessions and learn from others.",
+    gradient: "from-[#F97316] via-[#F45A75] to-[#D946A8]",
+    glow: "rgba(249,115,22,0.34)",
+    points: ["Earn credits for completed teaching", "Use credits to book learning sessions"],
   },
   {
+    eyebrow: "Grow a reputation that matters",
     icon: ShieldCheck,
     title: "Build Trust.",
-    titleAccent: "Get Verified.",
-    desc: "Complete sessions, earn badges, and grow your trust score as a reliable teacher and learner.",
-    gradient: "from-green-500 to-emerald-600",
-    glow: "rgba(16,185,129,0.45)",
+    titleAccent: "Grow Together.",
+    desc: "Show up, complete sessions, share feedback, and build your reputation as a dependable learner and teacher.",
+    gradient: "from-[#059669] via-[#10B981] to-[#34D399]",
+    glow: "rgba(16,185,129,0.34)",
+    points: ["Build trust through platform activity", "Celebrate progress and achievements"],
   },
 ];
 
-// ─── word-by-word reveal for headline text ─────────────────────────────────
-function RevealText({ text, className }: { text: string; className?: string }) {
+function RevealText({ text, className = "", reducedMotion = false }: { text: string; className?: string; reducedMotion?: boolean }) {
   const words = text.split(" ");
   return (
     <span className={className}>
-      {words.map((w, i) => (
-        <span key={i} className="inline-block overflow-hidden align-bottom mr-[0.28em] last:mr-0">
+      {words.map((word, index) => (
+        <span key={`${word}-${index}`} className="mr-[0.25em] inline-block overflow-hidden align-bottom last:mr-0">
           <motion.span
             className="inline-block"
-            initial={{ y: "110%", opacity: 0 }}
+            initial={reducedMotion ? false : { y: "110%", opacity: 0 }}
             animate={{ y: "0%", opacity: 1 }}
-            transition={{ delay: 0.15 + i * 0.06, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ delay: reducedMotion ? 0 : 0.12 + index * 0.055, duration: reducedMotion ? 0 : 0.58, ease: [0.16, 1, 0.3, 1] }}
           >
-            {w}
+            {word}
           </motion.span>
         </span>
       ))}
@@ -59,355 +87,405 @@ function RevealText({ text, className }: { text: string; className?: string }) {
   );
 }
 
-// ─── illustration 1: skill-swap orbit ──────────────────────────────────────
-function SwapIllustration() {
+function OrbitIllustration({ reducedMotion }: { reducedMotion: boolean }) {
   return (
-    <div className="relative w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center">
+    <div className="relative flex h-64 w-64 items-center justify-center sm:h-[300px] sm:w-[300px]">
       <motion.div
-        className="absolute w-full h-full rounded-full border-2 border-white/25"
-        animate={{ scale: [1, 1.08, 1], opacity: [0.5, 0.9, 0.5] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute inset-4 rounded-full border border-white/25"
+        animate={reducedMotion ? undefined : { scale: [1, 1.06, 1], opacity: [0.4, 0.8, 0.4] }}
+        transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute -left-2 sm:left-0 w-20 h-20 rounded-3xl bg-white/15 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-xl"
-        animate={{ y: [0, -10, 0] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute inset-0 rounded-full border border-dashed border-white/20"
+        animate={reducedMotion ? undefined : { rotate: 360 }}
+        transition={{ duration: 28, repeat: Infinity, ease: "linear" }}
+      />
+      <motion.div
+        className="absolute left-1 top-12 flex h-[76px] w-[76px] items-center justify-center rounded-[25px] border border-white/30 bg-white/15 shadow-2xl backdrop-blur-xl"
+        animate={reducedMotion ? undefined : { y: [0, -10, 0], rotate: [0, -4, 0] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       >
-        <Users className="w-9 h-9 text-white" />
+        <Users className="h-9 w-9 text-white" />
       </motion.div>
       <motion.div
-        className="absolute -right-2 sm:right-0 w-20 h-20 rounded-3xl bg-white/15 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-xl"
-        animate={{ y: [0, 10, 0] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+        className="absolute bottom-10 right-0 flex h-[76px] w-[76px] items-center justify-center rounded-[25px] border border-white/30 bg-white/15 shadow-2xl backdrop-blur-xl"
+        animate={reducedMotion ? undefined : { y: [0, 10, 0], rotate: [0, 4, 0] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.35 }}
       >
-        <Award className="w-9 h-9 text-white" />
+        <GraduationCap className="h-10 w-10 text-white" />
       </motion.div>
       <motion.div
-        className="relative z-10 w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-2xl"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+        className="relative z-10 flex h-28 w-28 items-center justify-center rounded-[34px] border border-white/70 bg-white shadow-[0_22px_70px_rgba(31,15,85,0.25)]"
+        animate={reducedMotion ? undefined : { y: [0, -7, 0], rotate: [0, 5, 0] }}
+        transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
       >
-        <Repeat className="w-11 h-11 text-[#6C3BFF]" strokeWidth={2.4} />
+        <Repeat2 className="h-14 w-14 text-[#6C3BFF]" strokeWidth={2.2} />
       </motion.div>
-      {[0, 1, 2].map(i => (
-        <motion.div
-          key={i}
-          className="absolute w-2.5 h-2.5 rounded-full bg-yellow-300"
-          style={{ top: `${20 + i * 25}%`, left: i % 2 === 0 ? "8%" : "88%" }}
-          animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.3, 0.8] }}
-          transition={{ duration: 1.8 + i * 0.4, repeat: Infinity, delay: i * 0.3 }}
+      {Array.from({ length: 6 }).map((_, index) => (
+        <motion.span
+          key={index}
+          className="absolute h-2.5 w-2.5 rounded-full bg-amber-200 shadow-[0_0_16px_rgba(253,230,138,0.9)]"
+          style={{ top: `${12 + (index % 3) * 34}%`, left: index % 2 ? "88%" : "8%" }}
+          animate={reducedMotion ? undefined : { opacity: [0.25, 1, 0.25], scale: [0.7, 1.3, 0.7] }}
+          transition={{ duration: 2 + index * 0.2, repeat: Infinity, delay: index * 0.18 }}
         />
       ))}
     </div>
   );
 }
 
-// ─── illustration 2: floating credits ──────────────────────────────────────
-function CreditsIllustration() {
-  const coins = [0, 1, 2, 3, 4];
+function CreditsIllustration({ reducedMotion }: { reducedMotion: boolean }) {
   return (
-    <div className="relative w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center">
-      {coins.map(i => (
+    <div className="relative flex h-64 w-64 items-center justify-center sm:h-[300px] sm:w-[300px]">
+      <div className="absolute inset-5 rounded-full border border-white/20" />
+      <div className="absolute inset-12 rounded-full border border-dashed border-white/25" />
+      {[0, 1, 2, 3, 4, 5].map((item) => (
         <motion.div
-          key={i}
-          className="absolute w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow-lg"
-          style={{ left: `${12 + i * 18}%` }}
-          initial={{ y: 90, opacity: 0 }}
-          animate={{ y: [90, -110], opacity: [0, 1, 1, 0] }}
-          transition={{ duration: 3.2, repeat: Infinity, delay: i * 0.55, ease: "easeInOut" }}
+          key={item}
+          className="absolute flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white shadow-xl"
+          style={{ left: `${10 + item * 15}%`, top: `${18 + (item % 2) * 48}%` }}
+          animate={reducedMotion ? undefined : { y: [0, item % 2 ? -15 : 15, 0], rotate: [0, item % 2 ? 12 : -12, 0] }}
+          transition={{ duration: 2.4 + item * 0.2, repeat: Infinity, ease: "easeInOut", delay: item * 0.12 }}
         >
-          <Coins className="w-4.5 h-4.5 text-orange-500" />
+          <Coins className="h-5 w-5 text-orange-500" />
         </motion.div>
       ))}
       <motion.div
-        className="relative z-10 w-28 h-28 rounded-[28px] bg-white flex items-center justify-center shadow-2xl"
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+        className="relative z-10 flex h-32 w-32 items-center justify-center rounded-[36px] border border-white/80 bg-white shadow-[0_22px_70px_rgba(90,20,60,0.25)]"
+        animate={reducedMotion ? undefined : { y: [0, -8, 0], scale: [1, 1.035, 1] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
       >
-        <Wallet className="w-12 h-12 text-orange-500" strokeWidth={2} />
+        <Wallet className="h-16 w-16 text-orange-500" strokeWidth={1.8} />
+        <span className="absolute -right-3 -top-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-300 text-lg font-black text-orange-900 shadow-lg">+</span>
       </motion.div>
     </div>
   );
 }
 
-// ─── illustration 3: orbiting trust badges ─────────────────────────────────
-function TrustIllustration() {
+function TrustIllustration({ reducedMotion }: { reducedMotion: boolean }) {
   const badges = [
-    { Icon: Star, angle: 0 },
-    { Icon: CheckCircle2, angle: 120 },
-    { Icon: Award, angle: 240 },
+    { Icon: Star, label: "Rating" },
+    { Icon: CheckCircle2, label: "Complete" },
+    { Icon: Award, label: "Milestone" },
   ];
   return (
-    <div className="relative w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center">
-      {[0, 1].map(i => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full border-2 border-white/25"
-          style={{ width: `${70 + i * 16}%`, height: `${70 + i * 16}%` }}
-          animate={{ scale: [1, 1.06, 1], opacity: [0.35, 0.7, 0.35] }}
-          transition={{ duration: 2.6, repeat: Infinity, delay: i * 0.4, ease: "easeInOut" }}
-        />
-      ))}
+    <div className="relative flex h-64 w-64 items-center justify-center sm:h-[300px] sm:w-[300px]">
+      <div className="absolute inset-4 rounded-full border border-white/25" />
+      <div className="absolute inset-12 rounded-full border border-dashed border-white/30" />
       <motion.div
-        className="absolute w-full h-full"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
+        className="absolute inset-0"
+        animate={reducedMotion ? undefined : { rotate: 360 }}
+        transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
       >
-        {badges.map(({ Icon, angle }, i) => (
+        {badges.map(({ Icon, label }, index) => (
           <div
-            key={i}
-            className="absolute top-1/2 left-1/2 w-11 h-11"
-            style={{ transform: `rotate(${angle}deg) translate(6.8rem) rotate(-${angle}deg)`, marginLeft: "-1.375rem", marginTop: "-1.375rem" }}
+            key={label}
+            className="absolute left-1/2 top-1/2"
+            style={{ transform: `rotate(${index * 120}deg) translateY(-118px) rotate(-${index * 120}deg) translate(-50%, -50%)` }}
           >
-            <motion.div
-              className="w-11 h-11 rounded-2xl bg-white/95 flex items-center justify-center shadow-lg"
-              animate={{ rotate: -360 }}
-              transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
-            >
-              <Icon className="w-5 h-5 text-emerald-600" />
-            </motion.div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-white/80 bg-white shadow-xl">
+              <Icon className="h-7 w-7 text-emerald-600" />
+            </div>
           </div>
         ))}
       </motion.div>
       <motion.div
-        className="relative z-10 w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-2xl"
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        className="relative z-10 flex h-28 w-28 items-center justify-center rounded-[34px] border border-white/80 bg-white shadow-[0_22px_70px_rgba(0,60,40,0.22)]"
+        animate={reducedMotion ? undefined : { scale: [1, 1.06, 1] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
       >
-        <ShieldCheck className="w-11 h-11 text-emerald-600" strokeWidth={2.2} />
+        <ShieldCheck className="h-14 w-14 text-emerald-600" strokeWidth={2} />
       </motion.div>
     </div>
   );
 }
 
-const ILLUSTRATIONS = [SwapIllustration, CreditsIllustration, TrustIllustration];
+const ILLUSTRATIONS = [OrbitIllustration, CreditsIllustration, TrustIllustration];
 
 interface OnboardingProps {
   onFinish: () => void;
 }
 
 export default function Onboarding({ onFinish }: OnboardingProps) {
-  const [idx, setIdx] = useState(0);
-  const [dir, setDir] = useState(1);
-  const [progress, setProgress] = useState(0); // 0..1 for the current slide
+  const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const startedAt = useRef<number>(Date.now());
+  const reducedMotion = Boolean(useReducedMotion());
 
-  const isLast = idx === slides.length - 1;
-  const slide = slides[idx];
-  const Icon = slide.icon;
-  const Illustration = ILLUSTRATIONS[idx];
+  const slide = slides[index];
+  const isLast = index === slides.length - 1;
+  const Illustration = ILLUSTRATIONS[index];
+  const SlideIcon = slide.icon;
 
-  const goTo = useCallback((next: number) => {
-    setDir(next > idx ? 1 : -1);
-    setIdx(Math.max(0, Math.min(slides.length - 1, next)));
-  }, [idx]);
+  const goTo = useCallback((nextIndex: number) => {
+    setDirection(nextIndex > index ? 1 : -1);
+    setIndex(Math.max(0, Math.min(slides.length - 1, nextIndex)));
+    setProgress(0);
+    startedAt.current = Date.now();
+  }, [index]);
 
   const goNext = useCallback(() => {
-    if (idx < slides.length - 1) goTo(idx + 1);
-  }, [idx, goTo]);
+    if (index < slides.length - 1) goTo(index + 1);
+  }, [goTo, index]);
 
-  const goPrev = useCallback(() => {
-    if (idx > 0) goTo(idx - 1);
-  }, [idx, goTo]);
+  const goPrevious = useCallback(() => {
+    if (index > 0) goTo(index - 1);
+  }, [goTo, index]);
 
-  // reset progress whenever the slide changes
-  useEffect(() => { setProgress(0); }, [idx]);
-
-  // story-style autoplay — pauses on press/drag, stops on the final slide
-  useEffect(() => {
-    if (paused || isLast) return;
-    const t = setInterval(() => {
-      setProgress(p => {
-        const n = p + TICK_MS / AUTO_MS;
-        if (n >= 1) {
-          clearInterval(t);
-          goNext();
-          return 1;
-        }
-        return n;
-      });
-    }, TICK_MS);
-    return () => clearInterval(t);
-  }, [idx, paused, isLast, goNext]);
-
-  // keyboard navigation for desktop
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === "Enter") handleNext();
-      if (e.key === "ArrowLeft") goPrev();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx]);
-
-  const handleNext = () => {
-    if (isLast) handleDone();
-    else goNext();
-  };
-
-  const handleSkip = () => handleDone();
-
-  const handleDone = async () => {
+  const finish = useCallback(async () => {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       await Preferences.set({ key: ONBOARDING_KEY, value: "true" });
     } catch {
-      // Storage failed - proceed anyway
+      try {
+        window.localStorage.setItem(ONBOARDING_KEY, "true");
+      } catch {
+        // Continue into the app even if persistent storage is unavailable.
+      }
+    } finally {
+      setIsSaving(false);
+      onFinish();
     }
-    onFinish();
+  }, [isSaving, onFinish]);
+
+  const handleNext = useCallback(() => {
+    if (isLast) void finish();
+    else goNext();
+  }, [finish, goNext, isLast]);
+
+  useEffect(() => {
+    if (paused || isLast || reducedMotion) return;
+    const timer = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt.current;
+      const nextProgress = Math.min(elapsed / AUTO_ADVANCE_MS, 1);
+      setProgress(nextProgress);
+      if (nextProgress >= 1) goNext();
+    }, 60);
+    return () => window.clearInterval(timer);
+  }, [goNext, index, isLast, paused, reducedMotion]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        if (isLast) void finish();
+        else goNext();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goPrevious();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        void finish();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [finish, goNext, goPrevious, isLast]);
+
+  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    setPaused(false);
+    if (info.offset.x < -65) goNext();
+    else if (info.offset.x > 65) goPrevious();
   };
 
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    setPaused(false);
-    const threshold = 60;
-    if (info.offset.x < -threshold) goNext();
-    else if (info.offset.x > threshold) goPrev();
-  };
+  const progressSegments = useMemo(() => slides.map((item, itemIndex) => ({
+    key: item.title,
+    state: itemIndex < index ? "complete" : itemIndex === index ? "active" : "upcoming",
+  })), [index]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-hidden select-none">
+    <main className="fixed inset-0 z-[100] overflow-hidden bg-[#f8f7ff] text-slate-900 selection:bg-violet-200">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(124,58,237,0.08),transparent_28%),radial-gradient(circle_at_90%_90%,rgba(99,102,241,0.08),transparent_30%)]" />
 
-      {/* ── Segmented story-style progress bar (spans full width, both layouts) ── */}
-      <div className="absolute top-0 inset-x-0 z-30 flex gap-1.5 p-4 sm:p-5">
-        {slides.map((_, i) => (
-          <div key={i} className="flex-1 h-1 rounded-full bg-white/30 lg:bg-slate-200 overflow-hidden">
-            <motion.div
-              className={`h-full rounded-full bg-gradient-to-r ${slide.gradient}`}
-              style={{
-                width: i < idx ? "100%" : i === idx ? `${progress * 100}%` : "0%",
-              }}
-            />
-          </div>
-        ))}
+      <div className="absolute left-4 right-4 top-4 z-40 flex items-center gap-2 sm:left-7 sm:right-7 sm:top-6">
+        <div className="mr-auto flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-sm font-black text-white shadow-lg shadow-violet-600/25">S</div>
+          <span className="text-base font-black tracking-tight text-slate-900">Skill<span className="text-violet-600">Swap</span></span>
+        </div>
+
+        <div className="flex max-w-[45%] flex-1 gap-1.5 sm:max-w-[38%]">
+          {progressSegments.map((segment, itemIndex) => (
+            <button
+              key={segment.key}
+              type="button"
+              onClick={() => goTo(itemIndex)}
+              aria-label={`Go to introduction slide ${itemIndex + 1}`}
+              className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200/90"
+            >
+              <motion.span
+                className={`block h-full rounded-full bg-gradient-to-r ${slides[itemIndex].gradient}`}
+                style={{ width: segment.state === "complete" ? "100%" : segment.state === "active" ? `${progress * 100}%` : "0%" }}
+              />
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void finish()}
+          disabled={isSaving}
+          className="ml-2 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/85 px-3.5 py-2 text-xs font-bold text-slate-500 shadow-sm backdrop-blur transition hover:border-violet-200 hover:text-violet-700 disabled:opacity-50 sm:px-4"
+        >
+          Skip <X className="h-3.5 w-3.5" />
+        </button>
       </div>
 
-      {/* ── Skip button ── */}
-      <button
-        onClick={handleSkip}
-        className="absolute top-6 right-4 sm:top-7 sm:right-6 z-30 text-xs font-bold text-white/80 lg:text-slate-400 hover:text-white lg:hover:text-slate-700 transition-colors bg-black/10 lg:bg-slate-100 px-3.5 py-1.5 rounded-full backdrop-blur-sm"
-      >
-        Skip
-      </button>
-
       <motion.div
-        className="h-full w-full flex flex-col lg:flex-row"
+        className="relative z-10 flex h-full w-full flex-col lg:flex-row"
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.15}
+        dragElastic={0.12}
         onDragStart={() => setPaused(true)}
         onDragEnd={handleDragEnd}
       >
-        {/* ══════════════ VISUAL PANEL ══════════════ */}
-        <div
-          className={`relative flex items-center justify-center overflow-hidden shrink-0 h-[46vh] lg:h-full lg:w-1/2 bg-gradient-to-br ${slide.gradient} transition-colors duration-700`}
-          onPointerDown={() => setPaused(true)}
-          onPointerUp={() => setPaused(false)}
-          onPointerLeave={() => setPaused(false)}
-        >
-          {/* ambient glow blobs */}
-          <div className="absolute -top-16 -left-16 w-72 h-72 rounded-full blur-[90px] pointer-events-none" style={{ background: slide.glow }} />
-          <div className="absolute -bottom-20 -right-10 w-80 h-80 rounded-full blur-[100px] pointer-events-none" style={{ background: slide.glow }} />
+        <section className={`relative flex h-[43vh] shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br ${slide.gradient} pt-12 sm:h-[46vh] lg:h-full lg:w-[53%] lg:pt-0`}>
+          <div className="pointer-events-none absolute -left-20 -top-20 h-80 w-80 rounded-full bg-white/15 blur-[90px]" />
+          <div className="pointer-events-none absolute -bottom-28 -right-16 h-96 w-96 rounded-full bg-black/10 blur-[100px]" />
+          <div className="absolute inset-0 opacity-15 [background-image:linear-gradient(rgba(255,255,255,.25)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.25)_1px,transparent_1px)] [background-size:42px_42px]" />
 
-          {/* desktop prev/next chevrons */}
-          <button
-            onClick={goPrev}
-            disabled={idx === 0}
-            className="hidden lg:flex absolute left-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md items-center justify-center text-white disabled:opacity-0 transition-all"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <button
-            onClick={goNext}
-            disabled={isLast}
-            className="hidden lg:flex absolute right-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md items-center justify-center text-white disabled:opacity-0 transition-all"
-          >
-            <ArrowRight className="w-5 h-5" />
-          </button>
+          <div className="absolute left-6 top-20 hidden items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/85 backdrop-blur-md lg:flex">
+            <Sparkles className="h-3.5 w-3.5" /> SkillSwap community
+          </div>
 
-          <AnimatePresence mode="wait" custom={dir}>
+          <AnimatePresence mode="wait" custom={direction}>
             <motion.div
-              key={idx}
-              custom={dir}
-              initial={{ opacity: 0, scale: 0.85, rotate: dir > 0 ? 8 : -8 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.85, rotate: dir > 0 ? -8 : 8 }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10"
+              key={index}
+              custom={direction}
+              initial={reducedMotion ? false : { opacity: 0, scale: 0.88, y: 18, rotate: direction > 0 ? 4 : -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
+              exit={reducedMotion ? undefined : { opacity: 0, scale: 0.9, y: -12, rotate: direction > 0 ? -4 : 4 }}
+              transition={{ duration: reducedMotion ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 mt-6 lg:mt-0"
             >
-              <Illustration />
+              <Illustration reducedMotion={reducedMotion} />
             </motion.div>
           </AnimatePresence>
-        </div>
 
-        {/* ══════════════ CONTENT PANEL ══════════════ */}
-        <div className="relative flex-1 flex flex-col justify-between px-7 sm:px-10 lg:px-16 xl:px-20 py-7 lg:py-0 lg:justify-center bg-white">
+          <div className="absolute bottom-5 left-0 right-0 hidden justify-center gap-2 lg:flex">
+            {slides.map((item, itemIndex) => (
+              <button
+                key={item.title}
+                onClick={() => goTo(itemIndex)}
+                aria-label={`Show slide ${itemIndex + 1}`}
+                className={`h-2 rounded-full transition-all ${index === itemIndex ? "w-8 bg-white" : "w-2 bg-white/40 hover:bg-white/70"}`}
+              />
+            ))}
+          </div>
+        </section>
 
-          <div className="lg:max-w-md">
-            <AnimatePresence mode="wait" custom={dir}>
+        <section
+          className="relative flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-white px-6 pb-7 pt-7 sm:px-10 sm:pb-9 lg:justify-center lg:px-14 xl:px-20"
+          onPointerDown={() => setPaused(true)}
+          onPointerUp={() => setPaused(false)}
+          onPointerCancel={() => setPaused(false)}
+        >
+          <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center">
+            <AnimatePresence mode="wait" custom={direction}>
               <motion.div
-                key={idx}
-                custom={dir}
-                initial={{ opacity: 0, x: dir > 0 ? 40 : -40 }}
+                key={index}
+                custom={direction}
+                initial={reducedMotion ? false : { opacity: 0, x: direction > 0 ? 32 : -32 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: dir > 0 ? -40 : 40 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="mt-2 lg:mt-0"
+                exit={reducedMotion ? undefined : { opacity: 0, x: direction > 0 ? -24 : 24 }}
+                transition={{ duration: reducedMotion ? 0 : 0.38, ease: [0.16, 1, 0.3, 1] }}
               >
-                <div className={`hidden lg:flex w-14 h-14 rounded-2xl bg-gradient-to-br ${slide.gradient} items-center justify-center shadow-lg mb-6`}>
-                  <Icon className="w-7 h-7 text-white" />
+                <div className="mb-5 flex items-center gap-2 lg:hidden">
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br ${slide.gradient} text-white shadow-lg`}>
+                    <SlideIcon className="h-5 w-5" />
+                  </span>
+                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-400">{slide.eyebrow}</span>
                 </div>
 
-                <h1 className="text-[32px] sm:text-4xl lg:text-[42px] leading-[1.08] font-black tracking-tight text-slate-900">
-                  <RevealText text={slide.title} />
+                <div className="mb-6 hidden items-center gap-3 lg:flex">
+                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${slide.gradient} text-white shadow-lg`}>
+                    <SlideIcon className="h-6 w-6" />
+                  </span>
+                  <span className="text-xs font-extrabold uppercase tracking-[0.17em] text-slate-400">{slide.eyebrow}</span>
+                </div>
+
+                <h1 className="text-[34px] font-black leading-[1.04] tracking-[-0.045em] text-slate-950 sm:text-5xl xl:text-[56px]">
+                  <RevealText text={slide.title} reducedMotion={reducedMotion} />
                 </h1>
-                <h1 className={`text-[32px] sm:text-4xl lg:text-[42px] leading-[1.08] font-black tracking-tight bg-gradient-to-r ${slide.gradient} bg-clip-text text-transparent mb-5`}>
-                  <RevealText text={slide.titleAccent} />
-                </h1>
+                <h2 className={`mt-1 bg-gradient-to-r ${slide.gradient} bg-clip-text text-[34px] font-black leading-[1.08] tracking-[-0.045em] text-transparent sm:text-5xl xl:text-[56px]`}>
+                  <RevealText text={slide.titleAccent} reducedMotion={reducedMotion} />
+                </h2>
 
                 <motion.p
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={reducedMotion ? false : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.35, duration: 0.5 }}
-                  className="text-slate-500 text-[15px] sm:text-lg leading-relaxed font-medium"
+                  transition={{ delay: reducedMotion ? 0 : 0.25, duration: 0.4 }}
+                  className="mt-5 max-w-lg text-[15px] font-medium leading-7 text-slate-500 sm:text-lg sm:leading-8"
                 >
                   {slide.desc}
                 </motion.p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {slide.points.map((point) => (
+                    <div key={point} className="flex items-start gap-2.5 rounded-2xl border border-slate-100 bg-slate-50/90 p-3.5">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="text-xs font-bold leading-5 text-slate-600 sm:text-sm">{point}</span>
+                    </div>
+                  ))}
+                </div>
               </motion.div>
             </AnimatePresence>
-          </div>
 
-          {/* footer: dots + counter + CTA */}
-          <div className="mt-8 lg:mt-14 lg:max-w-md">
-            <div className="flex items-center justify-between mb-6">
+            <div className="mt-8 flex items-center justify-between lg:mt-12">
               <div className="flex items-center gap-2">
-                {slides.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => goTo(i)}
-                    className={`h-2 rounded-full transition-all duration-300 ${i === idx ? `w-8 bg-gradient-to-r ${slide.gradient}` : "w-2 bg-slate-200 hover:bg-slate-300"}`}
-                  />
-                ))}
+                <span className="text-sm font-black text-slate-900">0{index + 1}</span>
+                <span className="h-px w-7 bg-slate-300" />
+                <span className="text-xs font-bold text-slate-400">0{slides.length}</span>
+                <span className="ml-2 text-xs font-semibold text-slate-400">Introduction</span>
               </div>
-              <span className="text-xs font-bold text-slate-400 tracking-wider">{idx + 1} / {slides.length}</span>
+              {!isLast && !reducedMotion && (
+                <button
+                  type="button"
+                  onClick={() => setPaused((value) => !value)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label={paused ? "Resume automatic slides" : "Pause automatic slides"}
+                >
+                  {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                  {paused ? "Resume" : "Auto"}
+                </button>
+              )}
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleNext}
-              className={`group w-full h-14 rounded-full bg-gradient-to-r ${slide.gradient} text-white font-bold text-base flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-shadow`}
-            >
-              {isLast ? "Get Started" : "Continue"}
-              <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-            </motion.button>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={goPrevious}
+                disabled={index === 0}
+                aria-label="Previous slide"
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <motion.button
+                type="button"
+                whileHover={reducedMotion ? undefined : { scale: 1.015 }}
+                whileTap={reducedMotion ? undefined : { scale: 0.98 }}
+                onClick={handleNext}
+                disabled={isSaving}
+                className={`group flex h-14 flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r ${slide.gradient} px-6 text-base font-extrabold text-white shadow-[0_12px_28px_rgba(99,53,220,0.24)] transition hover:brightness-105 disabled:opacity-60`}
+              >
+                {isSaving ? "Getting things ready…" : isLast ? "Get started" : "Continue"}
+                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              </motion.button>
+            </div>
 
-            <p className="hidden lg:block text-center text-[11px] font-semibold text-slate-300 mt-4 tracking-wide">
-              Use ← → arrow keys, swipe, or tap the dots to navigate
+            <p className="mt-4 text-center text-[11px] font-semibold text-slate-300">
+              Swipe to explore · Your SkillSwap journey starts here
             </p>
           </div>
-        </div>
+        </section>
       </motion.div>
-    </div>
+    </main>
   );
 }
 

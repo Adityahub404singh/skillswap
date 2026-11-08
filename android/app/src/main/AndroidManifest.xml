@@ -30,10 +30,15 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 🔥 Google AdMob App ID Yahan Add Karein -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+          android:value="ca-app-pub-2311219549845157~4829410910"/>
+
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />
-
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />

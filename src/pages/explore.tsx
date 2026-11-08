@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useGetSkills } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { SponsorCard } from "@/components/SponsorCard";
@@ -7,6 +7,8 @@ import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Search, Compass, ArrowRight, Star, Sparkles, Monitor, Palette, Briefcase, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdMob } from '@capacitor-community/admob';
+import { Capacitor } from '@capacitor/core';
 
 const CATEGORIES = [
   { id: "all", label: "All Skills", icon: Sparkles },
@@ -30,6 +32,9 @@ export default function Explore() {
   const [activeCat, setActiveCat] = useState("all");
   const options = useApiOptions();
   
+  // Navigation ke liye useLocation hook
+  const [, setLocation] = useLocation();
+  
   // FIX 1: Passing undefined as first argument to satisfy TS GetSkillsParams
   const { data: dbSkills, isLoading } = useGetSkills(undefined as any, options as any);
   
@@ -43,6 +48,23 @@ export default function Explore() {
       (s.name.toLowerCase().includes(search.toLowerCase()) || s.description?.toLowerCase().includes(search.toLowerCase()))
     );
   }, [skills, activeCat, search]);
+
+  // 🔥 Ad & Navigation Handler: Pehle ad dikhayega (agar mobile par hai), fir page change karega
+  const handleSkillNavigation = async (path: string) => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await AdMob.prepareInterstitial({
+          adId: 'ca-app-pub-3940256099942544/1033173712', // Google ki Official Test ID
+          isTesting: true
+        });
+        await AdMob.showInterstitial();
+      } catch (error) {
+        console.error("Ad error:", error);
+      }
+    }
+    // Ad show hone ke baad (ya error aane par) skill page par le jayega
+    setLocation(path);
+  };
 
   // FIX 3: Explicitly declaring type as Variants for Framer Motion
   const containerVariants: Variants = {
@@ -135,7 +157,8 @@ export default function Explore() {
           <AnimatePresence>
             {filteredSkills.map((skill: any) => (
               <motion.div key={skill.id} variants={itemVariants} layout className="group h-full">
-                <Link href={`/skills/${skill.name.toLowerCase().replace(/\s+/g, '-')}`}>
+                {/* 🔥 Yahan <Link> ki jagah onClick handler lagaya gaya hai */}
+                <div onClick={() => handleSkillNavigation(`/skills/${skill.name.toLowerCase().replace(/\s+/g, '-')}`)}>
                   <div className="h-full cursor-pointer bg-white border border-gray-100 rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-md hover:border-[#6C3BFF]/30 transition-all duration-300 flex flex-col active:scale-[0.98]">
                     
                     <div className="flex justify-between items-start mb-3">
@@ -165,7 +188,7 @@ export default function Explore() {
                       </div>
                     </div>
                   </div>
-                </Link>
+                </div>
               </motion.div>
             ))}
           </AnimatePresence>

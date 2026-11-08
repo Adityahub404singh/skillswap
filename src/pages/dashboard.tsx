@@ -3,7 +3,8 @@ import { useAuthStore } from "@/store/auth";
 import { useGetMe, useGetMySessions } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { SponsorCard } from "@/components/SponsorCard";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import AIMatchPanel from "@/components/AIMatchPanel";
 import { format } from "date-fns";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import {
   Search, Brain, HelpCircle, Coins, 
   Calendar, Clock, Flame, 
   Star, Wallet, BookOpen, Sparkles, Trophy, Play, Target,
-  Users, BellDot, GraduationCap, TrendingUp, Gift, Zap, ArrowRight,Award
+  Users, BellDot, GraduationCap, TrendingUp, Gift, Zap, ArrowRight, Award, X
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const { data: allSessions, isLoading: sessionsLoading } = useGetMySessions({}, options);
 
   const [activeRole, setActiveRole] = useState<"learner" | "mentor">("learner");
+  const [aiMatchOpen, setAiMatchOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   const container: Variants = {
     hidden: { opacity: 0 },
@@ -197,7 +200,63 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
-{/* 2. DYNAMIC QUICK ACTIONS */}
+
+      {/* AI MENTOR MATCHING — learner-first discovery entry point */}
+      {activeRole === "learner" && (
+        <motion.section
+          variants={item}
+          className="relative isolate overflow-hidden rounded-[28px] border border-violet-200/80 bg-gradient-to-br from-[#17102f] via-[#35206d] to-[#6C3BFF] p-5 text-white shadow-[0_18px_55px_rgba(83,45,170,0.22)] sm:p-7"
+        >
+          <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-fuchsia-400/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-indigo-300/20 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-violet-100 backdrop-blur">
+                <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                SkillSwap Intelligence
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,.9)]" />
+                Hybrid AI
+              </div>
+              <h2 className="max-w-xl text-2xl font-black leading-tight tracking-tight sm:text-3xl">
+                Meet the mentor who fits your next big goal.
+              </h2>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-violet-100/90 sm:text-[15px]">
+                Match your learning goals with real SkillSwap members using skill compatibility,
+                experience, trust signals and AI-assisted relevance.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold text-white/90">
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">Personalized matches</span>
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">Real member profiles</span>
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">Explainable match reasons</span>
+              </div>
+            </div>
+            <div className="relative z-10 flex w-full shrink-0 flex-col gap-3 rounded-2xl border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur-xl sm:p-5 lg:w-[270px]">
+              <div className="flex items-center justify-between">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-violet-700 shadow-lg">
+                  <Brain className="h-5 w-5" />
+                </div>
+                <span className="rounded-full bg-emerald-300/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-200">Ready to match</span>
+              </div>
+              <div>
+                <p className="text-sm font-black">Your next skill connection</p>
+                <p className="mt-1 text-xs leading-5 text-violet-100/80">Tell us what you can teach, what you want to learn, or the goal you want to reach.</p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => setAiMatchOpen(true)}
+                className="h-12 w-full rounded-xl bg-white font-black text-violet-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-violet-50 hover:shadow-xl"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Find my AI match
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </motion.section>
+      )}
+
+
+      {/* 2. DYNAMIC QUICK ACTIONS */}
       <motion.div variants={item}>
         <div className="flex justify-between items-center mb-5 px-2">
           <h3 className="font-black text-slate-800 text-xl tracking-tight">
@@ -499,6 +558,59 @@ export default function Dashboard() {
           </Link>
         </motion.div>
       </div>
+
+
+      <AnimatePresence>
+        {aiMatchOpen && (
+          <motion.div
+            key="dashboard-ai-match"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-slate-950/65 p-3 pt-5 backdrop-blur-md sm:p-6 sm:pt-10"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setAiMatchOpen(false);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              className="relative my-auto w-full max-w-5xl"
+              role="dialog"
+              aria-modal="true"
+              aria-label="AI mentor matching"
+            >
+              <button
+                type="button"
+                onClick={() => setAiMatchOpen(false)}
+                aria-label="Close AI matching"
+                className="absolute -right-1 -top-1 z-20 grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-lg transition hover:rotate-90 hover:text-violet-700 sm:-right-3 sm:-top-3"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              {token ? (
+                <AIMatchPanel
+                  accessToken={token}
+                  onChooseMentor={(memberId) => {
+                    setAiMatchOpen(false);
+                    setLocation(`/mentor/${memberId}`);
+                  }}
+                />
+              ) : (
+                <div className="rounded-3xl bg-white p-8 text-center shadow-2xl">
+                  <h3 className="text-xl font-black text-slate-900">Sign in to find your match</h3>
+                  <p className="mt-2 text-sm text-slate-500">Your personalized mentor recommendations need an active session.</p>
+                  <Link href="/login">
+                    <Button className="mt-5 rounded-xl bg-violet-600 px-6 font-bold text-white hover:bg-violet-700">Sign in</Button>
+                  </Link>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </motion.div>
   );
