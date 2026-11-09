@@ -23,10 +23,16 @@ import {
 const BASE = import.meta.env.VITE_API_URL || "";
 const PLATFORM_FEE = 0.15;
 
+// Keep these in sync with the backend (sessions.ts).
+const MAX_GROUP_STUDENTS = 50;   // MAX_STUDENTS_CAP
+const MAX_GROUP_CREDITS = 500;   // MAX_CREDITS_PER_STUDENT
+const MIN_DISPUTE_CHARS = 20;
+const ESCROW_DAYS = 7;           // ESCROW_CLEARANCE_HOURS / 24
+
 type SessionTab = "learning" | "teaching" | "groups";
 type StatusFilter = "all" | "requested" | "accepted" | "in_progress" | "completed" | "cancelled";
 
-const SESSION_MINUTES: Record<string, number> = { micro_15: 15, micro_30: 30, standard: 60, extended: 90 };
+const SESSION_MINUTES: Record<string, number> = { micro_15: 15, micro_30: 30, doubt: 20, standard: 60, extended: 90 };
 const SESSION_TYPES = [
   { value: "micro_15", label: "15 min quick chat" },
   { value: "micro_30", label: "30 min session" },
@@ -41,7 +47,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
 ];
-const UPCOMING_STATUSES = ["requested", "accepted", "in_progress"];
+const UPCOMING_STATUSES = ["requested", "pending", "accepted", "in_progress"];
 const RATING_LABELS = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
 
 const safeDate = (v?: string | null) => {
@@ -70,7 +76,7 @@ const getCountdown = (target?: string | null) => {
 
 /** Joinable from 15 min before start until 60 min after (or any time once live). */
 const isClassReadyToJoin = (scheduled: string | undefined, status: string | undefined) => {
-  if (!status || ["cancelled", "completed", "pending_clearance"].includes(status)) return false;
+  if (!status || ["cancelled", "completed", "pending_clearance", "disputed"].includes(status)) return false;
   if (status === "in_progress") return true;
   if (status === "accepted") {
     const d = safeDate(scheduled);
@@ -81,13 +87,16 @@ const isClassReadyToJoin = (scheduled: string | undefined, status: string | unde
   return false;
 };
 
-const getJoinLink = (s: any): string | null =>
-  s?.meetLink || (s?.isGroup === 1 ? `https://meet.jit.si/SkillSwapGroup_${s.id}` : null);
+/**
+ * The server only sends meetLink to people who may join (mentor / enrolled / booked student).
+ * Never invent a room URL on the client: a guessed room is not the real one and bypasses the paid link.
+ */
+const getJoinLink = (s: any): string | null => s?.meetLink || null;
 
 const calendarUrl = (s: any) => {
   const start = safeDate(s?.scheduledDate);
   if (!start) return null;
-  const mins = SESSION_MINUTES[s.sessionType] || 60;
+  const mins = s.duration || SESSION_MINUTES[s.sessionType] || 60;
   const end = new Date(start.getTime() + mins * 60000);
   const f = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const params = new URLSearchParams({
@@ -100,26 +109,51 @@ const calendarUrl = (s: any) => {
 };
 
 async function apiCall(token: string | null, path: string, method = "POST", body?: unknown) {
+  if (!token) {
+    return { ok: false, status: 401, data: { error: "Your session has expired. Please sign in again." } as any };
+  }
+
   try {
     const res = await fetch(`${BASE}${path}`, {
       method,
-      headers: { ...(body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${token}` },
-      body: body ? JSON.stringify(body) : undefined,
+      headers: {
+        Accept: "application/json",
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        Authorization: `Bearer ${token}`,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      credentials: "include",
     });
-    const data = await res.json().catch(() => ({}));
-    return { ok: res.ok, data: data as any };
-  } catch {
-    return { ok: false, data: { error: "Network error. Check your connection and try again." } as any };
+
+    const contentType = res.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+      ? await res.json().catch(() => ({}))
+      : { error: await res.text().catch(() => "") };
+
+    if (!res.ok && !data?.error) {
+      data.error = `Request failed (${res.status}). Please try again.`;
+    }
+
+    return { ok: res.ok, status: res.status, data: data as any };
+  } catch (error) {
+    console.error(`[Sessions API] ${method} ${path} failed:`, error);
+    return {
+      ok: false,
+      status: 0,
+      data: { error: "Couldn't connect. Check your internet connection and try again." } as any,
+    };
   }
 }
 
 const STATUS_CFG: Record<string, { label: string; icon: any; cls: string }> = {
-  requested:         { label: "Pending",   icon: Clock,        cls: "bg-amber-50 text-amber-700 border-amber-100" },
-  accepted:          { label: "Upcoming",  icon: CalendarDays, cls: "bg-blue-50 text-blue-700 border-blue-100" },
-  in_progress:       { label: "Live now",  icon: Video,        cls: "bg-indigo-600 text-white border-indigo-600" },
-  pending_clearance: { label: "Ended",     icon: CheckCircle2, cls: "bg-slate-100 text-slate-600 border-slate-200" },
-  completed:         { label: "Completed", icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
-  cancelled:         { label: "Cancelled", icon: XCircle,      cls: "bg-red-50 text-red-600 border-red-100" },
+  requested:         { label: "Pending",      icon: Clock,        cls: "bg-amber-50 text-amber-700 border-amber-100" },
+  pending:           { label: "Waiting",      icon: Clock,        cls: "bg-amber-50 text-amber-700 border-amber-100" },
+  accepted:          { label: "Upcoming",     icon: CalendarDays, cls: "bg-blue-50 text-blue-700 border-blue-100" },
+  in_progress:       { label: "Live now",     icon: Video,        cls: "bg-indigo-600 text-white border-indigo-600" },
+  pending_clearance: { label: "Ended",        icon: CheckCircle2, cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  completed:         { label: "Completed",    icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+  cancelled:         { label: "Cancelled",    icon: XCircle,      cls: "bg-red-50 text-red-600 border-red-100" },
+  disputed:          { label: "Under review", icon: AlertTriangle, cls: "bg-orange-50 text-orange-700 border-orange-100" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -142,7 +176,7 @@ function Avatar({ person, size = 48, group = false }: { person?: any; size?: num
   return (
     <div style={style} className="rounded-2xl bg-indigo-50 border border-indigo-100 text-[#6C3BFF] font-black flex items-center justify-center overflow-hidden flex-shrink-0">
       {person?.avatar && !broken
-        ? <img src={person.avatar} alt="" onError={() => setBroken(true)} className="w-full h-full object-cover" />
+        ? <img src={person.avatar} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} className="w-full h-full object-cover" />
         : <span style={{ fontSize: size * 0.4 }}>{person?.name?.charAt(0)?.toUpperCase() || "?"}</span>}
     </div>
   );
@@ -178,6 +212,9 @@ export default function Sessions() {
 
   const [negotiateModal, setNegotiateModal] = useState<any>(null);
   const [proposedPrice, setProposedPrice] = useState("");
+
+  const [disputeModal, setDisputeModal] = useState<any>(null);
+  const [disputeReason, setDisputeReason] = useState("");
 
   const [membersModal, setMembersModal] = useState<any>(null);
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
@@ -264,18 +301,24 @@ export default function Sessions() {
     if (tab === "groups") fetchGroupBrowse();
   }, [invalidate, fetchMyEnrollments, fetchGroupBrowse, tab]);
 
-  /* ── heartbeat for live sessions I'm part of ── */
+  /* ── heartbeat: only for group classes I'm enrolled in and that are live ──
+     No "tab visible" gate: students attend in the meeting tab (opened in a new tab),
+     so this page is usually in the background. The server ignores too-frequent beats.
+     We key the effect on the id list so a data refetch does not restart the timer. */
+  const liveEnrolledKey = myEnrolled
+    .filter((s: any) => s.status === "in_progress")
+    .map((s: any) => s.id)
+    .sort((a: number, b: number) => a - b)
+    .join(",");
+
   useEffect(() => {
-    if (!token) return;
-    const live = [...(allSessions || []), ...myEnrolled].filter((s: any) => s.status === "in_progress");
-    if (live.length === 0) return;
-    const ids = Array.from(new Set(live.map((s: any) => s.id)));
+    if (!token || !liveEnrolledKey) return;
+    const ids = liveEnrolledKey.split(",");
     const interval = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
       ids.forEach(id => apiCall(token, `/api/sessions/${id}/heartbeat`));
     }, 60000);
     return () => clearInterval(interval);
-  }, [allSessions, myEnrolled, token]);
+  }, [liveEnrolledKey, token]);
 
   /* ── mutations (with visible errors) ── */
   const mutErr = (e: any) => toast({
@@ -286,8 +329,8 @@ export default function Sessions() {
   const settle = () => setBusy(null);
 
   const acceptMut = useAcceptSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session accepted ✅", description: "The student has been notified." }); }, onError: mutErr, onSettled: settle } });
-  const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session completed 🎉", description: "Credits have been transferred." }); }, onError: mutErr, onSettled: settle } });
-  const cancelMut = useCancelSession({ ...options, mutation: { onSuccess: () => { invalidate(); setDetailId(null); toast({ title: "Session cancelled" }); }, onError: mutErr, onSettled: settle } });
+  const completeMut = useCompleteSession({ ...options, mutation: { onSuccess: () => { invalidate(); toast({ title: "Session completed 🎉", description: `Payment is held in escrow for ${ESCROW_DAYS} days. You can rate your mentor now.` }); }, onError: mutErr, onSettled: settle } });
+  const cancelMut = useCancelSession({ ...options, mutation: { onSuccess: () => { invalidate(); setDetailId(null); toast({ title: "Session cancelled", description: "Held credits were refunded." }); }, onError: mutErr, onSettled: settle } });
   const rateMut = useCreateRating({ ...options, mutation: { onSuccess: () => { invalidate(); setRatingId(null); setReviewText(""); setRatingVal(5); toast({ title: "Review submitted ⭐", description: "Thanks for the feedback." }); }, onError: mutErr } });
 
   const accept = (s: any) => { setBusy(`accept-${s.id}`); acceptMut.mutate({ sessionId: s.id } as any); };
@@ -302,7 +345,7 @@ export default function Sessions() {
   /* ── fetch-based actions ── */
   const act = async (
     key: string, path: string,
-    opts: { body?: unknown; success: string; describe?: (d: any) => string | undefined; after?: () => void },
+    opts: { body?: unknown; success: string; describe?: (d: any) => string | undefined; after?: () => void; onError?: (d: any) => void },
   ) => {
     if (busy) return false;
     setBusy(key);
@@ -310,10 +353,12 @@ export default function Sessions() {
     setBusy(null);
     if (ok) {
       toast({ title: opts.success, description: opts.describe?.(data) });
-      invalidate(); fetchMyEnrollments(); fetchGroupBrowse();
+      invalidate(); fetchMyEnrollments();
+      if (tab === "groups") fetchGroupBrowse();
       opts.after?.();
     } else {
       toast({ title: "Couldn't complete that", description: data?.error || "Please try again.", variant: "destructive" });
+      opts.onError?.(data);
     }
     return ok;
   };
@@ -329,15 +374,30 @@ export default function Sessions() {
     setOtpError("");
     const ok = await act(`otp-${otpModal.id}`, `/api/sessions/${otpModal.id}/start`, {
       body: { otp: otpInput }, success: "Session started", describe: () => "OTP verified. Have a great class!",
+      // Show the server's real reason (wrong OTP, too early, locked out...) instead of always blaming the OTP.
+      onError: d => setOtpError(d?.error || "Couldn't start the session. Please try again."),
     });
     if (ok) { setOtpModal(null); setOtpInput(""); }
-    else setOtpError("That OTP didn't work. Check it with your student and try again.");
+  };
+
+  const submitDispute = async () => {
+    if (!disputeModal) return;
+    const reason = disputeReason.trim();
+    if (reason.length < MIN_DISPUTE_CHARS) {
+      toast({ title: "Add a bit more detail", description: `Please describe the problem in at least ${MIN_DISPUTE_CHARS} characters.`, variant: "destructive" });
+      return;
+    }
+    await act(`dispute-${disputeModal.id}`, `/api/sessions/${disputeModal.id}/dispute`, {
+      body: { reason }, success: "Report received", describe: d => d?.message,
+      after: () => { setDisputeModal(null); setDisputeReason(""); setDetailId(null); },
+    });
   };
 
   const negotiatePrice = async () => {
     if (!negotiateModal) return;
     const price = parseInt(proposedPrice);
     if (!price || price < 1) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+    if (price >= negotiateModal.creditsAmount) { toast({ title: "A discount must be lower than the current price", variant: "destructive" }); return; }
     await act(`neg-${negotiateModal.id}`, `/api/sessions/${negotiateModal.id}/negotiate`, {
       body: { proposedPrice: price }, success: `Price updated to ${price} credits`,
       after: () => { setNegotiateModal(null); setProposedPrice(""); },
@@ -359,11 +419,13 @@ export default function Sessions() {
   const groupErrors = {
     skill: groupForm.skill.trim().length < 3 ? "Enter a topic (at least 3 characters)." : "",
     date: !gDate ? "Pick a date and time." : gDate.getTime() < Date.now() + 5 * 60000 ? "Choose a time in the future." : "",
-    credits: !gCredits || gCredits < 1 ? "Credits must be at least 1." : "",
-    max: !gMax || gMax < 2 || gMax > 100 ? "Choose between 2 and 100 students." : "",
+    credits: !gCredits || gCredits < 1 ? "Credits must be at least 1."
+      : gCredits > MAX_GROUP_CREDITS ? `Maximum is ${MAX_GROUP_CREDITS} credits per student.` : "",
+    max: !gMax || gMax < 2 || gMax > MAX_GROUP_STUDENTS ? `Choose between 2 and ${MAX_GROUP_STUDENTS} students.` : "",
   };
   const groupValid = !Object.values(groupErrors).some(Boolean);
-  const earningsIfFull = groupValid ? Math.floor(gCredits * gMax * (1 - PLATFORM_FEE)) : 0;
+  const netEarnings = (gross: number) => gross - Math.round(gross * PLATFORM_FEE); // same rounding as the server
+  const earningsIfFull = groupValid ? netEarnings(gCredits * gMax) : 0;
 
   const createGroupSession = async () => {
     setGroupTouched(true);
@@ -402,14 +464,17 @@ export default function Sessions() {
   }, [tab, myId]);
 
   const matchesFilter = (f: StatusFilter, s: any) =>
-    f === "all" ? true : f === "completed" ? ["completed", "pending_clearance"].includes(s.status) : s.status === f;
+    f === "all" ? true
+    : f === "requested" ? ["requested", "pending"].includes(s.status)
+    : f === "completed" ? ["completed", "pending_clearance"].includes(s.status)
+    : s.status === f;
 
   const scoped = useMemo(() => (allSessions || []).filter(inScope), [allSessions, inScope]);
 
   const counts = useMemo(() => {
     const c: Record<StatusFilter, number> = { all: scoped.length, requested: 0, accepted: 0, in_progress: 0, completed: 0, cancelled: 0 };
     scoped.forEach((s: any) => {
-      if (s.status === "requested") c.requested++;
+      if (s.status === "requested" || s.status === "pending") c.requested++;
       else if (s.status === "accepted") c.accepted++;
       else if (s.status === "in_progress") c.in_progress++;
       else if (s.status === "completed" || s.status === "pending_clearance") c.completed++;
@@ -440,6 +505,22 @@ export default function Sessions() {
       .sort((a, b) => safeDate(a.scheduledDate)!.getTime() - safeDate(b.scheduledDate)!.getTime())[0] || null;
   }, [tab, myEnrolled, scoped, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── keep status fresh without hammering the server ──
+     1) refresh when the user comes back to this tab (e.g. from the meeting tab),
+     2) light 60s poll only while there is a live/upcoming session on screen. */
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") refreshAll(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refreshAll]);
+
+  const hasUpNext = !!nextUp;
+  useEffect(() => {
+    if (!hasUpNext) return;
+    const t = setInterval(() => { if (document.visibilityState === "visible") refreshAll(); }, 60000);
+    return () => clearInterval(t);
+  }, [hasUpNext, refreshAll]);
+
   const browseList = useMemo(() => {
     const q = search.trim().toLowerCase();
     const time = (s: any) => safeDate(s.scheduledDate)?.getTime() ?? 0;
@@ -465,7 +546,7 @@ export default function Sessions() {
   const askConfirm = (cfg: ConfirmCfg) => setConfirm(cfg);
   const otherName = (s: any) => (s.mentorId === myId
     ? (s.isGroup === 1 ? `Group class (${s.enrolledCount || 0}/${s.maxStudents} students)` : s.student?.name ?? "Student")
-    : s.mentor?.name ?? "Mentor");
+    : s.mentorId ? (s.mentor?.name ?? "Mentor") : "Waiting for a mentor");
 
   const headline = counts.in_progress > 0 ? `${counts.in_progress} live now` : counts.accepted > 0 ? `${counts.accepted} upcoming` : "Nothing scheduled";
 
@@ -493,7 +574,7 @@ export default function Sessions() {
             {pend(`accept-${s.id}`) ? spin : "Accept"}
           </Button>
           <Button variant="ghost" size="icon" aria-label="Decline request" disabled={!!busy} className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full h-9 w-9 flex-shrink-0"
-            onClick={() => askConfirm({ title: "Decline this request?", description: `${s.student?.name || "The student"} will be notified and any held credits are handled automatically.`, confirmLabel: "Decline request", tone: "danger", onConfirm: () => cancel(s) })}>
+            onClick={() => askConfirm({ title: "Decline this request?", description: `${s.student?.name || "The student"} will be notified and refunded in full.`, confirmLabel: "Decline request", tone: "danger", onConfirm: () => cancel(s) })}>
             {pend(`cancel-${s.id}`) ? spin : <XCircle className="w-4 h-4" />}
           </Button>
         </div>
@@ -524,8 +605,12 @@ export default function Sessions() {
       if (joinLink) nodes.push(<a key="gmeet" href={joinLink} target="_blank" rel="noopener noreferrer" className={w}><Button size="sm" className={`${btn} bg-[#6C3BFF] hover:bg-[#5b32d6] text-white`}><Video className="w-3.5 h-3.5 mr-1.5" /> Open meet</Button></a>);
       nodes.push(
         <Button key="gend" size="sm" disabled={!!busy} className={`${btn} bg-rose-500 hover:bg-rose-600 text-white`}
-          onClick={() => askConfirm({ title: "End the session and get paid?", description: "The class will close for everyone and your earnings (minus the 15% platform fee) are released.", confirmLabel: "End & collect", tone: "danger", onConfirm: () => endGroupSession(s) })}>
-          {pend(`end-${s.id}`) ? spin : <><StopCircle className="w-3.5 h-3.5 mr-1.5" /> End session & get paid</>}
+          onClick={() => askConfirm({
+            title: "End the class?",
+            description: `The class closes for everyone. Your earnings (minus the ${Math.round(PLATFORM_FEE * 100)}% platform fee) are held in escrow for ${ESCROW_DAYS} days, then released. If the class ran under 80% of its scheduled time, payouts are prorated.`,
+            confirmLabel: "End class", tone: "danger", onConfirm: () => endGroupSession(s),
+          })}>
+          {pend(`end-${s.id}`) ? spin : <><StopCircle className="w-3.5 h-3.5 mr-1.5" /> End session</>}
         </Button>,
         <Button key="gmem" size="sm" variant="outline" className={`${btn} text-slate-600 border-slate-200`} onClick={() => viewGroupMembers(s)}><UserCheck className="w-3.5 h-3.5 mr-1.5" /> View members</Button>
       );
@@ -534,16 +619,17 @@ export default function Sessions() {
     if (isMentor && s.status === "accepted") {
       nodes.push(
         <button key="mcancel" disabled={!!busy} className="text-[11px] font-bold text-red-400 hover:text-red-600 px-2 py-1"
-          onClick={() => askConfirm({ title: "Cancel this class?", description: isGroup ? "All enrolled students will be notified and refunded." : "Your student will be notified. Frequent cancellations can lower your trust score.", confirmLabel: "Cancel class", tone: "danger", onConfirm: () => cancel(s) })}>
+          onClick={() => askConfirm({ title: "Cancel this class?", description: isGroup ? "All enrolled students will be notified and refunded." : "Your student will be notified and refunded. Frequent cancellations can lower your trust score.", confirmLabel: "Cancel class", tone: "danger", onConfirm: () => cancel(s) })}>
           {pend(`cancel-${s.id}`) ? "Cancelling…" : "Cancel class"}
         </button>
       );
     }
 
-    if (!isMentor && s.status === "requested") {
+    // Student: pending 1-on-1 request OR an unclaimed doubt (status "pending")
+    if (!isMentor && ["requested", "pending"].includes(s.status)) {
       nodes.push(
         <Button key="sreq" variant="outline" size="sm" disabled={!!busy} className={`${btn} text-red-500 border-red-100 hover:bg-red-50`}
-          onClick={() => askConfirm({ title: "Cancel your request?", description: "The mentor will be notified and your credits are released.", confirmLabel: "Cancel request", tone: "danger", onConfirm: () => cancel(s) })}>
+          onClick={() => askConfirm({ title: "Cancel your request?", description: "Your credits will be refunded in full.", confirmLabel: "Cancel request", tone: "danger", onConfirm: () => cancel(s) })}>
           {pend(`cancel-${s.id}`) ? spin : "Cancel request"}
         </Button>
       );
@@ -572,7 +658,7 @@ export default function Sessions() {
           {!ready && s.status === "accepted" && <p className="text-[10px] text-slate-400 text-center">Join opens 15 minutes before the start time.</p>}
           {isGroup && (
             <Button size="sm" variant="outline" disabled={!!busy} className="w-full border-red-200 text-red-500 hover:bg-red-50 font-bold rounded-full text-xs h-9"
-              onClick={() => askConfirm({ title: "Leave this class?", description: "You'll give up your spot. Refunds follow the platform's policy.", confirmLabel: "Leave class", tone: "danger", onConfirm: () => leaveGroupSession(s) })}>
+              onClick={() => askConfirm({ title: "Leave this class?", description: "You'll give up your spot and get your credits back in full.", confirmLabel: "Leave class", tone: "danger", onConfirm: () => leaveGroupSession(s) })}>
               {pend(`leave-${s.id}`) ? spin : "Leave class"}
             </Button>
           )}
@@ -584,9 +670,23 @@ export default function Sessions() {
       if (joinLink) nodes.push(<a key="live" href={joinLink} target="_blank" rel="noopener noreferrer" className={w}><Button size="sm" className={`${btn} bg-[#6C3BFF] hover:bg-[#5b32d6] text-white`}><Video className="w-3.5 h-3.5 mr-1.5" /> Join live</Button></a>);
       if (!isGroup) nodes.push(
         <Button key="done" size="sm" disabled={!!busy} className={`${btn} bg-emerald-500 hover:bg-emerald-600 text-white`}
-          onClick={() => askConfirm({ title: "Mark this session as done?", description: `${s.creditsAmount} credits will be transferred to ${s.mentor?.name || "your mentor"}. You can then leave a review.`, confirmLabel: "Yes, it's done", tone: "primary", onConfirm: () => complete(s) })}>
+          onClick={() => askConfirm({
+            title: "Mark this session as done?",
+            description: `${s.creditsAmount} credits stay in escrow for ${s.mentor?.name || "your mentor"} and are released after ${ESCROW_DAYS} days unless you report a problem. If less than 80% of the session time has passed, the payout is prorated and the rest is refunded to you.`,
+            confirmLabel: "Yes, it's done", tone: "primary", onConfirm: () => complete(s),
+          })}>
           {pend(`complete-${s.id}`) ? spin : <><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Mark as done</>}
         </Button>
+      );
+    }
+
+    // Student can report a problem while live or during the escrow window (1-on-1 only).
+    if (!isMentor && !isGroup && ["in_progress", "pending_clearance"].includes(s.status)) {
+      nodes.push(
+        <button key="report" type="button" disabled={!!busy} className="text-[11px] font-bold text-orange-500 hover:text-orange-600 px-2 py-1 flex items-center gap-1 self-end"
+          onClick={() => { setDisputeReason(""); setDisputeModal(s); }}>
+          <AlertTriangle className="w-3 h-3" /> Report a problem
+        </button>
       );
     }
 
@@ -594,14 +694,19 @@ export default function Sessions() {
       nodes.push(<a key="mlive" href={joinLink} target="_blank" rel="noopener noreferrer" className={w}><Button size="sm" className={`${btn} bg-[#6C3BFF] hover:bg-[#5b32d6] text-white`}><Video className="w-3.5 h-3.5 mr-1.5" /> Join live</Button></a>);
     }
 
-    if (!isMentor && s.status === "completed" && !s.teacherRating && !isGroup) {
+    // The server lets students rate as soon as the session ends (no need to wait for escrow).
+    const rateable = ["pending_clearance", "completed"].includes(s.status);
+    if (!isMentor && rateable && !s.teacherRating && !isGroup) {
       nodes.push(<Button key="rate" variant="outline" size="sm" className={`${btn} border-orange-200 text-orange-600 hover:bg-orange-50`} onClick={() => { setRatingVal(5); setReviewText(""); setRatingId(s.id); }}><Star className="w-3.5 h-3.5 mr-1.5" /> Rate mentor</Button>);
     }
-    if (s.status === "completed" && s.teacherRating) {
+    if (rateable && s.teacherRating) {
       nodes.push(<div key="rated" className={`px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-full flex items-center gap-1 justify-center ${w}`}><Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" /><span className="font-bold text-amber-700 text-xs">Rated {s.teacherRating}/5</span></div>);
     }
     if (s.status === "pending_clearance") {
-      nodes.push(<p key="clear" className="text-[11px] text-slate-500 flex items-center gap-1.5"><Info className="w-3.5 h-3.5" /> Credits are being cleared.</p>);
+      nodes.push(<p key="clear" className="text-[11px] text-slate-500 flex items-center gap-1.5"><Info className="w-3.5 h-3.5 flex-shrink-0" /> {isMentor ? `Payment is in escrow and releases ${ESCROW_DAYS} days after the session.` : `Held in escrow for ${ESCROW_DAYS} days. You can still report a problem.`}</p>);
+    }
+    if (s.status === "disputed") {
+      nodes.push(<p key="disputed" className="text-[11px] text-orange-600 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> Under review. Funds are frozen until our team decides.</p>);
     }
 
     return nodes.length ? <div className={`flex flex-col ${full ? "items-stretch" : "items-end"} gap-2 ${full ? "w-full" : ""}`}>{nodes}</div> : null;
@@ -619,7 +724,7 @@ export default function Sessions() {
           <Button disabled className="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded-full h-10 text-xs"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> You're enrolled</Button>
           {s.status === "accepted" && (
             <Button variant="outline" disabled={!!busy} className="border-red-200 text-red-500 hover:bg-red-50 font-bold rounded-full h-10 text-xs"
-              onClick={() => askConfirm({ title: "Leave this class?", description: "You'll give up your spot. Refunds follow the platform's policy.", confirmLabel: "Leave class", tone: "danger", onConfirm: () => leaveGroupSession(s) })}>
+              onClick={() => askConfirm({ title: "Leave this class?", description: "You'll give up your spot and get your credits back in full.", confirmLabel: "Leave class", tone: "danger", onConfirm: () => leaveGroupSession(s) })}>
               {pend(`leave-${s.id}`) ? spin : "Leave"}
             </Button>
           )}
@@ -631,7 +736,7 @@ export default function Sessions() {
     if (myCredits < s.creditsAmount) return <Button disabled className="w-full bg-slate-100 text-slate-500 font-bold rounded-full h-10 text-xs"><Coins className="w-3.5 h-3.5 mr-1.5" /> Need {s.creditsAmount - myCredits} more credits</Button>;
     return (
       <Button disabled={!!busy} className="w-full bg-gradient-to-r from-[#6C3BFF] to-[#8B5CF6] text-white font-bold rounded-full h-10 text-xs shadow-sm"
-        onClick={() => askConfirm({ title: `Join "${s.skill}"?`, description: `${s.creditsAmount} credits will be deducted now. Your balance after joining: ${myCredits - s.creditsAmount} credits.`, confirmLabel: `Join for ${s.creditsAmount} credits`, tone: "primary", onConfirm: () => joinGroupSession(s) })}>
+        onClick={() => askConfirm({ title: `Join "${s.skill}"?`, description: `${s.creditsAmount} credits will be deducted now. Your balance after joining: ${myCredits - s.creditsAmount} credits. Leave any time before the class starts for a full refund.`, confirmLabel: `Join for ${s.creditsAmount} credits`, tone: "primary", onConfirm: () => joinGroupSession(s) })}>
         {pend(`join-${s.id}`) ? spin : <><Coins className="w-3.5 h-3.5 mr-1.5" /> Join • {s.creditsAmount} credits</>}
       </Button>
     );
@@ -644,7 +749,7 @@ export default function Sessions() {
     const isMentor = s.mentorId === myId;
     const other = isMentor ? s.student : s.mentor;
     const live = s.status === "in_progress";
-    const accent = live ? "border-l-indigo-500" : isGroup ? "border-l-emerald-400" : s.status === "requested" ? "border-l-amber-400" : s.status === "accepted" ? "border-l-blue-400" : "border-l-transparent";
+    const accent = live ? "border-l-indigo-500" : isGroup ? "border-l-emerald-400" : ["requested", "pending"].includes(s.status) ? "border-l-amber-400" : s.status === "accepted" ? "border-l-blue-400" : s.status === "disputed" ? "border-l-orange-400" : "border-l-transparent";
     return (
       <motion.div key={s.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ delay: Math.min(i, 6) * 0.03 }}
         onClick={() => setDetailId(s.id)}
@@ -900,7 +1005,8 @@ export default function Sessions() {
               const link = getJoinLink(s);
               const cal = ["accepted", "in_progress", "requested"].includes(s.status) ? calendarUrl(s) : null;
               const browsable = isGroup && !isMentor && (s.isEnrolled !== undefined || s.spotsLeft !== undefined);
-              const feeEarnings = isGroup && isMentor ? Math.floor((s.enrolledCount || 0) * s.creditsAmount * (1 - PLATFORM_FEE)) : 0;
+              const feeEarnings = isGroup && isMentor ? netEarnings((s.enrolledCount || 0) * s.creditsAmount) : 0;
+              const lengthMins = s.duration || SESSION_MINUTES[s.sessionType];
               return (
                 <div>
                   <div className="p-6 pb-4 bg-gradient-to-br from-[#6C3BFF]/8 to-[#8B5CF6]/5 border-b border-gray-100">
@@ -923,7 +1029,7 @@ export default function Sessions() {
                     <dl className="grid grid-cols-2 gap-3 text-sm">
                       <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3"><dt className="text-[11px] font-semibold text-slate-500 flex items-center gap-1"><CalendarDays className="w-3 h-3" /> When</dt><dd className="font-bold text-slate-800 mt-0.5 text-[13px]">{fmt(s.scheduledDate, "EEE, MMM d")}<br />{fmt(s.scheduledDate, "h:mm a")}</dd></div>
                       <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3"><dt className="text-[11px] font-semibold text-slate-500 flex items-center gap-1"><Coins className="w-3 h-3" /> Price</dt><dd className="font-bold text-slate-800 mt-0.5">{s.creditsAmount} credits{isGroup ? <span className="block text-[11px] text-slate-500 font-medium">per student</span> : null}</dd></div>
-                      {SESSION_MINUTES[s.sessionType] && <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3"><dt className="text-[11px] font-semibold text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" /> Length</dt><dd className="font-bold text-slate-800 mt-0.5">{SESSION_MINUTES[s.sessionType]} min</dd></div>}
+                      {lengthMins && <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3"><dt className="text-[11px] font-semibold text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" /> Length</dt><dd className="font-bold text-slate-800 mt-0.5">{lengthMins} min</dd></div>}
                       {s.status === "accepted" && <div className="rounded-2xl bg-orange-50 border border-orange-100 p-3"><dt className="text-[11px] font-semibold text-amber-700 flex items-center gap-1"><Timer className="w-3 h-3" /> Starts</dt><dd className="font-bold text-amber-800 mt-0.5">{getCountdown(s.scheduledDate)}</dd></div>}
                       {isGroup && <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3 col-span-2"><dt className="text-[11px] font-semibold text-slate-500 flex items-center gap-1"><Users className="w-3 h-3" /> Enrolled</dt><dd className="font-bold text-slate-800 mt-0.5">{s.enrolledCount || 0} of {s.maxStudents} students{feeEarnings > 0 ? <span className="text-emerald-600 font-semibold"> · you'd earn about {feeEarnings} credits</span> : null}</dd></div>}
                     </dl>
@@ -963,6 +1069,32 @@ export default function Sessions() {
           </DialogContent>
         </Dialog>
 
+        {/* Report a problem (dispute) */}
+        <Dialog open={!!disputeModal} onOpenChange={o => { if (!o) { setDisputeModal(null); setDisputeReason(""); } }}>
+          <DialogContent className="sm:max-w-md rounded-[24px] border border-gray-100 shadow-xl bg-white p-6">
+            <DialogHeader className="text-left space-y-2">
+              <div className="w-11 h-11 rounded-2xl bg-orange-50 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-orange-500" /></div>
+              <DialogTitle className="text-lg font-black text-slate-800">Report a problem</DialogTitle>
+              <DialogDescription className="text-sm text-slate-500 font-medium">
+                Payment for “{disputeModal?.skill}” is frozen while our team reviews it. Tell us what went wrong.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-2">
+              <Textarea value={disputeReason} maxLength={500} onChange={e => setDisputeReason(e.target.value)} aria-label="Describe the problem"
+                placeholder="e.g. The mentor joined 30 minutes late and left early" className="resize-none h-28 rounded-2xl border border-slate-200 p-3 text-sm font-medium bg-slate-50" />
+              <p className={`text-[11px] mt-1 ${disputeReason.trim().length >= MIN_DISPUTE_CHARS ? "text-slate-400" : "text-orange-500"}`}>
+                {disputeReason.trim().length}/500 · at least {MIN_DISPUTE_CHARS} characters
+              </p>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button variant="outline" className="rounded-full h-11 text-xs font-bold flex-1" onClick={() => setDisputeModal(null)}>Cancel</Button>
+              <Button onClick={submitDispute} disabled={!!busy || disputeReason.trim().length < MIN_DISPUTE_CHARS} className="rounded-full h-11 text-xs font-bold flex-1 bg-orange-500 hover:bg-orange-600 text-white">
+                {busy?.startsWith("dispute-") ? spin : "Submit report"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* OTP */}
         <Dialog open={!!otpModal} onOpenChange={o => { if (!o) { setOtpModal(null); setOtpInput(""); setOtpError(""); } }}>
           <DialogContent className="sm:max-w-md rounded-[24px] p-6 border border-gray-100 shadow-xl bg-white">
@@ -975,7 +1107,7 @@ export default function Sessions() {
                 onChange={e => { setOtpInput(e.target.value.replace(/\D/g, "")); setOtpError(""); }}
                 onKeyDown={e => { if (e.key === "Enter") startSession(); }}
                 className={`text-center text-3xl tracking-[0.5em] font-mono h-16 w-full bg-slate-50 border rounded-2xl focus-visible:ring-[#6C3BFF] ${otpError ? "border-red-300" : "border-slate-200"}`} />
-              {otpError && <p className="text-xs text-red-500 font-medium">{otpError}</p>}
+              {otpError && <p role="alert" className="text-xs text-red-500 font-medium text-center">{otpError}</p>}
             </div>
             <DialogFooter className="gap-2">
               <Button variant="outline" className="rounded-full font-bold h-10 text-xs" onClick={() => setOtpModal(null)}>Cancel</Button>
@@ -1019,7 +1151,7 @@ export default function Sessions() {
           <DialogContent className="sm:max-w-md rounded-[24px] border border-gray-100 shadow-xl bg-white p-6 max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2"><Users className="w-5 h-5 text-[#6C3BFF]" /> Create group class</DialogTitle>
-              <DialogDescription className="text-slate-500 text-xs font-medium mt-1">Students browse and join. You're paid when you end the session.</DialogDescription>
+              <DialogDescription className="text-slate-500 text-xs font-medium mt-1">Students browse and join. Your earnings are released {ESCROW_DAYS} days after you end the class.</DialogDescription>
             </DialogHeader>
             <div className="py-2 space-y-3.5">
               {([
@@ -1041,12 +1173,12 @@ export default function Sessions() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-500 mb-1 block">Credits per student</label>
-                  <Input type="number" inputMode="numeric" min={1} value={groupForm.creditsAmount} onChange={e => setGroupForm({ ...groupForm, creditsAmount: e.target.value })} className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm" />
+                  <Input type="number" inputMode="numeric" min={1} max={MAX_GROUP_CREDITS} value={groupForm.creditsAmount} onChange={e => setGroupForm({ ...groupForm, creditsAmount: e.target.value })} className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm" />
                   {groupTouched && groupErrors.credits && <p className="text-xs text-red-500 mt-1">{groupErrors.credits}</p>}
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 mb-1 block">Max students</label>
-                  <Input type="number" inputMode="numeric" min={2} max={100} value={groupForm.maxStudents} onChange={e => setGroupForm({ ...groupForm, maxStudents: e.target.value })} className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm" />
+                  <Input type="number" inputMode="numeric" min={2} max={MAX_GROUP_STUDENTS} value={groupForm.maxStudents} onChange={e => setGroupForm({ ...groupForm, maxStudents: e.target.value })} className="h-10 rounded-xl bg-slate-50 border-slate-200 text-sm" />
                   {groupTouched && groupErrors.max && <p className="text-xs text-red-500 mt-1">{groupErrors.max}</p>}
                 </div>
               </div>
@@ -1057,7 +1189,7 @@ export default function Sessions() {
               <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 font-medium">
                 {groupValid
                   ? <>If the class fills up ({gMax} × {gCredits} credits) you earn about <b>{earningsIfFull} credits</b> after the {Math.round(PLATFORM_FEE * 100)}% platform fee.</>
-                  : <>You earn students × credits, minus a {Math.round(PLATFORM_FEE * 100)}% platform fee, once you end the session.</>}
+                  : <>You earn students × credits, minus a {Math.round(PLATFORM_FEE * 100)}% platform fee, {ESCROW_DAYS} days after you end the class.</>}
               </p>
             </div>
             <DialogFooter className="mt-1 gap-2 sm:gap-2">
@@ -1100,14 +1232,14 @@ export default function Sessions() {
             </DialogHeader>
             <div className="py-3">
               <label className="text-xs font-bold text-slate-500 mb-1 block">Discounted credits</label>
-              <Input type="number" inputMode="numeric" min={1} max={negotiateModal ? negotiateModal.creditsAmount : undefined} value={proposedPrice} onChange={e => setProposedPrice(e.target.value)}
+              <Input type="number" inputMode="numeric" min={1} max={negotiateModal ? negotiateModal.creditsAmount - 1 : undefined} value={proposedPrice} onChange={e => setProposedPrice(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") negotiatePrice(); }}
                 className="h-12 text-base rounded-xl bg-slate-50 border border-slate-200 font-bold text-slate-800" />
-              {negotiateModal && parseInt(proposedPrice) > negotiateModal.creditsAmount && <p className="text-xs text-red-500 mt-1.5">A discount must be lower than the current price.</p>}
+              {negotiateModal && parseInt(proposedPrice) >= negotiateModal.creditsAmount && <p className="text-xs text-red-500 mt-1.5">A discount must be lower than the current price.</p>}
             </div>
             <DialogFooter className="gap-2">
               <Button variant="outline" className="rounded-full h-10 text-xs font-bold" onClick={() => setNegotiateModal(null)}>Cancel</Button>
-              <Button onClick={negotiatePrice} disabled={!!busy || !proposedPrice || (negotiateModal && parseInt(proposedPrice) > negotiateModal.creditsAmount)} className="bg-slate-900 hover:bg-slate-800 text-white rounded-full h-10 text-xs font-bold">
+              <Button onClick={negotiatePrice} disabled={!!busy || !proposedPrice || (negotiateModal && parseInt(proposedPrice) >= negotiateModal.creditsAmount)} className="bg-slate-900 hover:bg-slate-800 text-white rounded-full h-10 text-xs font-bold">
                 {busy?.startsWith("neg-") ? spin : "Send offer"}
               </Button>
             </DialogFooter>

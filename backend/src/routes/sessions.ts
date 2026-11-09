@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { randomInt, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { db } from "../db.js";
 import { eq, or, desc, asc, sql, and, inArray, gte, lte, gt, ne, isNull, type SQL } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
@@ -25,7 +25,7 @@ const SESSION_CONFIG: Record<string, { duration: number; multiplier: number; lab
 
 // Money
 const PLATFORM_FEE_PCT        = 0.15; // 15% platform cut
-const ESCROW_CLEARANCE_HOURS  = 24;   // dispute window before the mentor is paid
+const ESCROW_CLEARANCE_HOURS = 168;   // dispute window before the mentor is paid
 
 // Delivery thresholds
 const MVT_THRESHOLD           = 0.80; // >= 80% of the time delivered = full payout
@@ -46,10 +46,12 @@ const EXPIRY_GRACE_MINUTES    = 30;   // after (start + duration + grace), unsta
 const AUTO_CLOSE_GRACE_MINUTES = 120; // after (start + duration + grace), live sessions are closed
 const MAX_DAYS_AHEAD          = 90;
 const HEARTBEAT_TIMEOUT_SECS  = 90;
+const HEARTBEAT_MIN_GAP_SECS  = 30;   // heartbeats closer than this are ignored (anti-spam)
 
-// Cron secret: never fall back to a guessable default in production.
+// Cron secret: a default exists ONLY when NODE_ENV is explicitly "development".
+// Anything else (production, unset, staging) must provide CRON_SECRET.
 const CRON_SECRET =
-  process.env.CRON_SECRET || (process.env.NODE_ENV === "production" ? "" : "dev-cron-secret-change-in-prod");
+  process.env.CRON_SECRET || (process.env.NODE_ENV === "development" ? "dev-cron-secret" : "");
 
 const router: IRouter = Router();
 
@@ -88,6 +90,7 @@ const parseId = (v: unknown) => {
 const noHtml = (v: string) => !/<[^>]*>/.test(v);
 const otpCode = () => String(randomInt(100000, 1000000));
 const minsUntil = (d: Date | string) => (new Date(d).getTime() - Date.now()) / 60000;
+const sha = (v: string) => createHash("sha256").update(v).digest();
 
 async function getSession(id: number): Promise<any> {
   const [s] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, id));
@@ -98,6 +101,11 @@ async function getSession(id: number): Promise<any> {
 async function getUser(id: number): Promise<any> {
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   return u;
+}
+
+async function assertAdmin(userId: number) {
+  const [u] = await db.select({ isAdmin: usersTable.isAdmin }).from(usersTable).where(eq(usersTable.id, userId));
+  if (Number(u?.isAdmin || 0) !== 1) throw new HttpError(403, "Admin access required");
 }
 
 /**
@@ -118,11 +126,19 @@ async function claimEnrollment(id: number, from: string[], patch: Record<string,
   return rows.length > 0;
 }
 
-/** Wallet debit that cannot overdraw, even under concurrent requests. */
+/**
+ * Wallet debit that cannot overdraw, even under concurrent requests.
+ * It also keeps the invariant earnedBalance <= credits, so purchased credits can
+ * never become withdrawable "earned" credits after a spend + re-purchase.
+ * (In Postgres every SET expression reads the OLD row, so this is atomic.)
+ */
 async function debitCredits(userId: number, amount: number): Promise<boolean> {
   if (!Number.isInteger(amount) || amount <= 0) return false;
   const rows = await db.update(usersTable)
-    .set({ credits: sql`${usersTable.credits} - ${amount}` } as any)
+    .set({
+      credits: sql`${usersTable.credits} - ${amount}`,
+      earnedBalance: sql`LEAST(COALESCE(${usersTable.earnedBalance}, 0), ${usersTable.credits} - ${amount})`,
+    } as any)
     .where(and(eq(usersTable.id, userId), gte(usersTable.credits, amount)))
     .returning({ id: usersTable.id });
   return rows.length > 0;
@@ -139,6 +155,54 @@ async function refundStudent(studentId: number, amount: number, sessionId: numbe
     .set({ credits: sql`${usersTable.credits} + ${amount}` } as any)
     .where(eq(usersTable.id, studentId));
   await logTx(studentId, "refund", amount, `[REFUND] ${reason}`, sessionId);
+}
+
+/**
+ * Pays the mentor (minus platform fee) for one session. MUST run inside a DB transaction
+ * together with the status claim, so a session can never be paid twice.
+ * Returns the net amount credited to the mentor.
+ */
+async function payMentorForSession(tx: any, session: any): Promise<number> {
+  const isMicro = !["standard", "extended"].includes(session.sessionType);
+  const grossAmount = Math.max(0, Number(session.creditsAmount || 0));
+  const fee = Math.round(grossAmount * PLATFORM_FEE_PCT);
+  const earnings = Math.max(0, grossAmount - fee);
+
+  if (earnings > 0) {
+    const mentorUpdated = await tx.update(usersTable).set({
+      credits: sql`COALESCE(${usersTable.credits}, 0) + ${earnings}`,
+      earnedBalance: sql`COALESCE(${usersTable.earnedBalance}, 0) + ${earnings}`,
+      sessionsCompleted: sql`COALESCE(${usersTable.sessionsCompleted}, 0) + 1`,
+      microSessionsCount: isMicro
+        ? sql`COALESCE(${usersTable.microSessionsCount}, 0) + 1`
+        : sql`COALESCE(${usersTable.microSessionsCount}, 0)`,
+    } as any)
+      .where(eq(usersTable.id, session.mentorId))
+      .returning({ id: usersTable.id });
+
+    if (mentorUpdated.length === 0) {
+      throw new Error(`Mentor ${session.mentorId} not found while paying session ${session.id}`);
+    }
+
+    await tx.insert(transactionsTable).values({
+      userId: session.mentorId,
+      type: "earned",
+      amount: earnings,
+      description: `Cleared escrow: taught ${session.skill} (gross: ${grossAmount} cr, platform fee: ${fee} cr)`,
+      sessionId: session.id,
+    } as any);
+  }
+
+  if (session.isGroup === 1) {
+    await tx.update(groupEnrollmentsTable)
+      .set({ status: "completed" } as any)
+      .where(and(
+        eq(groupEnrollmentsTable.sessionId, session.id),
+        eq(groupEnrollmentsTable.status, "pending_clearance"),
+      ));
+  }
+
+  return earnings;
 }
 
 async function getActiveEnrollments(sessionId: number): Promise<any[]> {
@@ -400,7 +464,7 @@ router.get("/group/my-enrollments", requireAuth, route(async (req, res) => {
 // FLASH BOARD & DOUBTS
 // ==============================================================
 router.get("/flash/board", requireAuth, route(async (req, res) => {
-  const doubts = await db.select().from(sessionsTable)
+  const doubts: any[] = await db.select().from(sessionsTable)
     .where(and(
       eq(sessionsTable.sessionType, "doubt"),
       eq(sessionsTable.status, "pending"),
@@ -409,7 +473,8 @@ router.get("/flash/board", requireAuth, route(async (req, res) => {
     ))
     .orderBy(desc(sessionsTable.createdAt))
     .limit(50);
-  res.json(doubts);
+  // Never expose OTPs or meeting links on a public board.
+  res.json(doubts.map(d => ({ ...d, sessionOtp: undefined, meetLink: undefined })));
 }));
 
 const FlashSchema = z.object({
@@ -574,15 +639,23 @@ router.post("/:id/heartbeat", requireAuth, route(async (req, res) => {
   if (session.status !== "in_progress") throw bad("Session not active");
 
   if (session.isGroup === 1) {
-    const [enrollment] = await db.select().from(groupEnrollmentsTable).where(and(
+    const [enrollment]: any[] = await db.select().from(groupEnrollmentsTable).where(and(
       eq(groupEnrollmentsTable.sessionId, id),
       eq(groupEnrollmentsTable.studentId, req.userId),
       eq(groupEnrollmentsTable.status, "active"),
     ));
     if (enrollment) {
+      // Credit only the REAL time since the last accepted heartbeat (capped), so spamming
+      // this endpoint cannot inflate attendance (which drives payouts and refunds).
+      const last = enrollment.lastHeartbeatAt ? new Date(enrollment.lastHeartbeatAt).getTime() : 0;
+      const gap = last
+        ? Math.min((Date.now() - last) / 1000, HEARTBEAT_TIMEOUT_SECS)
+        : 60; // first heartbeat of this enrollment
+      if (gap < HEARTBEAT_MIN_GAP_SECS) return res.json({ success: true });
+
       await db.update(groupEnrollmentsTable).set({
         lastHeartbeatAt: new Date(),
-        activeSeconds: sql`${groupEnrollmentsTable.activeSeconds} + 60`,
+        activeSeconds: sql`${groupEnrollmentsTable.activeSeconds} + ${Math.round(gap)}`,
         isConnected: 1,
       } as any).where(eq(groupEnrollmentsTable.id, enrollment.id));
     }
@@ -717,18 +790,23 @@ router.post("/:id/join-group", requireAuth, route(async (req, res) => {
   let enrollmentId: number;
   try {
     if (existing) {
-      await db.update(groupEnrollmentsTable).set({
+      // Atomic re-join: only ONE concurrent request can flip the old row back to active.
+      // The loser throws here, and the catch below returns its credits.
+      const claimedRow = await claimEnrollment(existing.id, [existing.status], {
         status: "active", creditsAmount: session.creditsAmount, activeSeconds: 0, lastHeartbeatAt: null, isConnected: 0,
-      } as any).where(eq(groupEnrollmentsTable.id, existing.id));
+      });
+      if (!claimedRow) throw bad("You're already enrolled in this class");
       enrollmentId = existing.id;
     } else {
+      // Needs UNIQUE (session_id, student_id) in the DB so a double-click can't create two rows.
       const [created] = await db.insert(groupEnrollmentsTable).values({
         sessionId: id, studentId: req.userId, creditsAmount: session.creditsAmount, status: "active",
       } as any).returning({ id: groupEnrollmentsTable.id });
       enrollmentId = created.id;
     }
-  } catch (err) {
+  } catch (err: any) {
     await refundStudent(req.userId, session.creditsAmount, id, "Could not join class, credits returned");
+    if (err?.code === "23505") throw bad("You're already enrolled in this class");
     throw err;
   }
 
@@ -879,7 +957,6 @@ router.get("/", requireAuth, route(async (req, res) => {
     ...s,
     // Only the student sees the OTP, and only while it's still useful.
     sessionOtp: s.studentId === req.userId && ["requested", "accepted"].includes(s.status) ? s.sessionOtp : undefined,
-    // Previously missing: mentors always saw "0 students" on their group classes.
     ...(s.isGroup === 1 ? { enrolledCount: counts.get(s.id) || 0 } : {}),
     mentor: mentorMap[s.mentorId] || null,
     student: studentMap[s.studentId] || null,
@@ -963,6 +1040,58 @@ router.post("/:id/rate", requireAuth, route(async (req, res) => {
 }));
 
 // ==============================================================
+// ADMIN: DISPUTE RESOLUTION (1-on-1 sessions)
+// Disputed funds stay frozen until an admin decides who gets them.
+// ==============================================================
+router.get("/admin/disputes", requireAuth, route(async (req, res) => {
+  await assertAdmin(req.userId);
+  const rows = await db.select().from(sessionsTable)
+    .where(eq(sessionsTable.status, "disputed"))
+    .orderBy(asc(sessionsTable.createdAt))
+    .limit(100);
+  res.json(rows.map((r: any) => ({ ...r, sessionOtp: undefined })));
+}));
+
+router.post("/admin/:id/resolve-dispute", requireAuth, route(async (req, res) => {
+  await assertAdmin(req.userId);
+  const id = parseId(req.params.id);
+  const action = String(req.body?.action ?? "");
+  const note = String(req.body?.note ?? "").trim().slice(0, 300);
+  if (!["refund_student", "pay_mentor"].includes(action)) throw bad("action must be 'refund_student' or 'pay_mentor'");
+  if (note.length < 5) throw bad("A resolution note is required");
+
+  const session = await getSession(id);
+  if (session.status !== "disputed") throw bad("This session is not in dispute");
+  if (session.isGroup === 1) throw bad("Group-class disputes are not supported yet");
+  if (session.studentId === req.userId || session.mentorId === req.userId) {
+    throw new HttpError(403, "You can't resolve a dispute you are part of");
+  }
+
+  // Keep the student's original complaint (stored in cancelReason) and append the decision.
+  const history = `${session.cancelReason || ""} | [RESOLVED by admin #${req.userId}: ${action}] ${note}`;
+
+  if (action === "refund_student") {
+    const ok = await claimSession(id, ["disputed"], { status: "cancelled", cancelReason: history });
+    if (!ok) throw new HttpError(409, "This dispute was already resolved");
+    await refundStudent(session.studentId, session.creditsAmount, id, `Dispute resolved in your favour: ${session.skill}`);
+    safe(() => notify.sessionCancelled(session.studentId, session.skill, session.creditsAmount));
+    return res.json({ success: true, message: `Refunded ${session.creditsAmount} credits to the student.` });
+  }
+
+  // pay_mentor: claim + payout in ONE transaction, so it can never be paid twice.
+  const earnings = await db.transaction(async (tx) => {
+    const claimed = await tx.update(sessionsTable)
+      .set({ status: "completed", cancelReason: history } as any)
+      .where(and(eq(sessionsTable.id, id), eq(sessionsTable.status, "disputed")))
+      .returning({ id: sessionsTable.id });
+    if (claimed.length === 0) throw new HttpError(409, "This dispute was already resolved");
+    return await payMentorForSession(tx, session);
+  });
+  safe(() => notify.sessionCompleted(session.mentorId, session.skill, earnings));
+  res.json({ success: true, message: `Paid ${earnings} credits to the mentor (after platform fee).` });
+}));
+
+// ==============================================================
 // MAINTENANCE ENGINES (run on a schedule)
 // ==============================================================
 
@@ -975,42 +1104,37 @@ async function clearEscrow() {
   )).limit(500);
 
   let clearedCount = 0, totalClearedAmt = 0, failed = 0;
+
   for (const session of pending) {
-    // Claim first: a second cron run can never pay the same session twice.
-    if (!(await claimSession(session.id, ["pending_clearance"], { status: "completed" }))) continue;
-
-    let credited = false;
     try {
-      const isMicro = !["standard", "extended"].includes(session.sessionType);
-      const fee = Math.round(session.creditsAmount * PLATFORM_FEE_PCT);
-      const earnings = session.creditsAmount - fee;
+      // Claim + mentor credit + earnedBalance + ledger entry are one DB transaction.
+      // Concurrent cron runs cannot pay the same session twice.
+      const result = await db.transaction(async (tx) => {
+        const claimed = await tx.update(sessionsTable)
+          .set({ status: "completed" } as any)
+          .where(and(
+            eq(sessionsTable.id, session.id),
+            eq(sessionsTable.status, "pending_clearance"),
+            lte((sessionsTable as any).completedAt, threshold),
+          ))
+          .returning({ id: sessionsTable.id });
 
-      if (earnings > 0) {
-        await db.update(usersTable).set({
-          credits: sql`${usersTable.credits} + ${earnings}`,
-          sessionsCompleted: sql`${usersTable.sessionsCompleted} + 1`,
-          microSessionsCount: isMicro ? sql`${usersTable.microSessionsCount} + 1` : sql`${usersTable.microSessionsCount}`,
-        } as any).where(eq(usersTable.id, session.mentorId));
-        credited = true;
-        await logTx(session.mentorId, "earned", earnings, `Cleared escrow: taught ${session.skill} (fee: ${fee} cr)`, session.id);
-        totalClearedAmt += earnings;
-      }
+        if (claimed.length === 0) return { claimed: false, earnings: 0 };
+        const earnings = await payMentorForSession(tx, session);
+        return { claimed: true, earnings };
+      });
 
-      if (session.isGroup === 1) {
-        await db.update(groupEnrollmentsTable).set({ status: "completed" } as any).where(and(
-          eq(groupEnrollmentsTable.sessionId, session.id),
-          eq(groupEnrollmentsTable.status, "pending_clearance"),
-        ));
-      }
+      if (!result.claimed) continue;
       clearedCount++;
+      totalClearedAmt += result.earnings;
     } catch (err) {
       failed++;
-      console.error(`[CRON] clear-escrow failed for session ${session.id}`, err);
-      // Only re-queue if the mentor was NOT already paid, otherwise it would pay twice.
-      if (!credited) await claimSession(session.id, ["completed"], { status: "pending_clearance" });
-      else console.error(`[CRON] session ${session.id} was paid but not fully logged: needs manual review`);
+      console.error(`[CRON] clear-escrow failed for session ${session.id}; transaction rolled back`, err);
+      // The whole transaction rolls back, including the status claim, so a later
+      // cron run can safely retry this session without duplicating a payment.
     }
   }
+
   return { clearedCount, totalClearedAmt, failed };
 }
 
@@ -1092,9 +1216,9 @@ async function autoCloseStale() {
 
 function cronAuth(req: Request, res: Response, next: NextFunction) {
   if (!CRON_SECRET) return res.status(503).json({ error: "Cron is not configured" });
-  const provided = Buffer.from(String(req.headers["x-cron-secret"] || ""));
-  const expected = Buffer.from(CRON_SECRET);
-  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+  // Compare hashes: equal length always, so nothing leaks about the secret's length.
+  const ok = timingSafeEqual(sha(String(req.headers["x-cron-secret"] || "")), sha(CRON_SECRET));
+  if (!ok) {
     console.warn(`[CRON] Unauthorized attempt from IP: ${req.ip}`);
     return res.status(401).json({ error: "Unauthorized" });
   }
