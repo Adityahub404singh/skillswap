@@ -1,39 +1,109 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Zap, Clock, CheckCircle, Star, ShieldCheck, Loader2, Calendar, ChevronLeft, AlertTriangle } from "lucide-react";
+import {
+  Zap, Clock, CheckCircle, Star, ShieldCheck, Loader2, Calendar,
+  ChevronLeft, AlertTriangle, RefreshCw, Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBookSession } from "@/lib/api";
 import { useApiOptions } from "@/lib/api-utils";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import confetti from "canvas-confetti";
 
-const BASE = import.meta.env.VITE_API_URL || "https://skillswap-b59w.onrender.com";
+const BASE = (import.meta.env.VITE_API_URL || "https://skillswap-b59w.onrender.com").replace(/\/$/, "");
+
+type UserRecord = {
+  id: string | number;
+  name?: string;
+  avatar?: string | null;
+  skillsTeach?: string[] | string | null;
+  averageRating?: number | string | null;
+  pricePerHour?: number | string | null;
+  trustScore?: number | null;
+  isPremium?: boolean;
+  credits?: number | string | null;
+};
 
 const SESSION_TYPES = [
-  { id: "micro_15", label: "15-min Quick Help", desc: "Fast concept explanation",   multiplier: 0.25, duration: 15, badge: "Popular",    color: "border-orange-500 bg-orange-50/50",  glow: "shadow-orange-500/20" },
-  { id: "micro_30", label: "30-min Deep Dive",  desc: "Focused session on a topic", multiplier: 0.50, duration: 30, badge: "",           color: "border-blue-500 bg-blue-50/50",      glow: "shadow-blue-500/20" },
-  { id: "standard", label: "1-hour Mastery",    desc: "Comprehensive learning",     multiplier: 1.00, duration: 60, badge: "Best Value", color: "border-emerald-500 bg-emerald-50/50", glow: "shadow-emerald-500/20" },
-];
+  { id: "micro_15", label: "15-min Quick Help", desc: "Fast concept explanation", multiplier: 0.25, duration: 15, badge: "Popular", color: "border-orange-500 bg-orange-50/50", glow: "shadow-orange-500/20" },
+  { id: "micro_30", label: "30-min Deep Dive", desc: "Focused session on a topic", multiplier: 0.5, duration: 30, badge: "", color: "border-blue-500 bg-blue-50/50", glow: "shadow-blue-500/20" },
+  { id: "standard", label: "1-hour Mastery", desc: "Comprehensive learning", multiplier: 1, duration: 60, badge: "Best Value", color: "border-emerald-500 bg-emerald-50/50", glow: "shadow-emerald-500/20" },
+] as const;
 
-function calcCredits(multiplier: number, pricePerHour: number): number {
-  const rate = Math.max(pricePerHour || 10, 10);
+function asObject(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, any>
+    : {};
+}
+
+function unwrapUser(value: unknown): UserRecord | null {
+  const root = asObject(value);
+  const user = asObject(root.user ?? root.data?.user ?? root.data ?? root);
+  return user.id == null ? null : user as UserRecord;
+}
+
+function unwrapUsers(value: unknown): UserRecord[] {
+  if (Array.isArray(value)) return value.filter((u) => asObject(u).id != null) as UserRecord[];
+  const root = asObject(value);
+  const candidates = [root.users, root.data?.users, root.data, root.results];
+  const list = candidates.find(Array.isArray);
+  return Array.isArray(list) ? list.filter((u) => asObject(u).id != null) as UserRecord[] : [];
+}
+
+function getToken(): string | null {
+  try {
+    return localStorage.getItem("skillswap_token")?.replace(/^["']|["']$/g, "") || null;
+  } catch {
+    return null;
+  }
+}
+
+function parseSkills(user: UserRecord): string[] {
+  const raw = user.skillsTeach;
+  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean);
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean);
+  } catch {
+    // Some existing records store a single skill or comma-separated skills.
+  }
+  return raw.split(",").map((x) => x.trim()).filter(Boolean);
+}
+
+function normalizeId(value: unknown): string {
+  return value == null ? "" : String(value);
+}
+
+function getLocalToday(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getSelectedDateTime(date: string, time: string): Date | null {
+  if (!date || !time) return null;
+  const parsed = new Date(`${date}T${time}:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function sanitizeSkill(value: string): string {
+  return value.replace(/[<>]/g, "").replace(/\s+/g, " ").slice(0, 80);
+}
+
+function getCreditsForSession(multiplier: number, hourlyRate: number): number {
+  const rate = Number.isFinite(hourlyRate) && hourlyRate > 0 ? hourlyRate : 20;
   return Math.max(Math.round(rate * multiplier), 3);
 }
 
-function getToken() {
-  try { return localStorage.getItem("skillswap_token")?.replace(/['"]+/g, "") || null; } catch { return null; }
-}
-
-function isValidFutureDateTime(date: string, time: string): boolean {
-  if (!date || !time) return false;
-  const selected = new Date(`${date}T${time}:00`);
-  return selected > new Date();
-}
-
-function sanitizeSkill(val: string): string {
-  return val.replace(/<[^>]*>/g, "").slice(0, 50);
+function getErrorMessage(error: unknown): string {
+  const err = asObject(error);
+  const responseData = asObject(err.response?.data);
+  return String(responseData.message ?? responseData.error ?? err.message ?? "Please try again.");
 }
 
 export default function BookSession() {
@@ -41,138 +111,167 @@ export default function BookSession() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const options = useApiOptions();
+  const queryClient = useQueryClient();
 
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const skillFromUrl = sanitizeSkill(urlParams.get("skill") || "");
-  const mentorIdFromUrl = params?.mentorId && !isNaN(Number(params.mentorId)) ? parseInt(params.mentorId) : null;
+  const routeMentorId = params?.mentorId ? normalizeId(params.mentorId) : "";
+  const initialMentorId = routeMentorId && /^\d+$/.test(routeMentorId) ? routeMentorId : "";
 
-  const { data: currentUser } = useQuery({
-    queryKey: ["/api/me"],
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const token = getToken();
-      if (!token) return null;
-      const res = await fetch(`${BASE}/api/users/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return null;
-      return res.json();
-    },
-  });
-
-  const { data: allUsers, isLoading: mentorsLoading } = useQuery({
-    queryKey: ["/api/users"],
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/users`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-  });
-
-  const [selectedType, setSelectedType] = useState("standard");
-  const [selectedMentorId, setSelectedMentorId] = useState<number | null>(mentorIdFromUrl);
+  const [selectedType, setSelectedType] = useState<string>("standard");
+  const [selectedMentorId, setSelectedMentorId] = useState<string>(initialMentorId);
   const [skill, setSkill] = useState(skillFromUrl);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [message, setMessage] = useState("");
   const [booked, setBooked] = useState(false);
 
-  useEffect(() => {
-    if (mentorIdFromUrl && !selectedMentorId) {
-      setSelectedMentorId(mentorIdFromUrl);
-    }
-  }, [mentorIdFromUrl]);
+  const token = getToken();
 
+  const {
+    data: currentUserResponse,
+    isLoading: userLoading,
+    isError: userError,
+    refetch: refetchUser,
+  } = useQuery({
+    queryKey: ["/api/users/me"],
+    enabled: Boolean(token),
+    staleTime: 60_000,
+    retry: 1,
+    queryFn: async () => {
+      const activeToken = getToken();
+      if (!activeToken) throw new Error("Please sign in to book a session.");
+      const response = await fetch(`${BASE}/api/users/me`, {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      });
+      if (!response.ok) {
+        if (response.status === 401) throw new Error("Your session has expired. Please sign in again.");
+        throw new Error(`Unable to load your account (${response.status}).`);
+      }
+      return response.json();
+    },
+  });
+
+  const {
+    data: usersResponse,
+    isLoading: mentorsLoading,
+    isError: mentorsError,
+    refetch: refetchMentors,
+  } = useQuery({
+    queryKey: ["/api/users"],
+    staleTime: 60_000,
+    retry: 1,
+    queryFn: async () => {
+      const response = await fetch(`${BASE}/api/users`);
+      if (!response.ok) throw new Error(`Unable to load mentors (${response.status}).`);
+      return response.json();
+    },
+  });
+
+  const currentUser = unwrapUser(currentUserResponse);
+  const allUsers = useMemo(() => unwrapUsers(usersResponse), [usersResponse]);
+  const currentUserId = normalizeId(currentUser?.id);
+  const skillKey = skill.trim().toLocaleLowerCase();
+
+  const availableMentors = useMemo(() => {
+    const candidates = allUsers.filter((mentor) => {
+      if (normalizeId(mentor.id) === currentUserId) return false;
+      if (!skillKey) return true;
+      return parseSkills(mentor).some((item) => item.toLocaleLowerCase() === skillKey);
+    });
+
+    return candidates.sort((a, b) => {
+      const aRating = Number(a.averageRating) || 0;
+      const bRating = Number(b.averageRating) || 0;
+      return bRating - aRating;
+    }).slice(0, 20);
+  }, [allUsers, currentUserId, skillKey]);
+
+  // Keep a URL-selected mentor only if the mentor is present in the fetched list and eligible.
+  const selectedMentor = availableMentors.find(
+    (mentor) => normalizeId(mentor.id) === selectedMentorId
+  );
+
+  useEffect(() => {
+    if (initialMentorId && availableMentors.some((mentor) => normalizeId(mentor.id) === initialMentorId)) {
+      setSelectedMentorId(initialMentorId);
+    }
+  }, [initialMentorId, availableMentors]);
+
+  const selectedTypeObj = SESSION_TYPES.find((item) => item.id === selectedType) ?? SESSION_TYPES[2];
+  const rawRate = Number(selectedMentor?.pricePerHour);
+  const mentorRate = Number.isFinite(rawRate) && rawRate > 0 ? rawRate : 20;
+  const sessionCredits = getCreditsForSession(selectedTypeObj.multiplier, mentorRate);
+  const userCredits = Math.max(0, Number(currentUser?.credits) || 0);
+  const hasEnoughCredits = userCredits >= sessionCredits;
+  const selectedDateTime = getSelectedDateTime(date, time);
+  const isDateTimeValid = Boolean(selectedDateTime && selectedDateTime.getTime() > Date.now());
+  const isSelfBooking = Boolean(selectedMentor && currentUserId && normalizeId(selectedMentor.id) === currentUserId);
   const bookMut = useBookSession({
     ...options,
     mutation: {
-      onSuccess: () => {
-        confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 } });
-        toast({ title: "🎉 Booking Confirmed!", description: "Your mentor has been notified." });
+      ...((options as any)?.mutation ?? {}),
+      onSuccess: async (...args: any[]) => {
+        await queryClient.invalidateQueries();
+        try {
+          confetti({ particleCount: 160, spread: 85, origin: { y: 0.62 } });
+        } catch {
+          // Booking is already successful; visual effects are optional.
+        }
+        toast({ title: "Booking request submitted", description: "Your mentor has been notified." });
         setBooked(true);
-        setTimeout(() => setLocation("/sessions"), 2500);
+        setTimeout(() => setLocation("/sessions"), 2200);
       },
-      onError: (e: any) => {
-        toast({ title: "Booking Failed", description: e?.message || "Something went wrong.", variant: "destructive" });
-      }
-    }
+      onError: (error: unknown) => {
+        toast({
+          title: "Booking failed",
+          description: getErrorMessage(error),
+          variant: "destructive",
+        });
+      },
+    },
   });
 
-  // 🔥 STRICT MENTOR LOGIC: Sirf Selected Mentor + Exact Same Skill Mentors
-  const skillLower = skill?.toLowerCase().trim() || "";
-
-  function parseSkills(u: any): string[] {
-    if (Array.isArray(u.skillsTeach)) return u.skillsTeach;
-    if (typeof u.skillsTeach === "string") {
-      try { return JSON.parse(u.skillsTeach); } catch { return [u.skillsTeach]; }
-    }
-    return [];
-  }
-
-  function teachesSkill(u: any): boolean {
-    if (!skillLower) return true;
-    return parseSkills(u).some(
-      s => typeof s === "string" && s.toLowerCase().trim() === skillLower
-    );
-  }
-
-  // 1. Current user ko list se hatao
-  const allAvailable = (allUsers as any[] || []).filter(u => u.id !== currentUser?.id);
-
-  // 2. Pre-selected mentor (jo user ne click kiya hai)
-  const selectedFirst = allAvailable.filter(u => u.id === selectedMentorId);
-
-  // 3. STRICT MATCH: Sirf wohi mentors jo exact same skill padhate hain (Max 6)
-  const sameSkillMentors = allAvailable
-    .filter(u => u.id !== selectedMentorId && teachesSkill(u))
-    .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0)) // Top rating upar
-    .slice(0, 6);
-
-  // Final List: Selected mentor + 6 same skill mentors. (Koi random fallback nahi)
-  const availableMentors = [...selectedFirst, ...sameSkillMentors];
-  // -------------------------------------------------------------
-
-  const selectedTypeObj = SESSION_TYPES.find(t => t.id === selectedType) || SESSION_TYPES[2];
-  const selectedMentor   = availableMentors.find((m: any) => m.id === selectedMentorId);
-  const mentorRate       = selectedMentor?.pricePerHour || 20;
-  const sessionCredits   = calcCredits(selectedTypeObj.multiplier, mentorRate);
-  const hasEnoughCredits = (currentUser?.credits || 0) >= sessionCredits;
-  const isDateTimeValid  = isValidFutureDateTime(date, time);
-  const isSelfBooking    = selectedMentorId === currentUser?.id;
-
   function handleBook() {
-    if (!selectedMentorId) {
-      toast({ title: "Select a Mentor", description: "Please choose a mentor first.", variant: "destructive" });
+    if (!token || !currentUser) {
+      toast({ title: "Sign in required", description: "Please sign in again before booking.", variant: "destructive" });
+      setLocation("/login");
+      return;
+    }
+    if (!selectedMentor) {
+      toast({ title: "Select an eligible mentor", description: "Choose a mentor who teaches this skill.", variant: "destructive" });
       return;
     }
     if (isSelfBooking) {
-      toast({ title: "Invalid", description: "You cannot book a session with yourself.", variant: "destructive" });
+      toast({ title: "Invalid mentor", description: "You cannot book a session with yourself.", variant: "destructive" });
       return;
     }
     if (!skill.trim()) {
-      toast({ title: "Enter Skill", description: "Tell us what you want to learn.", variant: "destructive" });
+      toast({ title: "Skill required", description: "Enter the skill you want to learn.", variant: "destructive" });
       return;
     }
-    if (!isDateTimeValid) {
-      toast({ title: "Invalid Date/Time", description: "Please schedule for a future date and time.", variant: "destructive" });
+    if (!selectedDateTime || selectedDateTime.getTime() <= Date.now()) {
+      toast({ title: "Invalid schedule", description: "Choose a date and time in the future.", variant: "destructive" });
       return;
     }
     if (!hasEnoughCredits) {
-      toast({ title: "Low Balance", description: `You need ${sessionCredits} credits. Visit Wallet to top up.`, variant: "destructive" });
+      toast({ title: "Insufficient credits", description: `You need ${sessionCredits - userCredits} more credits.`, variant: "destructive" });
       return;
     }
+    if (bookMut.isPending) return;
 
     bookMut.mutate({
       data: {
-        mentorId:      selectedMentorId,
-        skill:         skill.trim(),
-        sessionType:   selectedType,
-        scheduledDate: new Date(`${date}T${time}:00`).toISOString(),
-        message:       message.trim() || undefined,
-      }
+        mentorId: selectedMentor.id,
+        skill: skill.trim(),
+        sessionType: selectedType,
+        scheduledDate: selectedDateTime.toISOString(),
+        message: message.trim() || undefined,
+      },
     } as any);
   }
+
+  const today = getLocalToday();
 
   if (booked) {
     return (
@@ -208,6 +307,14 @@ export default function BookSession() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-10 space-y-6 relative z-20">
+        {userLoading ? (
+          <div className="rounded-2xl bg-white p-4 text-sm text-slate-600 shadow">Loading your account and wallet balance…</div>
+        ) : userError || !currentUser ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div><p className="font-bold text-amber-800">Your account could not be verified.</p><p className="text-xs text-amber-700 mt-1">Sign in again or retry before booking.</p></div>
+            <Button variant="outline" onClick={() => refetchUser()}><RefreshCw className="mr-2 h-4 w-4" /> Retry</Button>
+          </div>
+        ) : null}
         <div className="bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] shadow-xl border border-white">
           <h2 className="text-sm font-black text-indigo-600 mb-5 uppercase tracking-widest flex items-center gap-3">
             <span className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs shadow-md">1</span> Choose Format
@@ -231,7 +338,7 @@ export default function BookSession() {
                 <p className="font-black text-lg mb-1 text-slate-800 tracking-tight">{type.label}</p>
                 <p className="text-xs text-slate-500 mb-4 h-8 leading-relaxed font-medium">{type.desc}</p>
                 <div className="flex items-center justify-between text-xs font-bold pt-4 border-t border-slate-200/60">
-                  <span className="flex items-center gap-1 text-indigo-600 bg-indigo-100/50 px-2 py-1 rounded-md"><Zap size={14} /> ~{calcCredits(type.multiplier, mentorRate)} cr</span>
+                  <span className="flex items-center gap-1 text-indigo-600 bg-indigo-100/50 px-2 py-1 rounded-md"><Zap size={14} /> ~{getCreditsForSession(type.multiplier, mentorRate)} cr</span>
                   <span className="flex items-center gap-1 text-slate-500"><Clock size={14} /> {type.duration}m</span>
                 </div>
               </button>
@@ -245,22 +352,34 @@ export default function BookSession() {
           </h2>
           {mentorsLoading ? (
             <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>
+          ) : mentorsError ? (
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
+              <AlertTriangle className="mx-auto mb-2 text-red-500" />
+              <p className="text-sm font-bold text-red-700">Could not load mentors.</p>
+              <Button variant="outline" className="mt-3" onClick={() => refetchMentors()}><RefreshCw className="mr-2 h-4 w-4" /> Try again</Button>
+            </div>
+          ) : availableMentors.length === 0 ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6 text-center">
+              <Users className="mx-auto mb-2 text-slate-400" />
+              <p className="font-bold text-slate-700">No matching mentors found</p>
+              <p className="mt-1 text-xs text-slate-500">{skill.trim() ? `No mentor currently lists “${skill.trim()}”. Try the exact skill name shown on mentor profiles.` : "No mentors are available right now."}</p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {availableMentors.map((mentor: any) => (
                 <button
                   key={mentor.id}
-                  onClick={() => setSelectedMentorId(mentor.id)}
+                  onClick={() => setSelectedMentorId(normalizeId(mentor.id))}
                   className={`flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all duration-300 ${
-                    selectedMentorId === mentor.id
+                    selectedMentorId === normalizeId(mentor.id)
                       ? "border-indigo-500 bg-indigo-50/50 shadow-lg shadow-indigo-500/10 scale-[1.02]"
                       : "border-slate-100 bg-white hover:border-indigo-200"
                   }`}
                 >
                   <div className="relative shrink-0">
                     <img
-                      src={mentor.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.name)}`}
-                      alt={mentor.name}
+                      src={mentor.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.name || "Mentor")}`}
+                      alt={mentor.name || "Mentor"}
                       className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm"
                     />
                     {(mentor.isPremium || mentor.trustScore >= 50) && (
@@ -270,18 +389,18 @@ export default function BookSession() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-black text-slate-800 truncate">{mentor.name}</p>
+                    <p className="text-base font-black text-slate-800 truncate">{mentor.name || "SkillSwap Mentor"}</p>
                     <p className="text-xs text-slate-500 truncate mb-1 font-medium">
-                      {(mentor.skillsTeach || []).slice(0, 3).join(", ") || "Expert Mentor"}
+                      {parseSkills(mentor).slice(0, 3).join(", ") || "Mentor"}
                     </p>
                     <div className="flex items-center gap-3 text-xs font-bold">
                       <span className="flex items-center gap-1 text-orange-500 bg-orange-50 px-2 py-0.5 rounded-md">
-                        <Star size={12} fill="currentColor" /> {mentor.averageRating > 0 ? mentor.averageRating.toFixed(1) : "New"}
+                        <Star size={12} fill="currentColor" /> {Number(mentor.averageRating) > 0 ? Number(mentor.averageRating).toFixed(1) : "New"}
                       </span>
-                      <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{mentor.pricePerHour || 20} cr/hr</span>
+                      <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{Number(mentor.pricePerHour) > 0 ? Number(mentor.pricePerHour) : 20} cr/hr</span>
                     </div>
                   </div>
-                  {selectedMentorId === mentor.id && <CheckCircle size={24} className="text-indigo-600 shrink-0" />}
+                  {selectedMentorId === normalizeId(mentor.id) && <CheckCircle size={24} className="text-indigo-600 shrink-0" />}
                 </button>
               ))}
             </div>
@@ -311,7 +430,7 @@ export default function BookSession() {
                     type="date"
                     value={date}
                     onChange={e => setDate(e.target.value)}
-                    min={new Date().toISOString().split("T")[0]}
+                    min={today}
                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-5 py-4 text-sm text-slate-800 focus:border-indigo-500 focus:bg-white outline-none transition-all font-bold shadow-inner"
                   />
                 </div>
@@ -372,14 +491,14 @@ export default function BookSession() {
                   <p className="text-center text-xs font-black text-slate-400 mb-4 uppercase tracking-widest">
                     Your Wallet:{" "}
                     <span className={!hasEnoughCredits ? "text-red-500" : "text-emerald-500"}>
-                      {currentUser.credits} Credits
+                      {userCredits} Credits
                     </span>
                   </p>
                 )}
 
                 {currentUser && !hasEnoughCredits && (
                   <div className="flex items-center gap-2 text-xs text-red-500 font-bold bg-red-50 px-3 py-2 rounded-xl border border-red-100 mb-3">
-                    <AlertTriangle size={13} /> Need {sessionCredits - currentUser.credits} more credits.{" "}
+                    <AlertTriangle size={13} /> Need {Math.max(0, sessionCredits - userCredits)} more credits.{" "}
                     <button onClick={() => setLocation("/wallet")} className="underline ml-1">Top up ↗</button>
                   </div>
                 )}
@@ -387,7 +506,10 @@ export default function BookSession() {
                 <Button
                   onClick={handleBook}
                   disabled={
-                    !selectedMentorId ||
+                    !token ||
+                    userLoading ||
+                    !currentUser ||
+                    !selectedMentor ||
                     isSelfBooking ||
                     !skill.trim() ||
                     !isDateTimeValid ||

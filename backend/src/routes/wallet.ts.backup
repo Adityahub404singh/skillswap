@@ -1,0 +1,279 @@
+
+import { Router, type IRouter, type Response } from "express";
+import { db } from "../db.js";
+import { eq, sql, desc, and } from "drizzle-orm";
+import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
+import { transactionsTable, usersTable } from "../schema/index.js";
+
+const router: IRouter = Router();
+
+const MIN_WITHDRAWAL = 500;
+const WITHDRAWAL_FEE_PERCENT = 15;
+
+// Calculate wallet statistics.
+// Session earnings are recorded as "earned" only after the
+// 168-hour escrow clearance in sessions.ts.
+async function getWithdrawalStats(userId: number, balance: number) {
+    const result = await db.execute(sql`
+        SELECT
+            COALESCE(
+                SUM(CASE WHEN type = 'earned' THEN amount ELSE 0 END),
+                0
+            ) AS total_earned,
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN type = 'withdrawal_pending'
+                        THEN ABS(amount)
+                        ELSE 0
+                    END
+                ),
+                0
+            ) AS total_withdrawn
+        FROM transactions
+        WHERE user_id = ${userId}
+    `);
+
+    const stats = result.rows[0] as any;
+
+    const totalEarned = Number(stats?.total_earned || 0);
+    const totalWithdrawn = Number(stats?.total_withdrawn || 0);
+
+    // Never allow withdrawal beyond the current wallet balance
+    // or the remaining recorded earned amount.
+    const remainingEarned = Math.max(0, totalEarned - totalWithdrawn);
+
+    const withdrawableBalance = Math.min(
+        Math.max(0, balance),
+        remainingEarned
+    );
+
+    return {
+        totalEarned,
+        pendingClearance: 0,
+        withdrawableBalance,
+    };
+}
+
+// GET /api/wallet
+router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.userId!;
+
+        const [user] = await db
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.id, userId));
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found.",
+            });
+        }
+
+        const result = await db.execute(sql`
+            SELECT
+                COALESCE(
+                    SUM(CASE WHEN type = 'earned' THEN amount ELSE 0 END),
+                    0
+                ) AS total_earned,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN type IN ('spent', 'withdrawal_pending')
+                                 OR amount < 0
+                            THEN ABS(amount)
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS total_spent
+            FROM transactions
+            WHERE user_id = ${userId}
+        `);
+
+        const stats = result.rows[0] as any;
+
+        const totalEarned = Number(stats?.total_earned || 0);
+        const totalSpent = Number(stats?.total_spent || 0);
+
+        const {
+            pendingClearance,
+            withdrawableBalance,
+        } = await getWithdrawalStats(
+            userId,
+            Number(user.credits || 0)
+        );
+
+        return res.json({
+            balance: Number(user.credits || 0),
+            totalEarned,
+            totalSpent,
+            withdrawableBalance,
+            pendingClearance,
+        });
+    } catch (error) {
+        console.error("Wallet fetch error:", error);
+
+        return res.status(500).json({
+            error: "Unable to fetch wallet details.",
+        });
+    }
+});
+
+// GET /api/wallet/transactions
+router.get(
+    "/transactions",
+    requireAuth,
+    async (req: AuthRequest, res: Response) => {
+        try {
+            const history = await db
+                .select()
+                .from(transactionsTable)
+                .where(eq(transactionsTable.userId, req.userId!))
+                .orderBy(desc(transactionsTable.createdAt))
+                .limit(100);
+
+            return res.json(history);
+        } catch (error) {
+            console.error("Transaction history error:", error);
+
+            return res.status(500).json({
+                error: "Unable to fetch transaction history.",
+            });
+        }
+    }
+);
+
+// POST /api/wallet/withdraw
+router.post(
+    "/withdraw",
+    requireAuth,
+    async (req: AuthRequest, res: Response) => {
+        try {
+            const amount = Number(req.body?.amount);
+            const upiId = String(req.body?.upiId || "").trim();
+
+            // Validate withdrawal amount
+            if (
+                !Number.isSafeInteger(amount) ||
+                amount < MIN_WITHDRAWAL
+            ) {
+                return res.status(400).json({
+                    error: `Minimum withdrawal is ${MIN_WITHDRAWAL} credits.`,
+                });
+            }
+
+            // Validate UPI ID
+            const upiRegex =
+                /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z0-9.-]{2,64}$/;
+
+            if (!upiRegex.test(upiId)) {
+                return res.status(400).json({
+                    error: "Please enter a valid UPI ID.",
+                });
+            }
+
+            const userId = req.userId!;
+
+            const [user] = await db
+                .select()
+                .from(usersTable)
+                .where(eq(usersTable.id, userId));
+
+            if (!user) {
+                return res.status(404).json({
+                    error: "User not found.",
+                });
+            }
+
+            const balance = Number(user.credits || 0);
+
+            if (balance < amount) {
+                return res.status(400).json({
+                    error: "Insufficient wallet balance.",
+                });
+            }
+
+            // Check eligible cleared earnings
+            const {
+                pendingClearance,
+                withdrawableBalance,
+            } = await getWithdrawalStats(userId, balance);
+
+            if (amount > withdrawableBalance) {
+                return res.status(403).json({
+                    error:
+                        `Only ${withdrawableBalance} credits are currently withdrawable.`,
+                    withdrawableBalance,
+                    pendingClearance,
+                });
+            }
+
+            // Calculate 15% withdrawal fee
+            const platformCut = Math.round(
+                amount * WITHDRAWAL_FEE_PERCENT / 100
+            );
+
+            const finalPayout = amount - platformCut;
+
+            // Atomic wallet deduction and transaction creation
+            await db.transaction(async (tx) => {
+                const updated = await tx
+                    .update(usersTable)
+                    .set({
+                        credits: sql`${usersTable.credits} - ${amount}`,
+                    })
+                    .where(
+                        and(
+                            eq(usersTable.id, userId),
+                            sql`${usersTable.credits} >= ${amount}`
+                        )
+                    )
+                    .returning({
+                        credits: usersTable.credits,
+                    });
+
+                if (updated.length === 0) {
+                    throw new Error("INSUFFICIENT_BALANCE_RACE");
+                }
+
+                await tx.insert(transactionsTable).values({
+                    userId,
+                    type: "withdrawal_pending",
+                    amount: -amount,
+                    description:
+                        `Withdrawal request: Rs ${finalPayout} payout; ` +
+                        `${platformCut} credits platform fee; UPI: ${upiId}`,
+                    createdAt: new Date(),
+                });
+            });
+
+            return res.status(200).json({
+                success: true,
+                status: "pending",
+                requestedAmount: amount,
+                platformFee: platformCut,
+                payoutAmount: finalPayout,
+                message:
+                    "Your withdrawal request has been submitted and is pending payout processing.",
+            });
+        } catch (error: any) {
+            if (error.message === "INSUFFICIENT_BALANCE_RACE") {
+                return res.status(400).json({
+                    error:
+                        "Insufficient balance. Please refresh and try again.",
+                });
+            }
+
+            console.error("Withdrawal error:", error);
+
+            return res.status(500).json({
+                error:
+                    "Unable to process withdrawal request. Please try again.",
+            });
+        }
+    }
+);
+
+export default router;

@@ -1,440 +1,1050 @@
-﻿import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter, type Response } from "express";
 import { db } from "../db.js";
-import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth.js";
-import { desc, eq, sql, or, count } from "drizzle-orm";
-import { usersTable, sessionsTable, transactionsTable, reportsTable } from "../schema/index.js";
+import {
+  requireAuth,
+  requireAdmin,
+  type AuthRequest,
+} from "../middlewares/auth.js";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
+import {
+  usersTable,
+  sessionsTable,
+  transactionsTable,
+  reportsTable,
+} from "../schema/index.js";
 import { notify } from "../notify.js";
 
 const router: IRouter = Router();
 
+// -----------------------------------------------------------------------------
+// SkillSwap Admin API
+// -----------------------------------------------------------------------------
+// This router intentionally uses only tables/columns present in the supplied
+// project schemas: users, sessions, transactions and reports. It does not
+// pretend that a bank payout, durable settings store, or audit-log table exists.
+// Mount this router at /api/admin.
+// -----------------------------------------------------------------------------
+
+const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 25;
+const MAX_CREDIT_ADJUSTMENT = 100_000;
+const MAX_BALANCE = 2_147_483_647;
+const ADMIN_FEE_PERCENT = 15;
+const NOTIFICATION_BATCH_SIZE = 5;
+const NOTIFICATION_BATCH_DELAY_MS = 400;
+
+const publicUserColumns = {
+  id: usersTable.id,
+  name: usersTable.name,
+  email: usersTable.email,
+  bio: usersTable.bio,
+  avatar: usersTable.avatar,
+  location: usersTable.location,
+  credits: usersTable.credits,
+  earnedBalance: usersTable.earnedBalance,
+  trustScore: usersTable.trustScore,
+  sessionsCompleted: usersTable.sessionsCompleted,
+  averageRating: usersTable.averageRating,
+  isAdmin: usersTable.isAdmin,
+  isEmailVerifiedStatus: usersTable.isEmailVerifiedStatus,
+  isPhoneVerifiedStatus: usersTable.isPhoneVerifiedStatus,
+  isPremiumUser: usersTable.isPremiumUser,
+  premiumExpiresAt: usersTable.premiumExpiresAt,
+  isSuspended: usersTable.isSuspended,
+  createdAt: usersTable.createdAt,
+};
+
+const platformSettings: Record<string, number | boolean> = {
+  sessionFeePercent: 15,
+  withdrawalFeePercent: 15,
+  referralBonus: 50,
+  welcomeCredits: 50,
+  maintenanceMode: false,
+  minWithdrawal: 500,
+  creditLockDays: 7,
+};
+
+// -----------------------------------------------------------------------------
+// Shared helpers
+// -----------------------------------------------------------------------------
+
+function positiveId(value: unknown): number | null {
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function parseInteger(value: unknown, fallback: number): number {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isSafeInteger(parsed) ? parsed : fallback;
+}
+
+function pageParams(query: Record<string, unknown>) {
+  const page = Math.max(1, parseInteger(query.page, 1));
+  const limit = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, parseInteger(query.limit, DEFAULT_PAGE_SIZE)),
+  );
+  return { page, limit, offset: (page - 1) * limit };
+}
+
+function safeError(error: unknown): string {
+  console.error("[ADMIN API ERROR]", error);
+  return "Internal server error";
+}
+
+function textValue(value: unknown, maxLength: number): string {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+function sendBadRequest(res: Response, message: string) {
+  return res.status(400).json({ success: false, error: message });
+}
+
+function sendNotFound(res: Response, message = "Record not found") {
+  return res.status(404).json({ success: false, error: message });
+}
+
+function sendConflict(res: Response, message: string) {
+  return res.status(409).json({ success: false, error: message });
+}
+
+function paginationResponse(page: number, limit: number, total: number) {
+  return {
+    page,
+    limit,
+    total,
+    pages: Math.ceil(total / limit),
+    hasNextPage: page * limit < total,
+    hasPreviousPage: page > 1,
+  };
+}
+
+function adminId(req: AuthRequest): number {
+  return Number(req.userId || 0);
+}
+
+function requireValidId(value: unknown, res: Response, label: string) {
+  const id = positiveId(value);
+  if (!id) {
+    sendBadRequest(res, `Invalid ${label}`);
+    return null;
+  }
+  return id;
+}
+
+async function writeAdminLedgerEntry(
+  userId: number,
+  type: string,
+  description: string,
+  amount = 0,
+) {
+  await db.insert(transactionsTable).values({
+    userId,
+    type,
+    amount,
+    description: description.slice(0, 1000),
+  });
+}
+
+async function notifySafely(
+  userId: number,
+  title: string,
+  message: string,
+  actionUrl = "/dashboard",
+) {
+  try {
+    await notify.adminBroadcast(userId, title, message, actionUrl);
+  } catch (error) {
+    // Notification delivery must never roll back a completed wallet operation.
+    console.error(`[ADMIN NOTIFY] Failed for user ${userId}`, error);
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function paginatedUsers(page: number, limit: number, offset: number) {
+  const [users, [{ total }]] = await Promise.all([
+    db.select(publicUserColumns)
+      .from(usersTable)
+      .orderBy(desc(usersTable.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ total: count() }).from(usersTable),
+  ]);
+  return { users, pagination: paginationResponse(page, limit, Number(total)) };
+}
+
+// -----------------------------------------------------------------------------
+// 1. Dashboard statistics
 // GET /api/admin/stats
-// 🔥 FIX: SQL-level COUNT/SUM instead of fetching up to 500 rows and reducing in JS.
-// 🆕 PHASE 1 DASHBOARD: activeToday, newToday, ongoingSessions, cancelledSessions,
-// pendingWithdrawalsCount, totalWithdrawals — all from existing tables, no new schema.
+// -----------------------------------------------------------------------------
+
 router.get("/stats", requireAuth, requireAdmin, async (_req, res) => {
   try {
     const [
-      [userCount], [sessionCount], [completedCount], [ongoingCount], [cancelledCount],
-      [creditsSum], [activeTodayCount], [newTodayCount], [pendingWithdrawalsCount], recentUsers,
+      [userCount],
+      [sessionCount],
+      [completedCount],
+      [ongoingCount],
+      [cancelledCount],
+      [requestedCount],
+      [disputedCount],
+      [creditsSum],
+      [activeTodayCount],
+      [newTodayCount],
+      [pendingWithdrawalsCount],
+      [totalWithdrawalsSum],
+      recentUsers,
     ] = await Promise.all([
       db.select({ c: count() }).from(usersTable),
       db.select({ c: count() }).from(sessionsTable),
-      db.select({ c: count() }).from(sessionsTable).where(eq(sessionsTable.status, "completed")),
-      db.select({ c: count() }).from(sessionsTable).where(eq(sessionsTable.status, "in_progress")),
-      db.select({ c: count() }).from(sessionsTable).where(eq(sessionsTable.status, "cancelled")),
-      db.select({ s: sql<number>`COALESCE(SUM(${usersTable.credits}), 0)` }).from(usersTable),
-      db.select({ c: count() }).from(usersTable).where(sql`${usersTable.lastActiveDate}::text >= to_char(CURRENT_DATE, 'YYYY-MM-DD')`),
-      db.select({ c: count() }).from(usersTable).where(sql`${usersTable.createdAt} >= CURRENT_DATE`),
-      db.select({ c: count() }).from(transactionsTable).where(eq(transactionsTable.type, "withdrawal_pending")),
-      db.select().from(usersTable).orderBy(desc(usersTable.createdAt)).limit(5),
+      db.select({ c: count() }).from(sessionsTable)
+        .where(eq(sessionsTable.status, "completed")),
+      db.select({ c: count() }).from(sessionsTable)
+        .where(eq(sessionsTable.status, "in_progress")),
+      db.select({ c: count() }).from(sessionsTable)
+        .where(eq(sessionsTable.status, "cancelled")),
+      db.select({ c: count() }).from(sessionsTable)
+        .where(eq(sessionsTable.status, "requested")),
+      db.select({ c: count() }).from(sessionsTable)
+        .where(eq(sessionsTable.status, "disputed")),
+      db.select({ s: sql<number>`COALESCE(SUM(${usersTable.credits}), 0)` })
+        .from(usersTable),
+      db.select({ c: count() }).from(usersTable)
+        .where(sql`${usersTable.lastActiveDate}::text >= to_char(CURRENT_DATE, 'YYYY-MM-DD')`),
+      db.select({ c: count() }).from(usersTable)
+        .where(sql`${usersTable.createdAt} >= CURRENT_DATE`),
+      db.select({ c: count() }).from(transactionsTable)
+        .where(eq(transactionsTable.type, "withdrawal_pending")),
+      db.select({ s: sql<number>`COALESCE(SUM(ABS(${transactionsTable.amount})), 0)` })
+        .from(transactionsTable)
+        .where(sql`${transactionsTable.type} IN ('withdrawal_pending', 'withdrawal_completed')`),
+      db.select(publicUserColumns).from(usersTable)
+        .orderBy(desc(usersTable.createdAt)).limit(5),
     ]);
 
     const [sessionFeeSum] = await db.select({
-      s: sql<number>`COALESCE(SUM(ROUND(${sessionsTable.creditsAmount} * 0.15)), 0)`,
+      s: sql<number>`COALESCE(SUM(ROUND(${sessionsTable.creditsAmount} * ${ADMIN_FEE_PERCENT} / 100.0)), 0)`,
     }).from(sessionsTable).where(eq(sessionsTable.status, "completed"));
 
     const [withdrawalFeeSum] = await db.select({
-      s: sql<number>`COALESCE(SUM(ROUND(ABS(${transactionsTable.amount}) * 0.15)), 0)`,
-    }).from(transactionsTable).where(sql`${transactionsTable.type} IN ('withdrawal_pending', 'withdrawal_completed')`);
+      s: sql<number>`COALESCE(SUM(ROUND(ABS(${transactionsTable.amount}) * ${ADMIN_FEE_PERCENT} / 100.0)), 0)`,
+    }).from(transactionsTable)
+      .where(eq(transactionsTable.type, "withdrawal_completed"));
 
-    const [totalWithdrawalsSum] = await db.select({
-      s: sql<number>`COALESCE(SUM(ABS(${transactionsTable.amount})), 0)`,
-    }).from(transactionsTable).where(sql`${transactionsTable.type} IN ('withdrawal_pending', 'withdrawal_completed')`);
-
-    res.json({
-      totalUsers: userCount.c,
-      totalSessions: sessionCount.c,
-      completedSessions: completedCount.c,
-      ongoingSessions: ongoingCount.c,
-      cancelledSessions: cancelledCount.c,
+    return res.json({
+      success: true,
+      totalUsers: Number(userCount.c),
+      totalSessions: Number(sessionCount.c),
+      completedSessions: Number(completedCount.c),
+      ongoingSessions: Number(ongoingCount.c),
+      cancelledSessions: Number(cancelledCount.c),
+      requestedSessions: Number(requestedCount.c),
+      disputedSessions: Number(disputedCount.c),
       totalCreditsInSystem: Number(creditsSum.s),
       platformRevenue: Number(sessionFeeSum.s) + Number(withdrawalFeeSum.s),
-      activeUsersToday: activeTodayCount.c,
-      newUsersToday: newTodayCount.c,
-      pendingWithdrawalsCount: pendingWithdrawalsCount.c,
+      activeUsersToday: Number(activeTodayCount.c),
+      newUsersToday: Number(newTodayCount.c),
+      pendingWithdrawalsCount: Number(pendingWithdrawalsCount.c),
       totalWithdrawals: Number(totalWithdrawalsSum.s),
       recentUsers,
     });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// GET /api/admin/users
-router.get("/users", requireAuth, requireAdmin, async (_req, res) => {
-  res.json(await db.select().from(usersTable).orderBy(desc(usersTable.createdAt)).limit(100));
+// -----------------------------------------------------------------------------
+// 2. User management and user details
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/users?page=1&limit=25
+router.get("/users", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const result = await paginatedUsers(page, limit, offset);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// GET /api/admin/sessions
-router.get("/sessions", requireAuth, requireAdmin, async (_req, res) => {
-  res.json(await db.select().from(sessionsTable).orderBy(desc(sessionsTable.createdAt)).limit(100));
+// GET /api/admin/users/:id
+router.get("/users/:id", requireAuth, requireAdmin, async (req, res, next) => {
+  const userId = positiveId(req.params.id);
+  if (!userId) return next();
+  try {
+    const [user] = await db.select(publicUserColumns)
+      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) return sendNotFound(res, "User not found");
+    return res.json({ success: true, user });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// GET /api/admin/transactions
-router.get("/transactions", requireAuth, requireAdmin, async (_req, res) => {
-  res.json(await db.select().from(transactionsTable).orderBy(desc(transactionsTable.createdAt)).limit(100));
+// GET /api/admin/users/:id/history
+router.get("/user/:id/history", requireAuth, requireAdmin, async (req, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  try {
+    const [user, sessions, transactions] = await Promise.all([
+      db.select(publicUserColumns).from(usersTable)
+        .where(eq(usersTable.id, userId)).limit(1),
+      db.select().from(sessionsTable)
+        .where(or(eq(sessionsTable.mentorId, userId), eq(sessionsTable.studentId, userId)))
+        .orderBy(desc(sessionsTable.createdAt)).limit(200),
+      db.select().from(transactionsTable)
+        .where(eq(transactionsTable.userId, userId))
+        .orderBy(desc(transactionsTable.createdAt)).limit(200),
+    ]);
+    if (!user[0]) return sendNotFound(res, "User not found");
+    return res.json({ success: true, user: user[0], sessions, transactions });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// GET /api/admin/users/:id/sessions
+router.get("/users/:id/sessions", requireAuth, requireAdmin, async (req, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const condition = or(
+      eq(sessionsTable.mentorId, userId),
+      eq(sessionsTable.studentId, userId),
+    );
+    const [sessions, [{ total }]] = await Promise.all([
+      db.select().from(sessionsTable).where(condition)
+        .orderBy(desc(sessionsTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(sessionsTable).where(condition),
+    ]);
+    return res.json({
+      success: true,
+      sessions,
+      pagination: paginationResponse(page, limit, Number(total)),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// GET /api/admin/users/:id/transactions
+router.get("/users/:id/transactions", requireAuth, requireAdmin, async (req, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const [transactions, [{ total }]] = await Promise.all([
+      db.select().from(transactionsTable).where(eq(transactionsTable.userId, userId))
+        .orderBy(desc(transactionsTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(transactionsTable)
+        .where(eq(transactionsTable.userId, userId)),
+    ]);
+    return res.json({
+      success: true,
+      transactions,
+      pagination: paginationResponse(page, limit, Number(total)),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 3. Session management
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/sessions?page=1&limit=25&status=disputed
+router.get("/sessions", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const status = textValue(req.query.status, 40);
+    const condition = status ? eq(sessionsTable.status, status) : undefined;
+    const [sessions, [{ total }]] = await Promise.all([
+      db.select().from(sessionsTable)
+        .where(condition)
+        .orderBy(desc(sessionsTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(sessionsTable).where(condition),
+    ]);
+    return res.json({
+      success: true,
+      sessions,
+      pagination: paginationResponse(page, limit, Number(total)),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// GET /api/admin/sessions/:id
+router.get("/sessions/:id", requireAuth, requireAdmin, async (req, res, next) => {
+  const sessionId = positiveId(req.params.id);
+  if (!sessionId) return next();
+  try {
+    const [session] = await db.select().from(sessionsTable)
+      .where(eq(sessionsTable.id, sessionId)).limit(1);
+    if (!session) return sendNotFound(res, "Session not found");
+    const participantIds = [session.studentId, session.mentorId].filter((id) => id > 0);
+    const participants = participantIds.length
+      ? await db.select(publicUserColumns).from(usersTable)
+        .where(sql`${usersTable.id} IN (${sql.join(participantIds.map((id) => sql`${id}`), sql`, `)})`)
+      : [];
+    return res.json({ success: true, session, participants });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// PATCH /api/admin/sessions/:id/cancel
+// Refund and status transition are committed in one database transaction.
+router.patch("/sessions/:id/cancel", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const sessionId = requireValidId(req.params.id, res, "session id");
+  if (!sessionId) return;
+  const reason = textValue(req.body?.reason, 300) || "Cancelled by admin";
+  try {
+    const outcome = await db.transaction(async (tx) => {
+      const [session] = await tx.select().from(sessionsTable)
+        .where(eq(sessionsTable.id, sessionId)).limit(1);
+      if (!session) return "NOT_FOUND";
+      if (["completed", "cancelled"].includes(session.status)) return "RESOLVED";
+      const [changed] = await tx.update(sessionsTable)
+        .set({ status: "cancelled", cancelReason: `Admin #${adminId(req)}: ${reason}` })
+        .where(and(
+          eq(sessionsTable.id, sessionId),
+          sql`${sessionsTable.status} NOT IN ('completed', 'cancelled')`,
+        ))
+        .returning({ id: sessionsTable.id });
+      if (!changed) return "RESOLVED";
+      const refund = Math.max(0, Number(session.creditsAmount || 0));
+      if (refund > 0 && session.studentId > 0) {
+        const [student] = await tx.update(usersTable)
+          .set({ credits: sql`COALESCE(${usersTable.credits}, 0) + ${refund}` })
+          .where(eq(usersTable.id, session.studentId))
+          .returning({ id: usersTable.id });
+        if (!student) throw new Error("STUDENT_NOT_FOUND");
+        await tx.insert(transactionsTable).values({
+          userId: session.studentId,
+          type: "refund",
+          amount: refund,
+          sessionId,
+          description: `Admin #${adminId(req)} refunded cancelled session #${sessionId}: ${reason}`,
+        });
+      }
+      return "OK";
+    });
+    if (outcome === "NOT_FOUND") return sendNotFound(res, "Session not found");
+    if (outcome === "RESOLVED") return sendConflict(res, "Session already resolved");
+    return res.json({ success: true, message: "Session cancelled and refund processed" });
+  } catch (error) {
+    if (error instanceof Error && error.message === "STUDENT_NOT_FOUND") {
+      return sendConflict(res, "Session student account was not found; cancellation rolled back");
+    }
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// POST /api/admin/sessions/:id/resolve { action: refund_student | pay_mentor }
+router.post("/sessions/:id/resolve", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const sessionId = requireValidId(req.params.id, res, "session id");
+  if (!sessionId) return;
+  const action = req.body?.action;
+  if (!["refund_student", "pay_mentor"].includes(action)) {
+    return sendBadRequest(res, "action must be refund_student or pay_mentor");
+  }
+  const reason = textValue(req.body?.reason, 300);
+  try {
+    const outcome = await db.transaction(async (tx) => {
+      const [session] = await tx.select().from(sessionsTable)
+        .where(eq(sessionsTable.id, sessionId)).limit(1);
+      if (!session) return "NOT_FOUND";
+      if (["completed", "cancelled"].includes(session.status)) return "RESOLVED";
+      const amount = Math.max(0, Number(session.creditsAmount || 0));
+      if (action === "refund_student" && session.studentId <= 0) return "INVALID_STUDENT";
+      if (action === "pay_mentor" && session.mentorId <= 0) return "INVALID_MENTOR";
+      const [changed] = await tx.update(sessionsTable)
+        .set(action === "refund_student"
+          ? {
+              status: "cancelled",
+              cancelReason: `Admin #${adminId(req)} resolved dispute: refund student. ${reason}`,
+            }
+          : {
+              status: "completed",
+              completedAt: new Date(),
+              cancelReason: `Admin #${adminId(req)} resolved dispute: pay mentor. ${reason}`,
+            })
+        .where(and(
+          eq(sessionsTable.id, sessionId),
+          sql`${sessionsTable.status} NOT IN ('completed', 'cancelled')`,
+        ))
+        .returning({ id: sessionsTable.id });
+      if (!changed) return "RESOLVED";
+      if (amount > 0 && action === "refund_student") {
+        const [student] = await tx.update(usersTable)
+          .set({ credits: sql`COALESCE(${usersTable.credits}, 0) + ${amount}` })
+          .where(eq(usersTable.id, session.studentId))
+          .returning({ id: usersTable.id });
+        if (!student) throw new Error("STUDENT_NOT_FOUND");
+        await tx.insert(transactionsTable).values({
+          userId: session.studentId,
+          amount,
+          type: "refund",
+          sessionId,
+          description: `Admin #${adminId(req)} dispute refund for session #${sessionId}`,
+        });
+      }
+      if (amount > 0 && action === "pay_mentor") {
+        const mentorEarnings = amount - Math.round(amount * ADMIN_FEE_PERCENT / 100);
+        const [mentor] = await tx.update(usersTable)
+          .set({ credits: sql`COALESCE(${usersTable.credits}, 0) + ${mentorEarnings}` })
+          .where(eq(usersTable.id, session.mentorId))
+          .returning({ id: usersTable.id });
+        if (!mentor) throw new Error("MENTOR_NOT_FOUND");
+        await tx.insert(transactionsTable).values({
+          userId: session.mentorId,
+          amount: mentorEarnings,
+          type: "earned",
+          sessionId,
+          description: `Admin #${adminId(req)} dispute payout for session #${sessionId}`,
+        });
+      }
+      return "OK";
+    });
+    if (outcome === "NOT_FOUND") return sendNotFound(res, "Session not found");
+    if (outcome === "RESOLVED") return sendConflict(res, "Session already resolved");
+    if (outcome === "INVALID_STUDENT") return sendBadRequest(res, "Session has no valid student");
+    if (outcome === "INVALID_MENTOR") return sendBadRequest(res, "Session has no valid mentor");
+    return res.json({ success: true, message: "Dispute resolved" });
+  } catch (error) {
+    if (error instanceof Error && error.message === "STUDENT_NOT_FOUND") {
+      return sendConflict(res, "Student not found; operation rolled back");
+    }
+    if (error instanceof Error && error.message === "MENTOR_NOT_FOUND") {
+      return sendConflict(res, "Mentor not found; operation rolled back");
+    }
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// PATCH /api/admin/sessions/:id/flag
+router.patch("/sessions/:id/flag", requireAuth, requireAdmin, async (req, res) => {
+  const sessionId = requireValidId(req.params.id, res, "session id");
+  if (!sessionId) return;
+  if (!isBoolean(req.body?.flagged)) return sendBadRequest(res, "flagged must be boolean");
+  const reason = textValue(req.body?.reason, 500);
+  try {
+    const [updated] = await db.update(sessionsTable)
+      .set({ isFlagged: req.body.flagged, flagReason: req.body.flagged ? reason : null })
+      .where(eq(sessionsTable.id, sessionId))
+      .returning({ id: sessionsTable.id, isFlagged: sessionsTable.isFlagged });
+    if (!updated) return sendNotFound(res, "Session not found");
+    return res.json({ success: true, session: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 4. Transaction and wallet management
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/transactions?page=1&limit=25&type=purchase
+router.get("/transactions", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const type = textValue(req.query.type, 60);
+    const condition = type ? eq(transactionsTable.type, type) : undefined;
+    const [transactions, [{ total }]] = await Promise.all([
+      db.select().from(transactionsTable).where(condition)
+        .orderBy(desc(transactionsTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(transactionsTable).where(condition),
+    ]);
+    return res.json({
+      success: true,
+      transactions,
+      pagination: paginationResponse(page, limit, Number(total)),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
 // GET /api/admin/pending-withdrawals
 router.get("/pending-withdrawals", requireAuth, requireAdmin, async (_req, res) => {
   try {
-    const pending = await db.select()
-      .from(transactionsTable)
+    const pending = await db.select().from(transactionsTable)
       .where(eq(transactionsTable.type, "withdrawal_pending"))
       .orderBy(desc(transactionsTable.createdAt)).limit(100);
-
-    res.json(pending);
-  } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch withdrawals" });
+    return res.json({ success: true, withdrawals: pending });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
   }
 });
 
-// GET /api/admin/user/:id/history
-router.get("/user/:id/history", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const userId = parseInt(req.params.id as string);
-
-    const [sessions, transactions] = await Promise.all([
-      db.select().from(sessionsTable).where(or(eq(sessionsTable.mentorId, userId), eq(sessionsTable.studentId, userId))).orderBy(desc(sessionsTable.createdAt)),
-      db.select().from(transactionsTable).where(eq(transactionsTable.userId, userId)).orderBy(desc(transactionsTable.createdAt)),
-    ]);
-
-    res.json({ sessions, transactions });
-  } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch user history" });
-  }
-});
-
-// POST /api/admin/users/:id/credits
-// 🔥 FIX: Atomic SQL increment instead of read-then-write.
-// Old version (`credits: user.credits + amount`) could silently lose a concurrent
-// credit change (session payout, escrow clear, another admin action) that happened
-// between the SELECT and the UPDATE.
+// POST /api/admin/users/:id/credits { amount: integer, reason: string }
 router.post("/users/:id/credits", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  const amount = Number(req.body?.amount);
+  const reason = textValue(req.body?.reason, 300) || "No reason supplied";
+  if (!Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > MAX_CREDIT_ADJUSTMENT) {
+    return sendBadRequest(res, `amount must be a non-zero integer within +/-${MAX_CREDIT_ADJUSTMENT}`);
+  }
   try {
-    const userId = parseInt(req.params.id as string);
-    const { amount, reason } = req.body;
-    if (!amount) return res.status(400).json({ error: "amount required" });
-
-    const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, userId));
-    if (!existing) return res.status(404).json({ error: "User not found" });
-
-    const [updated] = await db.update(usersTable)
-      .set({ credits: sql`${usersTable.credits} + ${amount}` })
-      .where(eq(usersTable.id, userId))
-      .returning({ credits: usersTable.credits });
-
-    await db.insert(transactionsTable).values({
-      userId, type: "bonus", amount,
-      description: `Admin ID ${req.userId} ${amount >= 0 ? "added" : "deducted"} ${Math.abs(amount)} cr. Reason: ${reason || "Admin credit grant"}`,
+    const result = await db.transaction(async (tx) => {
+      const [user] = await tx.select({ id: usersTable.id, credits: usersTable.credits })
+        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (!user) return null;
+      const current = Number(user.credits ?? 0);
+      if (current + amount < 0 || current + amount > MAX_BALANCE) {
+        throw new Error("CREDIT_BALANCE_OUT_OF_RANGE");
+      }
+      const [updated] = await tx.update(usersTable)
+        .set({ credits: sql`COALESCE(${usersTable.credits}, 0) + ${amount}` })
+        .where(eq(usersTable.id, userId))
+        .returning({ credits: usersTable.credits });
+      await tx.insert(transactionsTable).values({
+        userId,
+        type: amount > 0 ? "bonus" : "admin_deduction",
+        amount,
+        description: `Admin #${adminId(req)} ${amount > 0 ? "credited" : "deducted"} ${Math.abs(amount)} credits. Reason: ${reason}`,
+      });
+      return updated;
     });
-
-    res.json({ success: true, newBalance: updated.credits });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
-});
-
-// PATCH /api/admin/sessions/:id/cancel
-// 🔥 FIX: Previously only changed status, with NO refund to the student — credits
-// would be permanently stuck in escrow. Now mirrors the refund_student path used
-// by /sessions/:id/resolve, so this route is safe if anything ever calls it directly.
-router.patch("/sessions/:id/cancel", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    const id = parseInt(req.params.id as string);
-    const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, id));
-    if (!session) return res.status(404).json({ error: "Session not found" });
-    if (session.status === "completed" || session.status === "cancelled") {
-      return res.status(400).json({ error: "Session already resolved" });
+    if (!result) return sendNotFound(res, "User not found");
+    void notifySafely(userId, "Wallet updated", `${amount > 0 ? "+" : ""}${amount} credits. ${reason}`, "/wallet");
+    return res.json({ success: true, newBalance: result.credits });
+  } catch (error) {
+    if (error instanceof Error && error.message === "CREDIT_BALANCE_OUT_OF_RANGE") {
+      return sendBadRequest(res, "Insufficient credits or balance limit exceeded");
     }
-
-    await db.update(usersTable)
-      .set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` })
-      .where(eq(usersTable.id, session.studentId));
-
-    await db.insert(transactionsTable).values({
-      userId: session.studentId, type: "refund", amount: session.creditsAmount,
-      description: `Admin ID ${req.userId} cancelled & refunded session #${id}`,
-    });
-
-    await db.update(sessionsTable)
-      .set({ status: "cancelled", cancelReason: "Admin cancelled & refunded." })
-      .where(eq(sessionsTable.id, id));
-
-    res.json({ success: true });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// DELETE /api/admin/users/:id
-router.delete("/users/:id", requireAuth, requireAdmin, async (req, res) => {
+// POST /api/admin/users/:id/credits/deduct - explicit alias for admin UI
+router.post("/users/:id/credits/deduct", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const amount = Number(req.body?.amount);
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    return sendBadRequest(res, "amount must be a positive integer");
+  }
+  req.body.amount = -amount;
+  // Reuse the same validation and atomic wallet implementation.
+  const userId = positiveId(req.params.id);
+  if (!userId) return sendBadRequest(res, "Invalid user id");
+  const reason = textValue(req.body?.reason, 300) || "Admin deduction";
+  if (amount > MAX_CREDIT_ADJUSTMENT) return sendBadRequest(res, "Deduction amount too large");
   try {
-    const id = parseInt(req.params.id as string);
-    await db.update(usersTable).set({ trustScore: -999 } as any).where(eq(usersTable.id, id));
-    res.json({ success: true, message: "User banned" });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+    const result = await db.transaction(async (tx) => {
+      const [user] = await tx.select({ id: usersTable.id, credits: usersTable.credits })
+        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (!user) return null;
+      if (Number(user.credits ?? 0) < amount) throw new Error("INSUFFICIENT_CREDITS");
+      const [updated] = await tx.update(usersTable)
+        .set({ credits: sql`${usersTable.credits} - ${amount}` })
+        .where(eq(usersTable.id, userId)).returning({ credits: usersTable.credits });
+      await tx.insert(transactionsTable).values({
+        userId,
+        type: "admin_deduction",
+        amount: -amount,
+        description: `Admin #${adminId(req)} deducted ${amount} credits. Reason: ${reason}`,
+      });
+      return updated;
+    });
+    if (!result) return sendNotFound(res, "User not found");
+    return res.json({ success: true, newBalance: result.credits });
+  } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_CREDITS") {
+      return sendBadRequest(res, "User does not have enough credits");
+    }
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
 // PATCH /api/admin/transactions/:id/complete
-// 🔥 FIX: Was setting type "withdrawal_complete" (typo) — a different string than
-// "withdrawal_completed" used everywhere else (approve route, frontend status badges,
-// audit log filter, wallet.ts unmatured-credits calc). Records marked via this route
-// would silently disappear from the audit log and mismatch UI badges. Standardized.
+// Marks a withdrawal completed only after the real payout has been made.
 router.patch("/transactions/:id/complete", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-    try {
-        const txId = parseInt(req.params.id as string);
-        await db.update(transactionsTable)
-            .set({
-              type: "withdrawal_completed",
-              description: sql`${transactionsTable.description} || ' - PAID (by Admin ${req.userId})'`,
-            })
-            .where(eq(transactionsTable.id, txId));
-        res.json({ success: true });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
-});
-
-// PATCH /api/admin/users/:id/verify
-router.patch("/users/:id/verify", requireAuth, requireAdmin, async (req, res) => {
+  const transactionId = requireValidId(req.params.id, res, "transaction id");
+  if (!transactionId) return;
+  const payoutReference = textValue(req.body?.payoutReference, 200);
+  if (!payoutReference) {
+    return sendBadRequest(res, "payoutReference is required after completing the actual payout");
+  }
   try {
-      const userId = parseInt(req.params.id as string);
-      const { isPremium } = req.body;
-      // 🔥 FIX: Schema column is 'isPremiumUser', not 'isPremium'. The old code
-      // silently updated nothing — the Verify button showed a success toast
-      // but the DB value never changed.
-      await db.update(usersTable).set({ isPremiumUser: isPremium } as any).where(eq(usersTable.id, userId));
-      res.json({ success: true });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+    const [updated] = await db.update(transactionsTable)
+      .set({
+        type: "withdrawal_completed",
+        reference: payoutReference,
+        description: sql`COALESCE(${transactionsTable.description}, '') || ${` | Paid by admin #${adminId(req)}; reference: ${payoutReference}`}`,
+      })
+      .where(and(
+        eq(transactionsTable.id, transactionId),
+        eq(transactionsTable.type, "withdrawal_pending"),
+      ))
+      .returning({ id: transactionsTable.id, userId: transactionsTable.userId });
+    if (!updated) return sendConflict(res, "Withdrawal not found or already processed");
+    return res.json({ success: true, message: "Withdrawal marked completed", transactionId });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// APPROVE WITHDRAWAL ROUTE
+// POST /api/admin/transactions/:id/approve { payoutReference }
+// Approval means the real payout has already been completed externally.
 router.post("/transactions/:id/approve", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-    try {
-        const txId = parseInt(req.params.id as string);
-        const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId));
-
-        if (!tx || tx.type !== "withdrawal_pending") {
-            return res.status(400).json({ error: "Invalid or already processed transaction" });
-        }
-
-        await db.update(transactionsTable)
-            .set({ type: "withdrawal_completed", description: `${tx.description} (Approved by Admin ID ${req.userId})` })
-            .where(eq(transactionsTable.id, txId));
-
-        res.json({ success: true, message: "Withdrawal approved" });
-    } catch (err: any) {
-        res.status(500).json({ error: "Server error" });
-    }
-});
-
-// REJECT WITHDRAWAL & REFUND ROUTE
-router.post("/transactions/:id/reject", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-    try {
-        const txId = parseInt(req.params.id as string);
-        const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId));
-        if (!tx || tx.type !== "withdrawal_pending") return res.status(400).json({ error: "Invalid transaction" });
-
-        const refundAmount = Math.abs(tx.amount);
-        await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${refundAmount}` }).where(eq(usersTable.id, tx.userId));
-        await db.update(transactionsTable).set({ type: "withdrawal_rejected", description: `${tx.description} (REJECTED & REFUNDED by Admin ID ${req.userId})` }).where(eq(transactionsTable.id, txId));
-        res.json({ success: true, message: "Withdrawal rejected" });
-    } catch (err: any) { res.status(500).json({ error: "Server error" }); }
-});
-
-// RESOLVE DISPUTE / FORCE CANCEL SESSION
-router.post("/sessions/:id/resolve", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-    try {
-        const sessionId = parseInt(req.params.id as string);
-        const { action } = req.body;
-        const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
-        if (!session) return res.status(404).json({ error: "Session not found" });
-
-        if (action === "refund_student") {
-            await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${session.creditsAmount}` }).where(eq(usersTable.id, session.studentId));
-            await db.insert(transactionsTable).values({ userId: session.studentId, type: "refund", amount: session.creditsAmount, description: `Admin ID ${req.userId} Refund for session #${sessionId}` });
-            await db.update(sessionsTable).set({ status: "cancelled", cancelReason: "Admin force cancelled & refunded." }).where(eq(sessionsTable.id, sessionId));
-        } else if (action === "pay_mentor") {
-            const platformFee = Math.round(session.creditsAmount * 0.15);
-            const mentorEarnings = session.creditsAmount - platformFee;
-            await db.update(usersTable).set({ credits: sql`${usersTable.credits} + ${mentorEarnings}` }).where(eq(usersTable.id, session.mentorId));
-            await db.insert(transactionsTable).values({ userId: session.mentorId, type: "earned", amount: mentorEarnings, description: `Admin ID ${req.userId} forced payment for session #${sessionId}` });
-            await db.update(sessionsTable).set({ status: "completed", cancelReason: "Admin forced payment to mentor." }).where(eq(sessionsTable.id, sessionId));
-        }
-        res.json({ success: true });
-    } catch (err: any) { res.status(500).json({ error: "Server error" }); }
-});
-
-// POST /api/admin/notifications/send  { title, message, targetGroup }
-// targetGroup: "all" | "mentors" | "students"
-router.post("/notifications/send", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const transactionId = requireValidId(req.params.id, res, "transaction id");
+  if (!transactionId) return;
+  const payoutReference = textValue(req.body?.payoutReference, 200);
+  if (!payoutReference) {
+    return sendBadRequest(res, "Complete the payout first and provide payoutReference");
+  }
   try {
-    const { title, message, targetGroup } = req.body;
-    if (!title?.trim() || !message?.trim()) return res.status(400).json({ error: "title and message required" });
+    const [updated] = await db.update(transactionsTable)
+      .set({
+        type: "withdrawal_completed",
+        reference: payoutReference,
+        description: sql`COALESCE(${transactionsTable.description}, '') || ${` | Approved by admin #${adminId(req)}; payout ref: ${payoutReference}`}`,
+      })
+      .where(and(
+        eq(transactionsTable.id, transactionId),
+        eq(transactionsTable.type, "withdrawal_pending"),
+      ))
+      .returning({ id: transactionsTable.id });
+    if (!updated) return sendConflict(res, "Withdrawal not found or already processed");
+    return res.json({ success: true, message: "Withdrawal marked paid" });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
 
+// POST /api/admin/transactions/:id/reject { reason }
+router.post("/transactions/:id/reject", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const transactionId = requireValidId(req.params.id, res, "transaction id");
+  if (!transactionId) return;
+  const reason = textValue(req.body?.reason, 250) || "Rejected by admin";
+  try {
+    const outcome = await db.transaction(async (tx) => {
+      const [withdrawal] = await tx.select().from(transactionsTable)
+        .where(and(
+          eq(transactionsTable.id, transactionId),
+          eq(transactionsTable.type, "withdrawal_pending"),
+        )).limit(1);
+      if (!withdrawal) return "NOT_PENDING";
+      const refundAmount = Math.abs(Number(withdrawal.amount));
+      const [changed] = await tx.update(transactionsTable)
+        .set({
+          type: "withdrawal_rejected",
+          description: `${withdrawal.description || ""} | Rejected by admin #${adminId(req)}: ${reason}`,
+        })
+        .where(and(
+          eq(transactionsTable.id, transactionId),
+          eq(transactionsTable.type, "withdrawal_pending"),
+        ))
+        .returning({ id: transactionsTable.id });
+      if (!changed) return "NOT_PENDING";
+      if (refundAmount > 0) {
+        const [user] = await tx.update(usersTable)
+          .set({ credits: sql`COALESCE(${usersTable.credits}, 0) + ${refundAmount}` })
+          .where(eq(usersTable.id, withdrawal.userId))
+          .returning({ id: usersTable.id });
+        if (!user) throw new Error("WITHDRAWAL_USER_NOT_FOUND");
+        await tx.insert(transactionsTable).values({
+          userId: withdrawal.userId,
+          amount: refundAmount,
+          type: "refund",
+          description: `Refund for rejected withdrawal #${transactionId}`,
+        });
+      }
+      return "OK";
+    });
+    if (outcome === "NOT_PENDING") return sendConflict(res, "Withdrawal not found or already processed");
+    return res.json({ success: true, message: "Withdrawal rejected and credits refunded" });
+  } catch (error) {
+    if (error instanceof Error && error.message === "WITHDRAWAL_USER_NOT_FOUND") {
+      return sendConflict(res, "Withdrawal owner not found; operation rolled back");
+    }
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 5. Account moderation
+// -----------------------------------------------------------------------------
+
+// PATCH /api/admin/users/:id/suspend { suspend: boolean, reason?: string }
+router.patch("/users/:id/suspend", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  const suspend = req.body?.suspend;
+  const reason = textValue(req.body?.reason, 300) || "No reason supplied";
+  if (!isBoolean(suspend)) return sendBadRequest(res, "suspend must be a boolean");
+  if (userId === adminId(req)) return sendBadRequest(res, "You cannot suspend your own account");
+  try {
+    const [updated] = await db.update(usersTable)
+      .set({ isSuspended: suspend })
+      .where(eq(usersTable.id, userId))
+      .returning({ id: usersTable.id, isSuspended: usersTable.isSuspended });
+    if (!updated) return sendNotFound(res, "User not found");
+    await writeAdminLedgerEntry(
+      adminId(req),
+      "admin_action",
+      `[ADMIN] User #${userId} ${suspend ? "suspended" : "unsuspended"}. Reason: ${reason}`,
+    );
+    return res.json({
+      success: true,
+      message: `User ${suspend ? "suspended" : "unsuspended"}`,
+      user: updated,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// DELETE /api/admin/users/:id
+// This is a soft-ban/suspension. User financial/session history is preserved.
+router.delete("/users/:id", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  if (userId === adminId(req)) return sendBadRequest(res, "You cannot ban your own account");
+  const reason = textValue(req.body?.reason, 300) || "Banned by admin";
+  try {
+    const [updated] = await db.update(usersTable)
+      .set({ trustScore: -999, isSuspended: true })
+      .where(eq(usersTable.id, userId))
+      .returning({ id: usersTable.id, isSuspended: usersTable.isSuspended });
+    if (!updated) return sendNotFound(res, "User not found");
+    await writeAdminLedgerEntry(
+      adminId(req),
+      "admin_action",
+      `[ADMIN] User #${userId} banned/suspended. Reason: ${reason}`,
+    );
+    return res.json({ success: true, message: "User suspended and marked as banned" });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// PATCH /api/admin/users/:id/verify { isPremium: boolean }
+// Existing schema has isPremiumUser; it does not have a separate manual identity
+// verification field, so this endpoint only controls the premium flag.
+router.patch("/users/:id/verify", requireAuth, requireAdmin, async (req, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  const isPremium = req.body?.isPremium;
+  if (!isBoolean(isPremium)) return sendBadRequest(res, "isPremium must be a boolean");
+  try {
+    const [updated] = await db.update(usersTable)
+      .set({ isPremiumUser: isPremium })
+      .where(eq(usersTable.id, userId))
+      .returning({ id: usersTable.id, isPremiumUser: usersTable.isPremiumUser });
+    if (!updated) return sendNotFound(res, "User not found");
+    return res.json({ success: true, user: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// PATCH /api/admin/users/:id/premium
+router.patch("/users/:id/premium", requireAuth, requireAdmin, async (req, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  const enabled = req.body?.enabled;
+  if (!isBoolean(enabled)) return sendBadRequest(res, "enabled must be a boolean");
+  const expiresAt = req.body?.expiresAt ? new Date(req.body.expiresAt) : null;
+  if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+    return sendBadRequest(res, "expiresAt must be a valid date");
+  }
+  try {
+    const [updated] = await db.update(usersTable)
+      .set({ isPremiumUser: enabled, premiumExpiresAt: enabled ? expiresAt : null })
+      .where(eq(usersTable.id, userId))
+      .returning({
+        id: usersTable.id,
+        isPremiumUser: usersTable.isPremiumUser,
+        premiumExpiresAt: usersTable.premiumExpiresAt,
+      });
+    if (!updated) return sendNotFound(res, "User not found");
+    return res.json({ success: true, user: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// POST /api/admin/users/:id/reset-password { newPassword }
+// Existing JWT implementation has no token-version/revocation column. This changes
+// the password hash but cannot revoke already issued stateless JWTs.
+router.post("/users/:id/reset-password", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  const newPassword = req.body?.newPassword;
+  if (typeof newPassword !== "string" || newPassword.length < 10 || newPassword.length > 128) {
+    return sendBadRequest(res, "Password must be 10-128 characters");
+  }
+  try {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.default.hash(newPassword, 12);
+    const [updated] = await db.update(usersTable)
+      .set({ passwordHash: hash })
+      .where(eq(usersTable.id, userId))
+      .returning({ id: usersTable.id });
+    if (!updated) return sendNotFound(res, "User not found");
+    await writeAdminLedgerEntry(
+      adminId(req),
+      "admin_action",
+      `[ADMIN] Password reset for user #${userId}`,
+    );
+    return res.json({ success: true, message: "Password reset successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// POST /api/admin/users/:id/login-as
+// Disabled: current signToken creates a normal 7-day user token and has no scoped
+// impersonation claims. Returning a normal token here would be unsafe.
+router.post("/users/:id/login-as", requireAuth, requireAdmin, async (_req, res) => {
+  return res.status(501).json({
+    success: false,
+    error: "Impersonation is disabled until restricted short-lived tokens and audit controls are implemented.",
+  });
+});
+
+// -----------------------------------------------------------------------------
+// 6. Notifications and broadcast
+// -----------------------------------------------------------------------------
+
+// POST /api/admin/notifications/send { title, message, targetGroup }
+// targetGroup: all | mentors | students
+router.post("/notifications/send", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const title = textValue(req.body?.title, 120);
+  const message = textValue(req.body?.message, 2000);
+  const targetGroup = req.body?.targetGroup;
+  if (!title || !message) return sendBadRequest(res, "title and message are required");
+  if (!["all", "mentors", "students"].includes(targetGroup)) {
+    return sendBadRequest(res, "targetGroup must be all, mentors or students");
+  }
+  try {
     let userIds: number[] = [];
-
     if (targetGroup === "all") {
       const rows = await db.select({ id: usersTable.id }).from(usersTable)
-        .where(sql`${usersTable.trustScore} > -999`);
-      userIds = rows.map(r => r.id);
+        .where(sql`COALESCE(${usersTable.trustScore}, 0) > -999`);
+      userIds = rows.map((row) => row.id);
     } else if (targetGroup === "mentors") {
-      const rows = await db.selectDistinct({ id: sessionsTable.mentorId }).from(sessionsTable)
-        .where(sql`${sessionsTable.mentorId} > 0`);
-      userIds = [...new Set(rows.map(r => r.id))];
-    } else if (targetGroup === "students") {
-      const rows = await db.selectDistinct({ id: sessionsTable.studentId }).from(sessionsTable)
-        .where(sql`${sessionsTable.studentId} > 0`);
-      userIds = [...new Set(rows.map(r => r.id))];
+      const rows = await db.selectDistinct({ id: sessionsTable.mentorId })
+        .from(sessionsTable).where(sql`${sessionsTable.mentorId} > 0`);
+      userIds = rows.map((row) => row.id);
     } else {
-      return res.status(400).json({ error: "targetGroup must be all | mentors | students" });
+      const rows = await db.selectDistinct({ id: sessionsTable.studentId })
+        .from(sessionsTable).where(sql`${sessionsTable.studentId} > 0`);
+      userIds = rows.map((row) => row.id);
     }
-
-    if (userIds.length === 0) return res.json({ success: true, sentTo: 0 });
-
-    // 🔥 FIX: Previously this fired ALL userIds through Promise.all at once —
-    // for a broadcast to 85+ users that meant 85 simultaneous DB inserts +
-    // 85 simultaneous outbound emails, all competing for the same connection
-    // pool. On a serverless/free-tier Postgres (limited pool size), many of
-    // those inserts got starved of a connection and failed silently, and
-    // Gmail's SMTP rate-limited the email burst (421 Temporary System Problem).
-    // Sending in small sequential batches keeps concurrent connections low
-    // and stays under Gmail's rate limit, at the cost of a few extra seconds
-    // for a large broadcast — an easy trade-off for reliability.
-    const BATCH_SIZE = 5;
-    const BATCH_DELAY_MS = 400;
+    if (!userIds.length) {
+      return res.json({ success: true, sentTo: 0, totalTargeted: 0 });
+    }
     let sentCount = 0;
-
-    for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
-      const batch = userIds.slice(i, i + BATCH_SIZE);
+    let failedCount = 0;
+    for (let index = 0; index < userIds.length; index += NOTIFICATION_BATCH_SIZE) {
+      const batch = userIds.slice(index, index + NOTIFICATION_BATCH_SIZE);
       const results = await Promise.allSettled(
-        batch.map(userId => notify.adminBroadcast(userId, title.trim(), message.trim(), "/dashboard"))
+        batch.map((userId) => notify.adminBroadcast(userId, title, message, "/dashboard")),
       );
-      sentCount += results.filter(r => r.status === "fulfilled").length;
-
-      // Small pause between batches so we never hold more than BATCH_SIZE
-      // connections/outbound emails at once.
-      if (i + BATCH_SIZE < userIds.length) {
-        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+      sentCount += results.filter((result) => result.status === "fulfilled").length;
+      failedCount += results.filter((result) => result.status === "rejected").length;
+      if (index + NOTIFICATION_BATCH_SIZE < userIds.length) {
+        await delay(NOTIFICATION_BATCH_DELAY_MS);
       }
     }
-
-    // Audit log entry
-    await db.insert(transactionsTable).values({
-      userId:      req.userId!,
-      type:        "bonus",
-      amount:      0,
-      description: `[ADMIN BROADCAST] "${title}" sent to ${sentCount}/${userIds.length} ${targetGroup} users by Admin #${req.userId}`,
-    } as any);
-
-    console.log(`[ADMIN] Broadcast "${title}" → ${sentCount}/${userIds.length} ${targetGroup} users`);
-    res.json({ success: true, sentTo: sentCount, totalTargeted: userIds.length });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+    await writeAdminLedgerEntry(
+      adminId(req),
+      "admin_action",
+      `[ADMIN BROADCAST] ${title}; sent ${sentCount}/${userIds.length}; target=${targetGroup}`,
+    );
+    return res.json({
+      success: true,
+      sentTo: sentCount,
+      failed: failedCount,
+      totalTargeted: userIds.length,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// ══════════════════════════════════════════════════════════════
-// 🔐 LOGIN AS USER (Admin impersonation)
-// ══════════════════════════════════════════════════════════════
-router.post("/users/:id/login-as", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+// POST /api/admin/notifications/user/:id
+router.post("/notifications/user/:id", requireAuth, requireAdmin, async (req, res) => {
+  const userId = requireValidId(req.params.id, res, "user id");
+  if (!userId) return;
+  const title = textValue(req.body?.title, 120);
+  const message = textValue(req.body?.message, 2000);
+  if (!title || !message) return sendBadRequest(res, "title and message are required");
   try {
-    const userId = parseInt(req.params.id as string);
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    const { signToken } = await import("../utils/jwt.js");
-    const token = signToken({ userId: user.id, email: user.email || "" });
-
-    await db.insert(transactionsTable).values({
-      userId: req.userId!,
-      type: "bonus",
-      amount: 0,
-      description: `[ADMIN] Admin #${req.userId} logged in as User #${userId}`,
-    } as any);
-
-    res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email } });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+    const [user] = await db.select({ id: usersTable.id }).from(usersTable)
+      .where(eq(usersTable.id, userId)).limit(1);
+    if (!user) return sendNotFound(res, "User not found");
+    await notifySafely(userId, title, message, textValue(req.body?.actionUrl, 200) || "/dashboard");
+    await writeAdminLedgerEntry(
+      adminId(req),
+      "admin_action",
+      `[ADMIN] Notification sent to user #${userId}: ${title}`,
+    );
+    return res.json({ success: true, message: "Notification queued" });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// ══════════════════════════════════════════════════════════════
-// 🚫 SUSPEND / UNSUSPEND USER
-// ══════════════════════════════════════════════════════════════
-router.patch("/users/:id/suspend", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    const userId = parseInt(req.params.id as string);
-    const { suspend, reason } = req.body;
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-    if (!user) return res.status(404).json({ error: "User not found" });
+// -----------------------------------------------------------------------------
+// 7. Analytics
+// -----------------------------------------------------------------------------
 
-    await db.update(usersTable).set({
-      isSuspended: !!suspend,
-    } as any).where(eq(usersTable.id, userId));
-
-    await db.insert(transactionsTable).values({
-      userId: req.userId!,
-      type: "bonus",
-      amount: 0,
-      description: `[ADMIN] User #${userId} ${suspend ? "suspended" : "unsuspended"}. Reason: ${reason || "N/A"}`,
-    } as any);
-
-    res.json({ success: true, message: `User ${suspend ? "suspended" : "unsuspended"}` });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
-});
-
-// ══════════════════════════════════════════════════════════════
-// 🔑 ADMIN RESET USER PASSWORD
-// ══════════════════════════════════════════════════════════════
-router.post("/users/:id/reset-password", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    const userId = parseInt(req.params.id as string);
-    const { newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "Password must be 6+ chars" });
-
-    const bcrypt = await import("bcryptjs");
-    const hash = await bcrypt.default.hash(newPassword, 10);
-
-    await db.update(usersTable).set({ passwordHash: hash } as any).where(eq(usersTable.id, userId));
-
-    await db.insert(transactionsTable).values({
-      userId: req.userId!,
-      type: "bonus",
-      amount: 0,
-      description: `[ADMIN] Password reset for User #${userId}`,
-    } as any);
-
-    res.json({ success: true, message: "Password reset successfully" });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
-});
-
-// ══════════════════════════════════════════════════════════════
-// 📊 ANALYTICS - Growth, Revenue, Sessions over time
-// ══════════════════════════════════════════════════════════════
+// GET /api/admin/analytics
 router.get("/analytics", requireAuth, requireAdmin, async (_req, res) => {
   try {
     const [userGrowth, sessionGrowth, revenueData, topMentors, topSkills] = await Promise.all([
-      // Users per day (last 30 days)
       db.execute(sql`
-        SELECT DATE(created_at) as date, COUNT(*) as count
+        SELECT DATE(created_at) AS date, COUNT(*)::int AS count
         FROM users
         WHERE created_at >= NOW() - INTERVAL '30 days'
         GROUP BY DATE(created_at)
         ORDER BY date ASC
       `),
-      // Sessions per day (last 30 days)
       db.execute(sql`
-        SELECT DATE(created_at) as date, COUNT(*) as count
+        SELECT DATE(created_at) AS date, COUNT(*)::int AS count
         FROM sessions
         WHERE created_at >= NOW() - INTERVAL '30 days'
         GROUP BY DATE(created_at)
         ORDER BY date ASC
       `),
-      // Revenue per day (15% of completed sessions)
       db.execute(sql`
-        SELECT DATE(created_at) as date,
-               ROUND(SUM(credits_amount * 0.15)) as revenue
+        SELECT DATE(created_at) AS date,
+               ROUND(SUM(credits_amount * ${ADMIN_FEE_PERCENT} / 100.0)) AS revenue
         FROM sessions
         WHERE status = 'completed'
           AND created_at >= NOW() - INTERVAL '30 days'
         GROUP BY DATE(created_at)
         ORDER BY date ASC
       `),
-      // Top 10 mentors by sessions
       db.execute(sql`
         SELECT u.id, u.name, u.avatar, u.average_rating,
-               COUNT(s.id) as session_count,
-               ROUND(SUM(s.credits_amount * 0.85)) as total_earned
+               COUNT(s.id)::int AS session_count,
+               ROUND(SUM(s.credits_amount * (100 - ${ADMIN_FEE_PERCENT}) / 100.0)) AS total_earned
         FROM sessions s
         JOIN users u ON u.id = s.mentor_id
         WHERE s.status = 'completed'
@@ -442,9 +1052,8 @@ router.get("/analytics", requireAuth, requireAdmin, async (_req, res) => {
         ORDER BY session_count DESC
         LIMIT 10
       `),
-      // Top skills
       db.execute(sql`
-        SELECT skill, COUNT(*) as count
+        SELECT skill, COUNT(*)::int AS count
         FROM sessions
         WHERE status = 'completed'
         GROUP BY skill
@@ -452,103 +1061,156 @@ router.get("/analytics", requireAuth, requireAdmin, async (_req, res) => {
         LIMIT 10
       `),
     ]);
-
-    res.json({
-      userGrowth:    userGrowth.rows,
+    return res.json({
+      success: true,
+      userGrowth: userGrowth.rows,
       sessionGrowth: sessionGrowth.rows,
-      revenueData:   revenueData.rows,
-      topMentors:    topMentors.rows,
-      topSkills:     topSkills.rows,
+      revenueData: revenueData.rows,
+      topMentors: topMentors.rows,
+      topSkills: topSkills.rows,
     });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// ══════════════════════════════════════════════════════════════
-// ⚙️ PLATFORM SETTINGS (fee rates, welcome credits etc.)
-// ══════════════════════════════════════════════════════════════
-// In-memory settings (persist via env or DB later)
-const platformSettings: Record<string, any> = {
-  sessionFeePercent:    15,
-  withdrawalFeePercent: 15,
-  referralBonus:        50,
-  welcomeCredits:       50,
-  maintenanceMode:      false,
-  minWithdrawal:        500,
-  creditLockDays:       7,
-};
-
-router.get("/settings", requireAuth, requireAdmin, async (_req, res) => {
-  res.json(platformSettings);
-});
-
-router.patch("/settings", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+// GET /api/admin/analytics/summary
+router.get("/analytics/summary", requireAuth, requireAdmin, async (_req, res) => {
   try {
-    const allowed = Object.keys(platformSettings);
-    for (const key of Object.keys(req.body)) {
-      if (allowed.includes(key)) platformSettings[key] = req.body[key];
-    }
-    await db.insert(transactionsTable).values({
-      userId: req.userId!,
-      type: "bonus",
-      amount: 0,
-      description: `[ADMIN] Settings updated: ${JSON.stringify(req.body)}`,
-    } as any);
-    res.json({ success: true, settings: platformSettings });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+    const [users, sessions, completed, revenue, earned] = await Promise.all([
+      db.select({ total: count() }).from(usersTable),
+      db.select({ total: count() }).from(sessionsTable),
+      db.select({ total: count() }).from(sessionsTable)
+        .where(eq(sessionsTable.status, "completed")),
+      db.select({ total: sql<number>`COALESCE(SUM(ROUND(${sessionsTable.creditsAmount} * ${ADMIN_FEE_PERCENT} / 100.0)), 0)` })
+        .from(sessionsTable).where(eq(sessionsTable.status, "completed")),
+      db.select({ total: sql<number>`COALESCE(SUM(${transactionsTable.amount}), 0)` })
+        .from(transactionsTable).where(eq(transactionsTable.type, "earned")),
+    ]);
+    return res.json({
+      success: true,
+      users: Number(users[0]?.total ?? 0),
+      sessions: Number(sessions[0]?.total ?? 0),
+      completedSessions: Number(completed[0]?.total ?? 0),
+      estimatedPlatformRevenue: Number(revenue[0]?.total ?? 0),
+      mentorCreditsEarned: Number(earned[0]?.total ?? 0),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// ══════════════════════════════════════════════════════════════
-// 🔍 GLOBAL SEARCH
-// ══════════════════════════════════════════════════════════════
+// -----------------------------------------------------------------------------
+// 8. Platform settings
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/settings
+router.get("/settings", requireAuth, requireAdmin, async (_req, res) => {
+  return res.json({ success: true, settings: platformSettings, persistence: "in-memory" });
+});
+
+// PATCH /api/admin/settings
+// Settings are in-memory because the supplied schemas contain no settings table.
+router.patch("/settings", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+    return sendBadRequest(res, "A settings object is required");
+  }
+  const validators: Record<string, (value: unknown) => boolean> = {
+    sessionFeePercent: (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100,
+    withdrawalFeePercent: (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100,
+    referralBonus: (value) => Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= 100_000,
+    welcomeCredits: (value) => Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= 100_000,
+    maintenanceMode: (value) => typeof value === "boolean",
+    minWithdrawal: (value) => Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= 10_000_000,
+    creditLockDays: (value) => Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= 365,
+  };
+  for (const [key, value] of Object.entries(req.body)) {
+    if (!validators[key]) return sendBadRequest(res, `Unknown setting: ${key}`);
+    if (!validators[key](value)) return sendBadRequest(res, `Invalid value for ${key}`);
+  }
+  try {
+    Object.assign(platformSettings, req.body);
+    await writeAdminLedgerEntry(
+      adminId(req),
+      "admin_action",
+      `[ADMIN] Platform settings changed: ${JSON.stringify(req.body)}`,
+    );
+    return res.json({
+      success: true,
+      settings: platformSettings,
+      persistence: "in-memory; values reset when the server restarts",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 9. Global search
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/search?q=keyword
 router.get("/search", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const q = (req.query.q as string || "").trim();
-    if (!q || q.length < 2) return res.json({ users: [], sessions: [], transactions: [] });
-
+    const query = textValue(req.query.q, 100);
+    if (query.length < 2) {
+      return res.json({ success: true, users: [], sessions: [], transactions: [] });
+    }
+    const pattern = `%${query}%`;
     const [users, sessions, transactions] = await Promise.all([
-      db.execute(sql`
-        SELECT id, name, email, credits, average_rating, created_at
-        FROM users
-        WHERE name ILIKE ${"%" + q + "%"} OR email ILIKE ${"%" + q + "%"}
-        LIMIT 10
-      `),
+      db.select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        credits: usersTable.credits,
+        averageRating: usersTable.averageRating,
+        createdAt: usersTable.createdAt,
+      }).from(usersTable)
+        .where(or(ilike(usersTable.name, pattern), ilike(usersTable.email, pattern)))
+        .limit(10),
       db.execute(sql`
         SELECT s.id, s.skill, s.status, s.credits_amount, s.scheduled_date,
-               u1.name as student_name, u2.name as mentor_name
+               student.name AS student_name, mentor.name AS mentor_name
         FROM sessions s
-        JOIN users u1 ON u1.id = s.student_id
-        JOIN users u2 ON u2.id = s.mentor_id
-        WHERE s.skill ILIKE ${"%" + q + "%"}
-           OR u1.name ILIKE ${"%" + q + "%"}
-           OR u2.name ILIKE ${"%" + q + "%"}
+        LEFT JOIN users student ON student.id = s.student_id
+        LEFT JOIN users mentor ON mentor.id = s.mentor_id
+        WHERE s.skill ILIKE ${pattern}
+           OR student.name ILIKE ${pattern}
+           OR mentor.name ILIKE ${pattern}
+        ORDER BY s.created_at DESC
         LIMIT 10
       `),
       db.execute(sql`
         SELECT t.id, t.type, t.amount, t.description, t.created_at, u.name
         FROM transactions t
-        JOIN users u ON u.id = t.user_id
-        WHERE t.description ILIKE ${"%" + q + "%"} OR u.name ILIKE ${"%" + q + "%"}
+        LEFT JOIN users u ON u.id = t.user_id
+        WHERE COALESCE(t.description, '') ILIKE ${pattern}
+           OR COALESCE(u.name, '') ILIKE ${pattern}
+        ORDER BY t.created_at DESC
         LIMIT 10
       `),
     ]);
-
-    res.json({
-      users:        users.rows,
-      sessions:     sessions.rows,
+    return res.json({
+      success: true,
+      users,
+      sessions: sessions.rows,
       transactions: transactions.rows,
     });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// ══════════════════════════════════════════════════════════════
-// 📋 REPORTS - Suspicious users, high refund rate
-// ══════════════════════════════════════════════════════════════
+// -----------------------------------------------------------------------------
+// 10. Risk and moderation reports
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/reports - heuristic risk indicators, not automatic fraud findings
 router.get("/reports", requireAuth, requireAdmin, async (_req, res) => {
   try {
-    const [highRefunds, newZeroActivity, topEarners] = await Promise.all([
-      // Users with many cancelled sessions (possible abuse)
+    const [highRefunds, inactiveNewUsers, topEarners, flaggedSessions] = await Promise.all([
       db.execute(sql`
-        SELECT u.id, u.name, u.email, COUNT(s.id) as cancelled_count
+        SELECT u.id, u.name, u.email, COUNT(s.id)::int AS cancelled_count
         FROM sessions s
         JOIN users u ON u.id = s.student_id
         WHERE s.status = 'cancelled'
@@ -557,20 +1219,18 @@ router.get("/reports", requireAuth, requireAdmin, async (_req, res) => {
         ORDER BY cancelled_count DESC
         LIMIT 20
       `),
-      // New users with 0 sessions (possible fake accounts)
       db.execute(sql`
         SELECT id, name, email, credits, created_at
         FROM users
-        WHERE sessions_completed = 0
+        WHERE COALESCE(sessions_completed, 0) = 0
           AND created_at <= NOW() - INTERVAL '7 days'
         ORDER BY created_at DESC
         LIMIT 20
       `),
-      // Top earners (mentor fraud check)
       db.execute(sql`
         SELECT u.id, u.name, u.email,
-               COUNT(s.id) as sessions,
-               SUM(s.credits_amount * 0.85) as earned
+               COUNT(s.id)::int AS sessions,
+               SUM(s.credits_amount * (100 - ${ADMIN_FEE_PERCENT}) / 100.0) AS earned
         FROM sessions s
         JOIN users u ON u.id = s.mentor_id
         WHERE s.status = 'completed'
@@ -578,56 +1238,286 @@ router.get("/reports", requireAuth, requireAdmin, async (_req, res) => {
         ORDER BY earned DESC
         LIMIT 10
       `),
+      db.select().from(sessionsTable)
+        .where(eq(sessionsTable.isFlagged, true))
+        .orderBy(desc(sessionsTable.createdAt)).limit(50),
     ]);
-
-    res.json({
-      highRefundUsers:   highRefunds.rows,
-      inactiveNewUsers:  newZeroActivity.rows,
-      topEarners:        topEarners.rows,
+    return res.json({
+      success: true,
+      highRefundUsers: highRefunds.rows,
+      inactiveNewUsers: inactiveNewUsers.rows,
+      topEarners: topEarners.rows,
+      flaggedSessions,
+      note: "These are review signals, not proof of fraud.",
     });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
 });
 
-// ══════════════════════════════════════════════════════════════
-// 🚩 USER-SUBMITTED REPORTS (mentor-profile.tsx ka Report button)
-// /admin/reports (upar wala) se ALAG hai — woh heuristic fraud detection hai
-// ══════════════════════════════════════════════════════════════
-router.get("/user-reports", requireAuth, requireAdmin, async (_req, res) => {
+// GET /api/admin/user-reports
+router.get("/user-reports", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const allReports = await db.select().from(reportsTable)
-      .orderBy(desc(reportsTable.createdAt))
-      .limit(200);
-
-    const userIds = [...new Set(allReports.flatMap(r => [r.reporterId, r.reportedUserId]))];
-    const allUsers = userIds.length > 0
+    const { page, limit, offset } = pageParams(req.query);
+    const [allReports, [{ total }]] = await Promise.all([
+      db.select().from(reportsTable).orderBy(desc(reportsTable.createdAt))
+        .limit(limit).offset(offset),
+      db.select({ total: count() }).from(reportsTable),
+    ]);
+    const userIds = [...new Set(allReports.flatMap((report) => [report.reporterId, report.reportedUserId]))];
+    const allUsers = userIds.length
       ? await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
-          .from(usersTable)
+        .from(usersTable)
+        .where(sql`${usersTable.id} IN (${sql.join(userIds.map((id) => sql`${id}`), sql`, `)})`)
       : [];
-    const userMap = new Map(allUsers.map(u => [u.id, u]));
-
-    res.json(allReports.map(r => ({
-      ...r,
-      reporterName:  userMap.get(r.reporterId)?.name  || `User #${r.reporterId}`,
-      reportedName:  userMap.get(r.reportedUserId)?.name  || `User #${r.reportedUserId}`,
-      reportedEmail: userMap.get(r.reportedUserId)?.email || null,
-    })));
-  } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch user reports" });
+    const userMap = new Map(allUsers.map((user) => [user.id, user]));
+    const reports = allReports.map((report) => ({
+      ...report,
+      reporterName: userMap.get(report.reporterId)?.name || `User #${report.reporterId}`,
+      reportedName: userMap.get(report.reportedUserId)?.name || `User #${report.reportedUserId}`,
+      reportedEmail: userMap.get(report.reportedUserId)?.email || null,
+    }));
+    return res.json({
+      success: true,
+      reports,
+      pagination: paginationResponse(page, limit, Number(total)),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
   }
 });
 
+// PATCH /api/admin/user-reports/:id/resolve { status: reviewed | dismissed }
 router.patch("/user-reports/:id/resolve", requireAuth, requireAdmin, async (req, res) => {
+  const reportId = requireValidId(req.params.id, res, "report id");
+  if (!reportId) return;
+  const status = req.body?.status;
+  if (!["reviewed", "dismissed"].includes(status)) {
+    return sendBadRequest(res, "status must be reviewed or dismissed");
+  }
   try {
-    const id = parseInt(req.params.id as string);
-    const { status } = req.body;
-    if (!["reviewed", "dismissed"].includes(status)) {
-      return res.status(400).json({ error: "Invalid status. Use 'reviewed' or 'dismissed'" });
-    }
-    await db.update(reportsTable).set({ status } as any).where(eq(reportsTable.id, id));
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: "Failed to update report" });
+    const [updated] = await db.update(reportsTable)
+      .set({ status } as any)
+      .where(eq(reportsTable.id, reportId))
+      .returning({ id: reportsTable.id, status: reportsTable.status });
+    if (!updated) return sendNotFound(res, "Report not found");
+    return res.json({ success: true, report: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
   }
 });
+
+// -----------------------------------------------------------------------------
+// 11. User lists and filters
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/users/search?q=...&page=1&limit=25
+router.get("/users/search", requireAuth, requireAdmin, async (req, res) => {
+  const query = textValue(req.query.q, 100);
+  if (query.length < 2) return res.json({ success: true, users: [] });
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const pattern = `%${query}%`;
+    const condition = or(
+      ilike(usersTable.name, pattern),
+      ilike(usersTable.email, pattern),
+      ilike(usersTable.location, pattern),
+    );
+    const [users, [{ total }]] = await Promise.all([
+      db.select(publicUserColumns).from(usersTable).where(condition)
+        .orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(usersTable).where(condition),
+    ]);
+    return res.json({
+      success: true,
+      users,
+      pagination: paginationResponse(page, limit, Number(total)),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// GET /api/admin/users/status/suspended
+router.get("/users/status/suspended", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const condition = eq(usersTable.isSuspended, true);
+    const [users, [{ total }]] = await Promise.all([
+      db.select(publicUserColumns).from(usersTable).where(condition)
+        .orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(usersTable).where(condition),
+    ]);
+    return res.json({ success: true, users, pagination: paginationResponse(page, limit, Number(total)) });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// GET /api/admin/users/status/premium
+router.get("/users/status/premium", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const condition = eq(usersTable.isPremiumUser, true);
+    const [users, [{ total }]] = await Promise.all([
+      db.select(publicUserColumns).from(usersTable).where(condition)
+        .orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(usersTable).where(condition),
+    ]);
+    return res.json({ success: true, users, pagination: paginationResponse(page, limit, Number(total)) });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// GET /api/admin/users/status/unverified
+router.get("/users/status/unverified", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = pageParams(req.query);
+    const condition = eq(usersTable.isEmailVerifiedStatus, false);
+    const [users, [{ total }]] = await Promise.all([
+      db.select(publicUserColumns).from(usersTable).where(condition)
+        .orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(usersTable).where(condition),
+    ]);
+    return res.json({ success: true, users, pagination: paginationResponse(page, limit, Number(total)) });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 12. Session and transaction date filters
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/sessions/date-range?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.get("/sessions/date-range", requireAuth, requireAdmin, async (req, res) => {
+  const from = req.query.from ? new Date(String(req.query.from)) : null;
+  const to = req.query.to ? new Date(String(req.query.to)) : null;
+  if (from && Number.isNaN(from.getTime())) return sendBadRequest(res, "Invalid from date");
+  if (to && Number.isNaN(to.getTime())) return sendBadRequest(res, "Invalid to date");
+  try {
+    const conditions = [];
+    if (from) conditions.push(gte(sessionsTable.createdAt, from));
+    if (to) conditions.push(lte(sessionsTable.createdAt, to));
+    const { page, limit, offset } = pageParams(req.query);
+    const condition = conditions.length ? and(...conditions) : undefined;
+    const [sessions, [{ total }]] = await Promise.all([
+      db.select().from(sessionsTable).where(condition)
+        .orderBy(desc(sessionsTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(sessionsTable).where(condition),
+    ]);
+    return res.json({ success: true, sessions, pagination: paginationResponse(page, limit, Number(total)) });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// GET /api/admin/transactions/date-range?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.get("/transactions/date-range", requireAuth, requireAdmin, async (req, res) => {
+  const from = req.query.from ? new Date(String(req.query.from)) : null;
+  const to = req.query.to ? new Date(String(req.query.to)) : null;
+  if (from && Number.isNaN(from.getTime())) return sendBadRequest(res, "Invalid from date");
+  if (to && Number.isNaN(to.getTime())) return sendBadRequest(res, "Invalid to date");
+  try {
+    const conditions = [];
+    if (from) conditions.push(gte(transactionsTable.createdAt, from));
+    if (to) conditions.push(lte(transactionsTable.createdAt, to));
+    const { page, limit, offset } = pageParams(req.query);
+    const condition = conditions.length ? and(...conditions) : undefined;
+    const [transactions, [{ total }]] = await Promise.all([
+      db.select().from(transactionsTable).where(condition)
+        .orderBy(desc(transactionsTable.createdAt)).limit(limit).offset(offset),
+      db.select({ total: count() }).from(transactionsTable).where(condition),
+    ]);
+    return res.json({ success: true, transactions, pagination: paginationResponse(page, limit, Number(total)) });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 13. Admin health and operational information
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/health
+router.get("/health", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    await db.execute(sql`SELECT 1`);
+    return res.json({
+      success: true,
+      database: "connected",
+      api: "healthy",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(503).json({
+      success: false,
+      database: "unavailable",
+      error: safeError(error),
+    });
+  }
+});
+
+// GET /api/admin/overview
+router.get("/overview", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const [users, suspended, premium, sessions, disputed, pendingWithdrawals] = await Promise.all([
+      db.select({ value: count() }).from(usersTable),
+      db.select({ value: count() }).from(usersTable).where(eq(usersTable.isSuspended, true)),
+      db.select({ value: count() }).from(usersTable).where(eq(usersTable.isPremiumUser, true)),
+      db.select({ value: count() }).from(sessionsTable),
+      db.select({ value: count() }).from(sessionsTable).where(eq(sessionsTable.status, "disputed")),
+      db.select({ value: count() }).from(transactionsTable)
+        .where(eq(transactionsTable.type, "withdrawal_pending")),
+    ]);
+    return res.json({
+      success: true,
+      users: Number(users[0].value),
+      suspendedUsers: Number(suspended[0].value),
+      premiumUsers: Number(premium[0].value),
+      sessions: Number(sessions[0].value),
+      disputedSessions: Number(disputed[0].value),
+      pendingWithdrawals: Number(pendingWithdrawals[0].value),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: safeError(error) });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 14. Explicitly unsupported capabilities (avoid unsafe fake implementations)
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/capabilities
+router.get("/capabilities", requireAuth, requireAdmin, async (_req, res) => {
+  return res.json({
+    success: true,
+    available: [
+      "dashboard_stats",
+      "user_management",
+      "session_management",
+      "wallet_credit_adjustments",
+      "withdrawal_status_management",
+      "dispute_resolution",
+      "notifications",
+      "analytics",
+      "user_reports",
+      "moderation",
+      "global_search",
+    ],
+    limitations: {
+      bankPayout: "No payout provider is wired into this router. Admin must complete payout externally before marking it paid.",
+      persistentSettings: "No platform settings table exists in the supplied schema; current settings are in-memory.",
+      impersonation: "Disabled because the current JWT utility cannot issue restricted short-lived impersonation tokens.",
+      auditLog: "Admin actions are recorded as admin_action transactions because no dedicated audit table was supplied.",
+      tokenRevocation: "Password reset cannot revoke already-issued stateless JWTs with the supplied auth schema.",
+    },
+  });
+});
+
+// -----------------------------------------------------------------------------
+// End of admin router
+// -----------------------------------------------------------------------------
 
 export default router;

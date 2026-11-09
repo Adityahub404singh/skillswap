@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/store/auth";
 import { API_BASE_URL } from "@/lib/api-utils";
@@ -63,15 +63,32 @@ export default function AdminPanel() {
   const [notifLoading, setNotifLoading] = useState(false);
 
   // ─── API helper ──────────────────────────────────────────────
-  const apiFetch = (path: string, opts?: any) =>
-    fetch(`${API_BASE_URL}/api${path}`, {
+  const apiFetch = (path: string, opts?: RequestInit) => {
+    const headers = new Headers(opts?.headers);
+    headers.set("Accept", "application/json");
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    if (opts?.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    return fetch(`${API_BASE_URL}/api${path}`, {
       ...opts,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...opts?.headers,
-      },
+      headers,
+      cache: "no-store",
     });
+  };
+
+  const readApiJson = async (response: Response) => {
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => ({}))
+      : {};
+    if (!response.ok) {
+      const message = (payload as any)?.error || (payload as any)?.message ||
+        `Request failed (${response.status})`;
+      throw new Error(message);
+    }
+    return payload;
+  };
 
   // ─── Fetch all data ──────────────────────────────────────────
   const fetchData = async () => {
@@ -79,13 +96,13 @@ export default function AdminPanel() {
     try {
       const [statsRes, usersRes, sessionsRes, txRes, pendingRes, fbRes, subRes] =
         await Promise.all([
-          apiFetch("/admin/stats").then(r => r.json()),
-          apiFetch("/admin/users").then(r => r.json()),
-          apiFetch("/admin/sessions").then(r => r.json()),
-          apiFetch("/admin/transactions").then(r => r.json()),
-          apiFetch("/admin/pending-withdrawals").then(r => r.json()),
-          apiFetch("/platform/admin/feedbacks").then(r => r.json()),
-          apiFetch("/platform/admin/subscribers").then(r => r.json()),
+          apiFetch("/admin/stats").then(readApiJson),
+          apiFetch("/admin/users").then(readApiJson),
+          apiFetch("/admin/sessions").then(readApiJson),
+          apiFetch("/admin/transactions").then(readApiJson),
+          apiFetch("/admin/pending-withdrawals").then(readApiJson),
+          apiFetch("/platform/admin/feedbacks").then(readApiJson),
+          apiFetch("/platform/admin/subscribers").then(readApiJson),
         ]);
 
       setStats(statsRes);
@@ -105,11 +122,11 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!token) { setLocation("/login"); return; }
-    apiFetch("/users/me").then(r => r.json()).then(u => setAdminEmail(u.email || ""));
-    apiFetch("/admin/analytics").then(r => r.json()).then(setAnalytics).catch(() => {});
-    apiFetch("/admin/reports").then(r => r.json()).then(setReports).catch(() => {});
-    apiFetch("/admin/user-reports").then(r => r.json()).then(d => setUserReports(Array.isArray(d) ? d : [])).catch(() => {});
-    apiFetch("/admin/settings").then(r => r.json()).then(setPlatformSettings).catch(() => {});
+    apiFetch("/users/me").then(readApiJson).then(u => setAdminEmail(u.email || "")).catch(() => toast({ variant: "destructive", title: "Admin profile unavailable" }));
+    apiFetch("/admin/analytics").then(readApiJson).then(setAnalytics).catch(() => {});
+    apiFetch("/admin/reports").then(readApiJson).then(setReports).catch(() => {});
+    apiFetch("/admin/user-reports").then(readApiJson).then(d => setUserReports(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch("/admin/settings").then(readApiJson).then(setPlatformSettings).catch(() => {});
     fetchData();
   }, [token]);
 
@@ -135,13 +152,22 @@ export default function AdminPanel() {
 
   // ─── Actions ─────────────────────────────────────────────────
   const handleCredits = async (add: boolean) => {
-    if (!creditModal || !creditAmount) return;
-    const amount = parseInt(creditAmount) * (add ? 1 : -1);
+    if (!creditModal || !creditAmount.trim()) return;
+    if (!/^\\d+$/.test(creditAmount.trim())) {
+      toast({ variant: "destructive", title: "Invalid amount", description: "Enter a whole-number credit amount." });
+      return;
+    }
+    const enteredAmount = Number(creditAmount);
+    if (!Number.isSafeInteger(enteredAmount) || enteredAmount <= 0) {
+      toast({ variant: "destructive", title: "Invalid amount", description: "Amount must be a positive safe integer." });
+      return;
+    }
+    const amount = enteredAmount * (add ? 1 : -1);
     const res = await apiFetch(`/admin/users/${creditModal.id}/credits`, {
       method: "POST",
       body: JSON.stringify({ amount, reason: creditReason || "Admin adjustment" }),
     });
-    const data = await res.json();
+    const data = await readApiJson(res);
     if (data.success) {
       toast({ title: add ? "✅ Credits Added" : "✅ Credits Deducted", description: `New balance: ${data.newBalance} cr` });
       setCreditModal(null); setCreditAmount(""); setCreditReason("");
@@ -153,9 +179,14 @@ export default function AdminPanel() {
 
   const handleBanUser = async (id: number, name: string) => {
     if (!confirm(`Ban ${name}? Their trust score will be set to -999.`)) return;
-    await apiFetch(`/admin/users/${id}`, { method: "DELETE" });
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, trustScore: -999 } : u));
-    toast({ title: "🚫 User Banned", description: `${name} has been banned.` });
+    try {
+      const res = await apiFetch(`/admin/users/${id}`, { method: "DELETE" });
+      await readApiJson(res);
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, trustScore: -999 } : u));
+      toast({ title: "🚫 User Banned", description: `${name} has been banned.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Ban failed", description: error instanceof Error ? error.message : "Please try again." });
+    }
   };
 
   const handleVerify = async (user: any) => {
@@ -163,7 +194,7 @@ export default function AdminPanel() {
       method: "PATCH",
       body: JSON.stringify({ isPremium: !user.isPremium }),
     });
-    const data = await res.json();
+    const data = await readApiJson(res);
     if (data.success) {
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isPremium: !u.isPremium } : u));
       toast({ title: "Updated", description: `${user.name} is now ${!user.isPremium ? "✅ Verified" : "Unverified"}.` });
@@ -171,18 +202,23 @@ export default function AdminPanel() {
   };
 
   const handleResolveUserReport = async (id: number, status: "reviewed" | "dismissed") => {
-    await apiFetch(`/admin/user-reports/${id}/resolve`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    setUserReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
-    toast({ title: status === "reviewed" ? "✅ Marked Reviewed" : "Dismissed" });
+    try {
+      const res = await apiFetch(`/admin/user-reports/${id}/resolve`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      await readApiJson(res);
+      setUserReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+      toast({ title: status === "reviewed" ? "✅ Marked Reviewed" : "Dismissed" });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Could not update report", description: error instanceof Error ? error.message : "Please try again." });
+    }
   };
 
   const handleApprove = async (txId: number) => {
     if (!confirm("Have you transferred the money via UPI? This cannot be undone.")) return;
     const res = await apiFetch(`/admin/transactions/${txId}/approve`, { method: "POST" });
-    const data = await res.json();
+    const data = await readApiJson(res);
     if (data.success) {
       toast({ title: "✅ Approved", description: "Withdrawal marked as completed." });
       fetchData();
@@ -194,7 +230,7 @@ export default function AdminPanel() {
   const handleReject = async (txId: number) => {
     if (!confirm("Reject this withdrawal and refund credits to user?")) return;
     const res = await apiFetch(`/admin/transactions/${txId}/reject`, { method: "POST" });
-    const data = await res.json();
+    const data = await readApiJson(res);
     if (data.success) {
       toast({ title: "❌ Rejected & Refunded", description: "Credits returned to user." });
       fetchData();
@@ -212,7 +248,7 @@ export default function AdminPanel() {
       method: "POST",
       body: JSON.stringify({ action }),
     });
-    const data = await res.json();
+    const data = await readApiJson(res);
     if (data.success) {
       toast({ title: "✅ Session Resolved" });
       fetchData();
@@ -225,7 +261,7 @@ export default function AdminPanel() {
     setHistoryLoading(true);
     try {
       const res = await apiFetch(`/admin/user/${user.id}/history`);
-      setHistoryData(await res.json());
+      setHistoryData(await readApiJson(res));
     } catch {
       toast({ variant: "destructive", title: "Error", description: "Could not load history." });
     } finally {
@@ -244,7 +280,7 @@ export default function AdminPanel() {
         method: "POST",
         body: JSON.stringify({ title: notifTitle, message: notifMessage, targetGroup: notifTarget }),
       });
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (data.success) {
         toast({ title: `✅ Sent to ${data.sentTo} users`, description: `"${notifTitle}" delivered.` });
         setNotifTitle(""); setNotifMessage("");
@@ -259,12 +295,16 @@ export default function AdminPanel() {
   };
 
   // ─── Export CSV helpers ───────────────────────────────────────
-  const downloadCSV = (rows: string[][], filename: string) => {
+  const downloadCSV = (rows: unknown[][], filename: string) => {
     const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const exportUsers = () => downloadCSV(
@@ -314,24 +354,29 @@ export default function AdminPanel() {
     setSearchLoading(true);
     try {
       const res = await apiFetch(`/admin/search?q=${encodeURIComponent(searchQuery)}`);
-      setSearchResults(await res.json());
+      setSearchResults(await readApiJson(res));
     } catch { } finally { setSearchLoading(false); }
   };
 
   const handleSuspend = async (userId: number, suspend: boolean, name: string) => {
     const reason = suspend ? prompt(`Reason for suspending ${name}?`) : "Unsuspended by admin";
     if (suspend && !reason) return;
-    await apiFetch(`/admin/users/${userId}/suspend`, {
-      method: "PATCH", body: JSON.stringify({ suspend, reason }),
-    });
-    toast({ title: suspend ? "User Suspended" : "User Unsuspended", description: name });
-    fetchData();
+    try {
+      const res = await apiFetch(`/admin/users/${userId}/suspend`, {
+        method: "PATCH", body: JSON.stringify({ suspend, reason }),
+      });
+      await readApiJson(res);
+      toast({ title: suspend ? "User Suspended" : "User Unsuspended", description: name });
+      fetchData();
+    } catch (error) {
+      toast({ variant: "destructive", title: "User status update failed", description: error instanceof Error ? error.message : "Please try again." });
+    }
   };
 
   const handleLoginAs = async (userId: number, name: string) => {
     if (!confirm(`Login as ${name}? This will give you their session token.`)) return;
     const res = await apiFetch(`/admin/users/${userId}/login-as`, { method: "POST" });
-    const data = await res.json();
+    const data = await readApiJson(res);
     if (data.token) {
       navigator.clipboard.writeText(data.token);
       toast({ title: "Token Copied!", description: "JWT token copied to clipboard." });
@@ -344,7 +389,7 @@ export default function AdminPanel() {
       const res = await apiFetch("/admin/settings", {
         method: "PATCH", body: JSON.stringify(platformSettings),
       });
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (data.success) { setPlatformSettings(data.settings); toast({ title: "Settings Saved!" }); }
     } catch { } finally { setSettingsSaving(false); }
   };
@@ -596,10 +641,10 @@ export default function AdminPanel() {
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 text-xs font-semibold transition-colors">
                               <CreditCard className="w-3 h-3" /> Credits
                             </button>
-                            <button onClick={() => handleLoginAs(u.id, u.name)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-semibold transition-colors">
-                              <LogIn className="w-3 h-3" /> Login As
-                            </button>
+                            <span title="Requires a restricted, short-lived backend impersonation token."
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-50 text-gray-400 text-xs font-semibold cursor-not-allowed">
+                              <LogIn className="w-3 h-3" /> Login As Disabled
+                            </span>
                             <button onClick={() => handleSuspend(u.id, !(u as any).isSuspended, u.name)}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-600 text-xs font-semibold transition-colors">
                               <UserX className="w-3 h-3" /> {(u as any).isSuspended ? "Unsuspend" : "Suspend"}
