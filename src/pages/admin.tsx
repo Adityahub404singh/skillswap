@@ -7,7 +7,7 @@ import {
   Trash2, Plus, Minus, X, Shield, TrendingUp, CheckCircle,
   MessageSquare, Mail, Star, History, AlertTriangle, RefreshCw,
   BadgeCheck, Ban, Search, Download, Bell, Send, Filter, Flag,
-  ExternalLink, Clock, ChevronDown,
+  ExternalLink, Clock, ChevronDown, Menu,
   BarChart2, Settings, AlertCircle, UserX, LineChart, PieChart, LogIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,9 @@ export default function AdminPanel() {
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [systemHealth, setSystemHealth] = useState<any>(null);
 
   // Data states
   const [stats, setStats] = useState<any>(null);
@@ -37,8 +40,6 @@ export default function AdminPanel() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
-  const [subscribers, setSubscribers] = useState<any[]>([]);
   const [adminEmail, setAdminEmail] = useState("");
 
   // Search / filter states
@@ -47,6 +48,29 @@ export default function AdminPanel() {
   const [sessionStatusFilter, setSessionStatusFilter] = useState("all");
   const [txSearch, setTxSearch] = useState("");
   const [txTypeFilter, setTxTypeFilter] = useState("all");
+
+  // Advanced control-room state. These controls operate only on routes
+  // implemented by the supplied admin router; unsupported actions are not shown.
+  const [controlQuery, setControlQuery] = useState("");
+  const [controlResource, setControlResource] = useState("users");
+  const [controlPage, setControlPage] = useState(1);
+  const [controlPageSize, setControlPageSize] = useState(20);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [bulkReason, setBulkReason] = useState("Reviewed by admin");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [detailRecord, setDetailRecord] = useState<any>(null);
+  const [detailResource, setDetailResource] = useState("user");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [capabilities, setCapabilities] = useState<any>(null);
+  const [capabilitiesLoading, setCapabilitiesLoading] = useState(false);
+  const [operationLog, setOperationLog] = useState<Array<{id:string; label:string; detail:string; at:string; ok:boolean}>>([]);
+  const [quickActionUserId, setQuickActionUserId] = useState("");
+  const [quickActionAmount, setQuickActionAmount] = useState("");
+  const [quickActionReason, setQuickActionReason] = useState("");
+  const [quickActionBusy, setQuickActionBusy] = useState(false);
+  const [globalDatePreset, setGlobalDatePreset] = useState("all");
 
   // Modal states
   const [creditModal, setCreditModal] = useState<any>(null);
@@ -90,31 +114,74 @@ export default function AdminPanel() {
     return payload;
   };
 
-  // ─── Fetch all data ──────────────────────────────────────────
+  // ─── Fetch all admin data ─────────────────────────────────────
+  const getArray = (payload: any, ...keys: string[]): any[] => {
+    if (Array.isArray(payload)) return payload;
+    for (const key of keys) {
+      if (Array.isArray(payload?.[key])) return payload[key];
+    }
+    return [];
+  };
+
   const fetchData = async () => {
     setLoading(true);
-    try {
-      const [statsRes, usersRes, sessionsRes, txRes, pendingRes, fbRes, subRes] =
-        await Promise.all([
-          apiFetch("/admin/stats").then(readApiJson),
-          apiFetch("/admin/users").then(readApiJson),
-          apiFetch("/admin/sessions").then(readApiJson),
-          apiFetch("/admin/transactions").then(readApiJson),
-          apiFetch("/admin/pending-withdrawals").then(readApiJson),
-          apiFetch("/platform/admin/feedbacks").then(readApiJson),
-          apiFetch("/platform/admin/subscribers").then(readApiJson),
-        ]);
 
-      setStats(statsRes);
-      setUsers(Array.isArray(usersRes) ? usersRes : []);
-      setSessions(Array.isArray(sessionsRes) ? sessionsRes : []);
-      setTransactions(Array.isArray(txRes) ? txRes : []);
-      setPendingWithdrawals(Array.isArray(pendingRes) ? pendingRes : []);
-      setFeedbacks(Array.isArray(fbRes) ? fbRes : []);
-      setSubscribers(Array.isArray(subRes) ? subRes : []);
+    // Backend caps page size at 100. Tables show the newest 100 records per resource.
+    const requests = [
+      ["stats", "/admin/stats"],
+      ["users", "/admin/users?page=1&limit=100"],
+      ["sessions", "/admin/sessions?page=1&limit=100"],
+      ["transactions", "/admin/transactions?page=1&limit=100"],
+      ["withdrawals", "/admin/pending-withdrawals"],
+    ] as const;
+
+    try {
+      const results = await Promise.allSettled(
+        requests.map(([, path]) => apiFetch(path).then(readApiJson))
+      );
+
+      const payloads: Record<string, any> = {};
+      const failed: string[] = [];
+
+      results.forEach((result, index) => {
+        const key = requests[index][0];
+        if (result.status === "fulfilled") {
+          payloads[key] = result.value;
+        } else {
+          payloads[key] = null;
+          failed.push(key);
+          console.error(`Admin ${key} request failed:`, result.reason);
+        }
+      });
+
+      const statsPayload = payloads.stats;
+      setStats(statsPayload ?? null);
+
+      setUsers(getArray(payloads.users, "users", "data").map((u: any) => ({
+        ...u,
+        isPremium: Boolean(u.isPremiumUser ?? u.isPremium),
+        isSuspended: Boolean(u.isSuspended),
+      })));
+      setSessions(getArray(payloads.sessions, "sessions", "data"));
+      setTransactions(getArray(payloads.transactions, "transactions", "data"));
+      setPendingWithdrawals(getArray(payloads.withdrawals, "withdrawals", "transactions", "data"));
+
       setLastRefreshed(new Date());
-    } catch {
-      toast({ variant: "destructive", title: "Fetch Error", description: "Could not load admin data." });
+
+      if (failed.length) {
+        toast({
+          variant: "destructive",
+          title: "Some admin data could not be loaded",
+          description: `Failed sections: ${failed.join(", ")}. Check the backend logs.`,
+        });
+      }
+    } catch (error) {
+      console.error("Admin dashboard fetch failed:", error);
+      toast({
+        variant: "destructive",
+        title: "Fetch Error",
+        description: error instanceof Error ? error.message : "Could not load admin data.",
+      });
     } finally {
       setLoading(false);
     }
@@ -123,12 +190,34 @@ export default function AdminPanel() {
   useEffect(() => {
     if (!token) { setLocation("/login"); return; }
     apiFetch("/users/me").then(readApiJson).then(u => setAdminEmail(u.email || "")).catch(() => toast({ variant: "destructive", title: "Admin profile unavailable" }));
-    apiFetch("/admin/analytics").then(readApiJson).then(setAnalytics).catch(() => {});
+    apiFetch("/admin/analytics").then(readApiJson).then(setAnalytics).catch(error => console.error("Analytics fetch failed:", error));
+    setCapabilitiesLoading(true);
+    apiFetch("/admin/capabilities").then(readApiJson).then(setCapabilities).catch(error => {
+      console.error("Admin capabilities fetch failed:", error);
+      setCapabilities({ success: false, error: error instanceof Error ? error.message : "Unavailable" });
+    }).finally(() => setCapabilitiesLoading(false));
+    apiFetch("/admin/health").then(readApiJson).then(setSystemHealth).catch(error => {
+      setSystemHealth({ success: false, database: "unavailable", error: error instanceof Error ? error.message : "Health check failed" });
+    });
     apiFetch("/admin/reports").then(readApiJson).then(setReports).catch(() => {});
-    apiFetch("/admin/user-reports").then(readApiJson).then(d => setUserReports(Array.isArray(d) ? d : [])).catch(() => {});
-    apiFetch("/admin/settings").then(readApiJson).then(setPlatformSettings).catch(() => {});
+    apiFetch("/admin/user-reports")
+      .then(readApiJson)
+      .then(d => setUserReports(getArray(d, "reports", "userReports", "data")))
+      .catch(error => console.error("User reports fetch failed:", error));
+    apiFetch("/admin/settings").then(readApiJson).then(d => setPlatformSettings(d.settings ?? null)).catch(error => {
+      console.error("Admin settings fetch failed:", error);
+    });
     fetchData();
   }, [token]);
+
+  // Optional live refresh. Disabled by default to avoid unnecessary API traffic.
+  useEffect(() => {
+    if (!token || !autoRefresh) return;
+    const intervalId = window.setInterval(() => {
+      void fetchData();
+    }, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, [token, autoRefresh]);
 
   // ─── Filtered data ───────────────────────────────────────────
   const filteredUsers = users.filter(u => {
@@ -196,8 +285,10 @@ export default function AdminPanel() {
     });
     const data = await readApiJson(res);
     if (data.success) {
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isPremium: !u.isPremium } : u));
-      toast({ title: "Updated", description: `${user.name} is now ${!user.isPremium ? "✅ Verified" : "Unverified"}.` });
+      setUsers(prev => prev.map(u => u.id === user.id ? {
+        ...u, isPremium: !user.isPremium, isPremiumUser: !user.isPremium,
+      } : u));
+      toast({ title: "Updated", description: `${user.name} ${!user.isPremium ? "was granted premium" : "had premium removed"}.` });
     }
   };
 
@@ -216,42 +307,80 @@ export default function AdminPanel() {
   };
 
   const handleApprove = async (txId: number) => {
-    if (!confirm("Have you transferred the money via UPI? This cannot be undone.")) return;
-    const res = await apiFetch(`/admin/transactions/${txId}/approve`, { method: "POST" });
-    const data = await readApiJson(res);
-    if (data.success) {
-      toast({ title: "✅ Approved", description: "Withdrawal marked as completed." });
-      fetchData();
-    } else {
-      toast({ variant: "destructive", title: "Error", description: data.error });
+    if (!confirm("Confirm that the actual payout has already been transferred to the user's UPI/bank account. Continue?")) return;
+
+    const payoutReference = prompt(
+      "Enter the real UPI transaction ID / bank UTR / payout reference:"
+    )?.trim();
+
+    if (!payoutReference) {
+      toast({
+        variant: "destructive",
+        title: "Payout reference required",
+        description: "Withdrawal was not marked paid. Complete the real transfer first and enter its reference.",
+      });
+      return;
+    }
+
+    try {
+      const res = await apiFetch(`/admin/transactions/${txId}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ payoutReference }),
+      });
+      const data = await readApiJson(res);
+
+      if (data.success) {
+        toast({ title: "✅ Approved", description: "Withdrawal marked as completed." });
+        await fetchData();
+      } else {
+        throw new Error(data.error || "Could not approve withdrawal.");
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Approval failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
     }
   };
 
   const handleReject = async (txId: number) => {
-    if (!confirm("Reject this withdrawal and refund credits to user?")) return;
-    const res = await apiFetch(`/admin/transactions/${txId}/reject`, { method: "POST" });
-    const data = await readApiJson(res);
-    if (data.success) {
-      toast({ title: "❌ Rejected & Refunded", description: "Credits returned to user." });
-      fetchData();
-    } else {
-      toast({ variant: "destructive", title: "Error", description: data.error });
+    if (!confirm("Reject this withdrawal? The backend will refund the credits to the user.")) return;
+    const reason = prompt("Enter rejection reason (optional):")?.trim() || "Rejected by admin";
+    try {
+      const res = await apiFetch(`/admin/transactions/${txId}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      const data = await readApiJson(res);
+      if (data.success) {
+        toast({ title: "Withdrawal rejected", description: "Credits were refunded to the user." });
+        await fetchData();
+      } else {
+        throw new Error(data.error || "Could not reject withdrawal.");
+      }
+    } catch (error) {
+      toast({ variant: "destructive", title: "Rejection failed", description: error instanceof Error ? error.message : "Please try again." });
     }
   };
 
   const handleResolve = async (sessionId: number, action: string) => {
     const msg = action === "refund_student"
-      ? "Cancel session and REFUND student's credits?"
-      : "Force complete and PAY mentor (15% platform fee deducted)?";
+      ? "Cancel this session and refund the student's credits?"
+      : "Force-complete this session and credit the mentor (15% fee deducted)?";
     if (!confirm(msg)) return;
-    const res = await apiFetch(`/admin/sessions/${sessionId}/resolve`, {
-      method: "POST",
-      body: JSON.stringify({ action }),
-    });
-    const data = await readApiJson(res);
-    if (data.success) {
-      toast({ title: "✅ Session Resolved" });
-      fetchData();
+    const reason = prompt("Add an admin resolution note (optional):")?.trim() || "";
+    try {
+      const res = await apiFetch(`/admin/sessions/${sessionId}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({ action, reason }),
+      });
+      const data = await readApiJson(res);
+      if (!data.success) throw new Error(data.error || "Could not resolve session.");
+      toast({ title: "Session resolved", description: data.message || "The session was updated." });
+      await fetchData();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Resolution failed", description: error instanceof Error ? error.message : "Please try again." });
     }
   };
 
@@ -325,12 +454,6 @@ export default function AdminPanel() {
     `skillswap_transactions_${Date.now()}.csv`
   );
 
-  const exportSubscribers = () => downloadCSV(
-    [["Email","Source","Subscribed On"],
-     ...subscribers.map(s => [s.email, s.source, new Date(s.createdAt).toLocaleDateString()])],
-    `skillswap_subscribers_${Date.now()}.csv`
-  );
-
   // ─── Tabs config ─────────────────────────────────────────────
   const tabs = [
     { id: "dashboard",     label: "Dashboard",        icon: LayoutDashboard },
@@ -343,9 +466,8 @@ export default function AdminPanel() {
     { id: "notifications", label: "Notifications",     icon: Bell },
     { id: "reports",       label: "Reports",           icon: AlertTriangle },
     { id: "audit",         label: "Audit Logs",        icon: ClipboardList },
-    { id: "feedback",      label: "Feedback",          icon: MessageSquare, badge: feedbacks.length },
-    { id: "newsletter",    label: "Subscribers",       icon: Mail },
     { id: "settings",      label: "Settings",          icon: Settings },
+    { id: "control",       label: "Advanced Control",   icon: Shield },
   ];
 
   // ─── New handlers ───────────────────────────────────────────
@@ -390,8 +512,233 @@ export default function AdminPanel() {
         method: "PATCH", body: JSON.stringify(platformSettings),
       });
       const data = await readApiJson(res);
-      if (data.success) { setPlatformSettings(data.settings); toast({ title: "Settings Saved!" }); }
-    } catch { } finally { setSettingsSaving(false); }
+      if (data.success) {
+        setPlatformSettings(data.settings);
+        toast({ title: "Settings updated", description: data.persistence || "Settings saved by the server." });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Settings update failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  // Control-room implementation notes:
+  // 1. Every mutating request is sent through apiFetch so the current admin
+  //    bearer token and JSON headers are consistently applied.
+  // 2. Every response is passed through readApiJson so non-2xx responses
+  //    become visible errors instead of silently looking like success.
+  // 3. Bulk operations are intentionally sequential. This avoids flooding
+  //    the API, makes partial success countable, and keeps failures isolated.
+  // 4. Financial approvals are never automated here. The operator must make
+  //    the real payout externally and provide its reference to the backend.
+  // 5. The data explorer only paginates records already loaded into memory.
+  //    Backend list endpoints currently cap a request at 100 records.
+  // 6. CSV export quotes every cell and escapes embedded quote characters.
+  // 7. The operation trace below is a convenience for this browser session;
+  //    it is not represented as a persistent server audit log.
+  // 8. Detail inspection calls the backend detail route instead of trusting
+  //    potentially stale summary rows from the list endpoint.
+  // 9. User selection is held by stable numeric IDs, not array positions,
+  //    so filtering or changing the visible page does not change the target.
+  // 10. The selected-user bulk actions call the same per-user endpoints as
+  //     the single-user controls; no imaginary bulk endpoint is assumed.
+  // 11. If one bulk request fails, later selected users are still processed.
+  // 12. The final toast reports the successful count and a short failure hint.
+  // 13. Date filtering in the explorer is local and uses createdAt values.
+  // 14. Date-range fetching is a separate explicit operation against the
+  //     backend sessions/date-range and transactions/date-range endpoints.
+  // 15. Health and capability requests are informational; they do not grant
+  //     privileges or bypass the backend's authorization checks.
+  // 16. The UI does not expose login-as because the supplied backend disables
+  //     restricted impersonation token issuance.
+  // 17. Settings are displayed with the backend's in-memory persistence
+  //     limitation so an operator does not mistake them for durable config.
+  // 18. Notification delivery uses the server's targetGroup contract.
+  // 19. Session resolution requires explicit confirmation because refunds
+  //     and mentor payouts affect wallet balances.
+  // 20. User deletion is kept in the existing single-user area and is not
+  //     included in bulk controls to reduce accidental destructive actions.
+  // 21. This panel never displays a password or attempts to retrieve one.
+  // 22. Password reset remains a backend action and should only be used after
+  //     verifying the account owner and following the platform's support flow.
+  // 23. A payout reference is required before the backend marks withdrawal
+  //     complete, but the reference itself is not proof that money was sent.
+  // 24. The admin should reconcile the reference with the external payment
+  //     provider or bank statement before approving the transaction.
+  // 25. Browser clipboard and CSV actions are convenience features only.
+  // 26. The backend remains the source of truth for every account balance,
+  //     session state, permission, and transaction status.
+  // 27. Refresh after high-impact operations to reconcile local state.
+  // 28. If health checks fail, avoid running bulk operations until the API
+  //     and database connection have been investigated.
+  // 29. This component does not infer or invent permissions from UI state.
+  // 30. Any future route should be added only after confirming its schema in
+  //     the backend router and its validation behavior.
+
+  // ─── Advanced control-room operations ─────────────────────────
+  const recordOperation = (label: string, detail: string, ok = true) => {
+    setOperationLog(prev => [{
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      label,
+      detail,
+      at: new Date().toISOString(),
+      ok,
+    }, ...prev].slice(0, 40));
+  };
+
+  const toggleUserSelection = (id: number) => {
+    setSelectedUserIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const selectVisibleUsers = (checked: boolean, visibleUsers: any[]) => {
+    const ids = visibleUsers.map(u => Number(u.id)).filter(Number.isFinite);
+    setSelectedUserIds(prev => checked
+      ? Array.from(new Set([...prev, ...ids]))
+      : prev.filter(id => !ids.includes(id)));
+  };
+
+  const runBulkUserAction = async (action: "suspend" | "unsuspend" | "premium-on" | "premium-off" | "verify") => {
+    if (!selectedUserIds.length || bulkBusy) return;
+    const labels: Record<string, string> = {
+      suspend: "suspend selected users",
+      unsuspend: "unsuspend selected users",
+      "premium-on": "grant premium to selected users",
+      "premium-off": "remove premium from selected users",
+      verify: "verify selected users",
+    };
+    if (!confirm(`Are you sure you want to ${labels[action]}? This will update ${selectedUserIds.length} accounts.`)) return;
+    setBulkBusy(true);
+    let succeeded = 0;
+    const failures: string[] = [];
+    for (const id of selectedUserIds) {
+      try {
+        let response: Response;
+        if (action === "suspend" || action === "unsuspend") {
+          response = await apiFetch(`/admin/users/${id}/suspend`, {
+            method: "PATCH",
+            body: JSON.stringify({ suspend: action === "suspend", reason: bulkReason || "Bulk admin action" }),
+          });
+        } else if (action === "verify") {
+          response = await apiFetch(`/admin/users/${id}/verify`, { method: "PATCH", body: JSON.stringify({ isPremium: true }) });
+        } else {
+          response = await apiFetch(`/admin/users/${id}/premium`, {
+            method: "PATCH",
+            body: JSON.stringify({ enabled: action === "premium-on" }),
+          });
+        }
+        await readApiJson(response);
+        succeeded += 1;
+      } catch (error) {
+        failures.push(`#${id}: ${error instanceof Error ? error.message : "failed"}`);
+      }
+    }
+    recordOperation(`Bulk ${action}`, `${succeeded}/${selectedUserIds.length} succeeded${failures.length ? `; ${failures.length} failed` : ""}`, failures.length === 0);
+    toast({
+      title: `Bulk action: ${succeeded}/${selectedUserIds.length} succeeded`,
+      description: failures.slice(0, 2).join(" · ") || "All selected accounts were updated.",
+      variant: failures.length ? "destructive" : "default",
+    });
+    setSelectedUserIds([]);
+    setBulkBusy(false);
+    await fetchData();
+  };
+
+  const runQuickCreditAction = async (add: boolean) => {
+    const id = Number(quickActionUserId);
+    const amount = Number(quickActionAmount);
+    if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(amount) || amount <= 0) {
+      toast({ variant: "destructive", title: "Invalid user or amount", description: "Enter a valid user ID and positive whole-number credits." });
+      return;
+    }
+    if (!confirm(`${add ? "Add" : "Deduct"} ${amount} credits for user #${id}?`)) return;
+    setQuickActionBusy(true);
+    try {
+      const response = await apiFetch(`/admin/users/${id}/credits`, {
+        method: "POST",
+        body: JSON.stringify({ amount: add ? amount : -amount, reason: quickActionReason || "Advanced control room adjustment" }),
+      });
+      const data = await readApiJson(response);
+      recordOperation(add ? "Credit added" : "Credit deducted", `User #${id}; amount ${amount}; balance ${data.newBalance ?? "updated"}`);
+      toast({ title: "Wallet updated", description: `User #${id} · new balance ${data.newBalance ?? "updated"}` });
+      setQuickActionAmount("");
+      await fetchData();
+    } catch (error) {
+      recordOperation(add ? "Credit add failed" : "Credit deduction failed", error instanceof Error ? error.message : "Request failed", false);
+      toast({ variant: "destructive", title: "Wallet update failed", description: error instanceof Error ? error.message : "Please try again." });
+    } finally {
+      setQuickActionBusy(false);
+    }
+  };
+
+  const openAdminDetail = async (resource: "user" | "session", record: any) => {
+    setDetailResource(resource);
+    setDetailRecord(record);
+    setDetailLoading(true);
+    try {
+      const path = resource === "user"
+        ? `/admin/users/${record.id}`
+        : `/admin/sessions/${record.id}`;
+      const response = await apiFetch(path);
+      const data = await readApiJson(response);
+      setDetailRecord(data.user ?? data.session ?? data.data ?? data);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Could not load details", description: error instanceof Error ? error.message : "Please try again." });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const filteredControlRows = (() => {
+    const source = controlResource === "users" ? users : controlResource === "sessions" ? sessions : transactions;
+    const q = controlQuery.trim().toLowerCase();
+    const from = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+    const to = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
+    return source.filter((row: any) => {
+      const searchable = [row.id, row.name, row.email, row.skill, row.description, row.type, row.status, row.userId, row.mentorId, row.studentId]
+        .map(value => String(value ?? "").toLowerCase()).join(" ");
+      const stamp = row.createdAt ? new Date(row.createdAt).getTime() : 0;
+      return (!q || searchable.includes(q)) && (from === null || stamp >= from) && (to === null || stamp <= to);
+    });
+  })();
+  const controlPageCount = Math.max(1, Math.ceil(filteredControlRows.length / controlPageSize));
+  const safeControlPage = Math.min(controlPage, controlPageCount);
+  const pagedControlRows = filteredControlRows.slice((safeControlPage - 1) * controlPageSize, safeControlPage * controlPageSize);
+
+  const exportControlRows = () => {
+    const rows = filteredControlRows.map((row: any) => controlResource === "users"
+      ? [row.id, row.name, row.email, row.credits, row.isPremiumUser ?? row.isPremium, row.isSuspended, row.trustScore, row.createdAt]
+      : controlResource === "sessions"
+        ? [row.id, row.skill, row.mentorId, row.studentId, row.creditsAmount, row.status, row.createdAt]
+        : [row.id, row.userId, row.amount, row.type, row.description, row.createdAt]);
+    const headers = controlResource === "users"
+      ? ["id", "name", "email", "credits", "premium", "suspended", "trustScore", "createdAt"]
+      : controlResource === "sessions"
+        ? ["id", "skill", "mentorId", "studentId", "credits", "status", "createdAt"]
+        : ["id", "userId", "amount", "type", "description", "createdAt"];
+    downloadCSV([headers, ...rows], `skillswap_${controlResource}_filtered_${Date.now()}.csv`);
+    recordOperation("CSV exported", `${filteredControlRows.length} ${controlResource} rows exported`);
+  };
+
+  const runGlobalDateFetch = async () => {
+    try {
+      const query = dateFrom && dateTo ? `?from=${encodeURIComponent(dateFrom)}&to=${encodeURIComponent(dateTo)}` : "";
+      const [sessionResponse, transactionResponse] = await Promise.all([
+        apiFetch(`/admin/sessions/date-range${query}`),
+        apiFetch(`/admin/transactions/date-range${query}`),
+      ]);
+      const [sessionPayload, transactionPayload] = await Promise.all([readApiJson(sessionResponse), readApiJson(transactionResponse)]);
+      setSessions(getArray(sessionPayload, "sessions", "data"));
+      setTransactions(getArray(transactionPayload, "transactions", "data"));
+      recordOperation("Date-range data loaded", `${dateFrom || "start"} → ${dateTo || "latest"}`);
+      toast({ title: "Date-range data refreshed" });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Date-range request failed", description: error instanceof Error ? error.message : "Check the selected dates." });
+    }
   };
 
   // ─── Helpers ─────────────────────────────────────────────────
@@ -418,45 +765,80 @@ export default function AdminPanel() {
 
   // ─── Render ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
 
       {/* ── TOP BAR ── */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-6 py-4 flex items-center justify-between shadow-lg">
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-6 py-4 flex items-center justify-between shadow-lg sticky top-0 z-20">
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(v => !v)}
+            aria-label="Toggle admin navigation"
+            className="md:hidden w-9 h-9 rounded-lg bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
             <Shield className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-white font-extrabold text-xl tracking-tight">SkillSwap Admin</h1>
             <p className="text-slate-400 text-xs">{adminEmail}</p>
+            <p className={`text-[10px] mt-1 ${systemHealth?.database === "connected" ? "text-emerald-400" : "text-amber-300"}`}>
+              ● API {systemHealth?.api || "checking"} · DB {systemHealth?.database || "checking"}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <button
+            type="button"
+            onClick={() => setAutoRefresh(v => !v)}
+            title="Automatically refresh dashboard data every 60 seconds"
+            className={`hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold border transition-colors ${autoRefresh ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" : "border-white/10 text-slate-400 hover:text-white"}`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
+            Auto refresh {autoRefresh ? "ON" : "OFF"}
+          </button>
           {lastRefreshed && (
             <span className="text-slate-500 text-xs flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {lastRefreshed.toLocaleTimeString()}
             </span>
           )}
-          <button onClick={fetchData}
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white text-xs transition-colors">
+          <button onClick={fetchData} disabled={loading}
+            className="flex items-center gap-1.5 text-slate-400 hover:text-white disabled:opacity-50 text-xs transition-colors">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
           <Button variant="outline"
-            className="border-white/20 text-white hover:bg-white/10 rounded-full text-sm"
+            className="border-white/20 text-white hover:bg-white/10 rounded-full text-xs sm:text-sm px-3 sm:px-4"
             onClick={() => setLocation("/dashboard")}>
             ← Exit Admin
           </Button>
         </div>
       </div>
 
-      <div className="flex">
+      <div className="flex relative">
 
         {/* ── SIDEBAR ── */}
-        <aside className="w-56 min-h-screen bg-white border-r border-gray-200 p-3 space-y-0.5 shadow-sm z-10">
+        {mobileMenuOpen && (
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 z-30 bg-slate-950/40 md:hidden"
+          />
+        )}
+        <aside className={`${mobileMenuOpen ? "fixed inset-y-0 left-0 z-40 flex" : "hidden"} md:flex md:sticky md:top-0 md:self-start md:h-screen md:overflow-y-auto w-64 md:w-56 shrink-0 bg-white border-r border-slate-200 p-3 space-y-1 shadow-xl md:shadow-sm flex-col`}>
+          <div className="px-3 py-3 mb-2 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black tracking-[0.18em] text-slate-400 uppercase">Workspace</p>
+              <p className="text-sm font-extrabold text-slate-800">Control Center</p>
+            </div>
+            <button type="button" onClick={() => setMobileMenuOpen(false)} className="md:hidden p-2 rounded-lg hover:bg-slate-100" aria-label="Close menu"><X className="w-4 h-4" /></button>
+          </div>
           {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+            <button key={t.id} onClick={() => { setTab(t.id); setMobileMenuOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                 tab === t.id
                   ? "bg-slate-900 text-white shadow-md"
@@ -476,20 +858,24 @@ export default function AdminPanel() {
         </aside>
 
         {/* ── MAIN CONTENT ── */}
-        <main className="flex-1 p-6 min-h-screen">
+        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8 min-h-screen">
 
           {/* ══ DASHBOARD ══ */}
           {tab === "dashboard" && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-extrabold text-gray-900">Platform Overview</h2>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-500 mb-1">Admin workspace</p>
+                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">Platform Overview</h2>
+                  <p className="text-sm text-slate-500 mt-1">Monitor activity, manage users and keep SkillSwap running smoothly.</p>
+                </div>
                 <button onClick={() => setTab("notifications")}
                   className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition-colors">
                   <Bell className="w-3.5 h-3.5" /> Send Notification
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {[
                   { label: "Total Users",         value: stats?.totalUsers,          color: "text-blue-600",    bg: "bg-blue-50",    icon: Users },
                   { label: "Active Today",        value: stats?.activeUsersToday,    color: "text-cyan-600",    bg: "bg-cyan-50",    icon: Users },
@@ -503,7 +889,7 @@ export default function AdminPanel() {
                   { label: "Pending Withdrawals", value: stats?.pendingWithdrawalsCount ?? 0, color: "text-amber-600", bg: "bg-amber-50", icon: AlertTriangle },
                   { label: "Total Withdrawals",   value: `${stats?.totalWithdrawals ?? 0} cr`, color: "text-pink-600", bg: "bg-pink-50", icon: CreditCard },
                 ].map(s => (
-                  <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+                  <div key={s.label} className="group bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-4 flex items-center gap-3">
                     <div className={`w-11 h-11 rounded-xl ${s.bg} flex items-center justify-center flex-shrink-0`}>
                       <s.icon className={`w-5 h-5 ${s.color}`} />
                     </div>
@@ -513,6 +899,21 @@ export default function AdminPanel() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onClick={() => setTab("users")} className="text-left bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow">
+                  <span className="text-xs text-indigo-100 font-semibold">Manage community</span>
+                  <span className="mt-2 flex items-center justify-between text-lg font-extrabold">View users <Users className="w-5 h-5 opacity-80" /></span>
+                </button>
+                <button onClick={() => setTab("sessions")} className="text-left bg-gradient-to-br from-cyan-600 to-blue-700 text-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow">
+                  <span className="text-xs text-cyan-100 font-semibold">Learning activity</span>
+                  <span className="mt-2 flex items-center justify-between text-lg font-extrabold">Review sessions <BookOpen className="w-5 h-5 opacity-80" /></span>
+                </button>
+                <button onClick={() => setTab("analytics")} className="text-left bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow">
+                  <span className="text-xs text-emerald-100 font-semibold">Platform performance</span>
+                  <span className="mt-2 flex items-center justify-between text-lg font-extrabold">Open analytics <LineChart className="w-5 h-5 opacity-80" /></span>
+                </button>
               </div>
 
               {/* Pending withdrawals alert */}
@@ -560,6 +961,7 @@ export default function AdminPanel() {
                     ({filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ""})
                   </span>
                 </h2>
+                <button onClick={() => { const visible = filteredUsers.map((u:any) => Number(u.id)); setSelectedUserIds(prev => Array.from(new Set([...prev, ...visible]))); setTab("control"); }} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700">Select visible for bulk</button>
                 <button onClick={exportUsers}
                   className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
                   <Download className="w-3.5 h-3.5" /> Export CSV
@@ -579,7 +981,7 @@ export default function AdminPanel() {
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
                       <th className="text-left py-3 px-4 text-gray-500 font-semibold">User</th>
@@ -604,7 +1006,7 @@ export default function AdminPanel() {
                             <div>
                               <p className="font-bold text-gray-900 flex items-center gap-1">
                                 {u.name}
-                                {u.isPremium && <BadgeCheck className="w-3.5 h-3.5 text-blue-500" />}
+                                {u.isPremiumUser && <BadgeCheck className="w-3.5 h-3.5 text-blue-500" />}
                               </p>
                               <p className="text-xs text-gray-400">#{u.id} · {new Date(u.createdAt).toLocaleDateString()}</p>
                             </div>
@@ -624,18 +1026,19 @@ export default function AdminPanel() {
                           {u.trustScore <= -999
                             ? <span className={statusBadge("cancelled")}>BANNED</span>
                             : u.isPremium
-                            ? <span className={statusBadge("completed")}>VERIFIED</span>
+                            ? <span className={statusBadge("completed")}>PREMIUM</span>
                             : <span className={statusBadge("active")}>ACTIVE</span>}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex justify-end gap-1.5">
-                            <button onClick={() => handleViewHistory(u)}
+                            <button onClick={() => toggleUserSelection(Number(u.id))} className={`px-2 py-1 rounded-lg text-[10px] font-bold border ${selectedUserIds.includes(Number(u.id)) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-indigo-600 border-indigo-200"}`}>{selectedUserIds.includes(Number(u.id)) ? "Selected" : "Select"}</button>
+                                <button onClick={() => handleViewHistory(u)}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold transition-colors">
                               <History className="w-3 h-3" /> History
                             </button>
                             <button onClick={() => handleVerify(u)}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold transition-colors">
-                              <BadgeCheck className="w-3 h-3" /> {u.isPremium ? "Unverify" : "Verify"}
+                              <BadgeCheck className="w-3 h-3" /> {u.isPremium ? "Remove Premium" : "Grant Premium"}
                             </button>
                             <button onClick={() => setCreditModal(u)}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 text-xs font-semibold transition-colors">
@@ -710,7 +1113,7 @@ export default function AdminPanel() {
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
                       <th className="text-left py-3 px-4 text-gray-500 font-semibold">ID</th>
@@ -779,7 +1182,7 @@ export default function AdminPanel() {
                 )}
               </h2>
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
                       <th className="text-left py-3 px-4 text-gray-500 font-semibold">Tx ID</th>
@@ -885,7 +1288,7 @@ export default function AdminPanel() {
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
                       <th className="text-left py-3 px-4 text-gray-500 font-semibold">ID</th>
@@ -898,7 +1301,7 @@ export default function AdminPanel() {
                   </thead>
                   <tbody>
                     {filteredTransactions.map((t: any) => {
-                      const isDebit = t.amount < 0 || t.type === "spent" || t.type.includes("withdrawal");
+                      const isDebit = t.amount < 0 || t.type === "spent" || String(t.type || "").includes("withdrawal");
                       return (
                         <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                           <td className="py-3 px-4 font-mono text-xs text-gray-400">#{t.id}</td>
@@ -991,9 +1394,9 @@ export default function AdminPanel() {
           {tab === "audit" && (
             <div className="space-y-4 animate-in fade-in duration-300">
               <h2 className="text-2xl font-extrabold text-gray-900">Audit Logs</h2>
-              <p className="text-gray-500 text-sm">All admin actions — credit grants, refunds, withdrawal decisions, notifications.</p>
+              <p className="text-gray-500 text-sm">Admin activity is represented by admin_action and wallet transaction ledger entries; this backend does not expose a dedicated audit-log table.</p>
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="bg-slate-900 text-white">
                       <th className="text-left py-3 px-4 rounded-tl-2xl font-semibold">Log ID</th>
@@ -1005,7 +1408,7 @@ export default function AdminPanel() {
                   </thead>
                   <tbody>
                     {transactions
-                      .filter((t: any) => ["bonus","refund","withdrawal_rejected","withdrawal_completed"].includes(t.type))
+                      .filter((t: any) => ["admin_action","admin_deduction","bonus","refund","withdrawal_rejected","withdrawal_completed"].includes(t.type))
                       .map((log: any) => (
                         <tr key={log.id} className="border-b hover:bg-slate-50 transition-colors">
                           <td className="py-3 px-4 font-mono text-xs text-gray-400">#{log.id}</td>
@@ -1019,7 +1422,7 @@ export default function AdminPanel() {
                           </td>
                         </tr>
                       ))}
-                    {transactions.filter((t: any) => ["bonus","refund","withdrawal_rejected","withdrawal_completed"].includes(t.type)).length === 0 && (
+                    {transactions.filter((t: any) => ["admin_action","admin_deduction","bonus","refund","withdrawal_rejected","withdrawal_completed"].includes(t.type)).length === 0 && (
                       <tr><td colSpan={5} className="py-10 text-center text-gray-400">No admin actions recorded yet.</td></tr>
                     )}
                   </tbody>
@@ -1027,76 +1430,6 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
-
-          {/* ══ FEEDBACK ══ */}
-          {tab === "feedback" && (
-            <div className="space-y-4 animate-in fade-in duration-300">
-              <h2 className="text-2xl font-extrabold text-gray-900">
-                User Feedback <span className="text-gray-400 font-normal text-lg">({feedbacks.length})</span>
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {feedbacks.length === 0
-                  ? <p className="text-gray-400">No feedback yet.</p>
-                  : feedbacks.map((f: any) => (
-                    <div key={f.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex gap-0.5">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`w-4 h-4 ${i < f.rating ? "fill-orange-400 text-orange-400" : "text-gray-200"}`} />
-                          ))}
-                        </div>
-                        <span className="text-[10px] text-gray-400">{new Date(f.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <p className="text-sm text-gray-700 italic">"{f.text}"</p>
-                      <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-50">
-                        {f.userId ? `User #${f.userId}` : "Anonymous"}
-                      </p>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* ══ NEWSLETTER ══ */}
-          {tab === "newsletter" && (
-            <div className="space-y-4 animate-in fade-in duration-300">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-extrabold text-gray-900">
-                  Subscribers <span className="text-gray-400 font-normal text-lg">({subscribers.length})</span>
-                </h2>
-                <button onClick={exportSubscribers}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
-                  <Download className="w-3.5 h-3.5" /> Export CSV
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/70">
-                      <th className="text-left py-3 px-4 text-gray-500 font-semibold">Email</th>
-                      <th className="text-left py-3 px-4 text-gray-500 font-semibold">Source</th>
-                      <th className="text-left py-3 px-4 text-gray-500 font-semibold">Subscribed On</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {subscribers.map((s: any) => (
-                      <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                        <td className="py-3 px-4 font-bold text-gray-900">{s.email}</td>
-                        <td className="py-3 px-4">
-                          <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-xs font-semibold">{s.source}</span>
-                        </td>
-                        <td className="py-3 px-4 text-gray-400 text-xs">{new Date(s.createdAt).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                    {subscribers.length === 0 && (
-                      <tr><td colSpan={3} className="py-10 text-center text-gray-400">No subscribers yet.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
 
           {/* ══ ANALYTICS ══ */}
           {tab === "analytics" && (
@@ -1147,7 +1480,7 @@ export default function AdminPanel() {
                   </div>
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 md:col-span-2">
                     <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Star className="w-4 h-4 text-yellow-500" /> Top Mentors</h3>
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[760px] text-sm">
                       <thead><tr className="border-b border-gray-100"><th className="text-left py-2 px-3 text-gray-500">Mentor</th><th className="text-left py-2 px-3 text-gray-500">Sessions</th><th className="text-left py-2 px-3 text-gray-500">Earned</th><th className="text-left py-2 px-3 text-gray-500">Rating</th></tr></thead>
                       <tbody>{(analytics.topMentors||[]).map((m:any)=>(
                         <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50/50">
@@ -1232,7 +1565,7 @@ export default function AdminPanel() {
                   </div>
                   <div className="bg-white rounded-2xl border border-green-100 shadow-sm p-5 md:col-span-2">
                     <h3 className="font-bold text-green-600 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4"/>Top Earners</h3>
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[760px] text-sm">
                       <thead><tr className="border-b border-gray-100"><th className="text-left py-2 px-3 text-gray-500">Mentor</th><th className="text-left py-2 px-3 text-gray-500">Sessions</th><th className="text-left py-2 px-3 text-gray-500">Earned</th></tr></thead>
                       <tbody>{reports.topEarners?.map((e:any)=>(
                         <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50/50">
@@ -1316,6 +1649,10 @@ export default function AdminPanel() {
                 </button>
               </div>
               {platformSettings?(
+                <>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Backend note: {platformSettings ? "Settings are currently stored in memory and reset when the server restarts. Maintenance mode is a setting value; this backend does not automatically block API actions." : ""}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {[
                     {key:"sessionFeePercent",label:"Session Platform Fee (%)"},
@@ -1339,7 +1676,214 @@ export default function AdminPanel() {
                     </button>
                   </div>
                 </div>
+                </>
               ):(<div className="py-20 text-center text-gray-400"><RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2"/>Loading settings...</div>)}
+            </div>
+          )}
+
+          {/* ══ ADVANCED CONTROL ROOM ══ */}
+          {tab === "control" && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-600 mb-1">Operator workspace</p>
+                  <h2 className="text-3xl font-black tracking-tight text-slate-900">Advanced Control Room</h2>
+                  <p className="text-sm text-slate-500 mt-1">Bulk account operations, filtered data explorer, wallet controls and backend capability status.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={fetchData} disabled={loading} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">
+                    <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh all data
+                  </button>
+                  <button onClick={() => setTab("audit")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700">
+                    <ClipboardList className="h-4 w-4" /> View audit ledger
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                {[
+                  { label: "Loaded users", value: users.length, hint: "Latest API page", tone: "blue" },
+                  { label: "Loaded sessions", value: sessions.length, hint: "Latest API page", tone: "violet" },
+                  { label: "Transactions", value: transactions.length, hint: "Latest API page", tone: "emerald" },
+                  { label: "Pending withdrawals", value: pendingWithdrawals.length, hint: "Needs manual payout review", tone: "amber" },
+                ].map(card => (
+                  <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold text-slate-500">{card.label}</p>
+                    <p className="mt-2 text-3xl font-black text-slate-900 tabular-nums">{card.value}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{card.hint}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 2xl:grid-cols-5 gap-5">
+                <section className="2xl:col-span-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                  <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      <h3 className="font-extrabold text-slate-900">Data explorer</h3>
+                      <p className="text-xs text-slate-500 mt-1">Search and export the records currently loaded from the backend.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <select value={controlResource} onChange={e => { setControlResource(e.target.value); setControlPage(1); }} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold">
+                        <option value="users">Users</option><option value="sessions">Sessions</option><option value="transactions">Transactions</option>
+                      </select>
+                      <button onClick={exportControlRows} className="h-10 rounded-xl bg-indigo-600 px-3 text-xs font-bold text-white hover:bg-indigo-700"><Download className="inline h-3.5 w-3.5 mr-1" /> Export CSV</button>
+                    </div>
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div className="md:col-span-3 relative">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                        <input value={controlQuery} onChange={e => { setControlQuery(e.target.value); setControlPage(1); }} placeholder="Search ID, email, skill, status, description..." className="h-10 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-indigo-400" />
+                      </div>
+                      <label className="text-[11px] font-bold text-slate-500">From<input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setControlPage(1); }} className="mt-1 block h-10 w-full rounded-xl border border-slate-200 px-3 text-xs text-slate-700" /></label>
+                      <label className="text-[11px] font-bold text-slate-500">To<input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setControlPage(1); }} className="mt-1 block h-10 w-full rounded-xl border border-slate-200 px-3 text-xs text-slate-700" /></label>
+                      <label className="text-[11px] font-bold text-slate-500">Rows per page<select value={controlPageSize} onChange={e => { setControlPageSize(Number(e.target.value)); setControlPage(1); }} className="mt-1 block h-10 w-full rounded-xl border border-slate-200 px-3 text-xs text-slate-700"><option value={10}>10</option><option value={20}>20</option><option value={50}>50</option><option value={100}>100</option></select></label>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
+                      <p className="text-xs text-slate-600"><strong>{filteredControlRows.length}</strong> matching records · page {safeControlPage} of {controlPageCount}</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setControlPage(1)} disabled={safeControlPage === 1} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-40">First</button>
+                        <button onClick={() => setControlPage(p => Math.max(1, p - 1))} disabled={safeControlPage === 1} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-40">Previous</button>
+                        <button onClick={() => setControlPage(p => Math.min(controlPageCount, p + 1))} disabled={safeControlPage === controlPageCount} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-40">Next</button>
+                        <button onClick={() => setControlPage(controlPageCount)} disabled={safeControlPage === controlPageCount} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-40">Last</button>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto rounded-xl border border-slate-100">
+                      <table className="w-full min-w-[650px] text-left text-xs">
+                        <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr>
+                          <th className="px-3 py-3">ID</th><th className="px-3 py-3">Primary detail</th><th className="px-3 py-3">Status / type</th><th className="px-3 py-3">Date</th><th className="px-3 py-3 text-right">Inspect</th>
+                        </tr></thead>
+                        <tbody>
+                          {pagedControlRows.map((row: any) => (
+                            <tr key={`${controlResource}-${row.id}`} className="border-t border-slate-100 hover:bg-indigo-50/30">
+                              <td className="px-3 py-3 font-mono font-bold text-slate-500">#{row.id}</td>
+                              <td className="px-3 py-3"><p className="font-bold text-slate-800">{controlResource === "users" ? (row.name || row.email || "User") : controlResource === "sessions" ? (row.skill || "Session") : (row.description || row.type || "Transaction")}</p><p className="mt-0.5 text-[10px] text-slate-400">{controlResource === "users" ? row.email : controlResource === "sessions" ? `Mentor #${row.mentorId} · Student #${row.studentId}` : `User #${row.userId} · ${row.amount} credits`}</p></td>
+                              <td className="px-3 py-3"><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{row.status || row.type || (row.isSuspended ? "suspended" : "active")}</span></td>
+                              <td className="px-3 py-3 text-slate-500">{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : "—"}</td>
+                              <td className="px-3 py-3 text-right"><button onClick={() => controlResource === "users" || controlResource === "sessions" ? openAdminDetail(controlResource === "users" ? "user" : "session", row) : setDetailRecord(row)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-indigo-600 hover:bg-indigo-50">View</button></td>
+                            </tr>
+                          ))}
+                          {pagedControlRows.length === 0 && <tr><td colSpan={5} className="px-3 py-12 text-center text-slate-400">No matching records. Try changing the filters.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[10px] leading-relaxed text-slate-400">Important: the backend currently caps list requests at 100 rows. This explorer paginates the loaded data locally; it does not claim to show records beyond the fetched API page. CSV export uses the filtered loaded rows.</p>
+                  </div>
+                </section>
+
+                <section className="2xl:col-span-2 space-y-5">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between"><div><h3 className="font-extrabold text-slate-900">Bulk user operations</h3><p className="mt-1 text-xs text-slate-500">Select accounts from the Users tab, then apply an action.</p></div><span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-black text-indigo-700">{selectedUserIds.length} selected</span></div>
+                    <div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="text-[11px] text-slate-600">Selected IDs</p><p className="mt-1 break-all font-mono text-xs font-bold text-slate-800">{selectedUserIds.length ? selectedUserIds.join(", ") : "No users selected"}</p></div>
+                    <label className="mt-3 block text-[11px] font-bold text-slate-500">Reason / audit note<input value={bulkReason} onChange={e => setBulkReason(e.target.value)} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs font-normal" /></label>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button disabled={!selectedUserIds.length || bulkBusy} onClick={() => runBulkUserAction("suspend")} className="rounded-xl bg-rose-600 px-3 py-2.5 text-xs font-bold text-white disabled:opacity-40">Suspend selected</button>
+                      <button disabled={!selectedUserIds.length || bulkBusy} onClick={() => runBulkUserAction("unsuspend")} className="rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white disabled:opacity-40">Unsuspend selected</button>
+                      <button disabled={!selectedUserIds.length || bulkBusy} onClick={() => runBulkUserAction("premium-on")} className="rounded-xl bg-violet-600 px-3 py-2.5 text-xs font-bold text-white disabled:opacity-40">Grant premium</button>
+                      <button disabled={!selectedUserIds.length || bulkBusy} onClick={() => runBulkUserAction("premium-off")} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-bold text-slate-700 disabled:opacity-40">Remove premium</button>
+                      <button disabled={!selectedUserIds.length || bulkBusy} onClick={() => runBulkUserAction("verify")} className="col-span-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-700 disabled:opacity-40">Verify selected accounts</button>
+                    </div>
+                    {bulkBusy && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-indigo-600"><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Processing selected accounts one by one…</p>}
+                    <button onClick={() => setTab("users")} className="mt-3 text-xs font-bold text-indigo-600 hover:underline">Go to Users to select accounts →</button>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h3 className="font-extrabold text-slate-900">Wallet quick action</h3>
+                    <p className="mt-1 text-xs text-slate-500">Uses the backend credit adjustment endpoint and records the reason.</p>
+                    <div className="mt-4 space-y-3">
+                      <label className="block text-[11px] font-bold text-slate-500">User ID<input value={quickActionUserId} onChange={e => setQuickActionUserId(e.target.value)} placeholder="e.g. 42" inputMode="numeric" className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm" /></label>
+                      <label className="block text-[11px] font-bold text-slate-500">Credits<input value={quickActionAmount} onChange={e => setQuickActionAmount(e.target.value)} placeholder="e.g. 100" inputMode="numeric" className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm" /></label>
+                      <label className="block text-[11px] font-bold text-slate-500">Reason<input value={quickActionReason} onChange={e => setQuickActionReason(e.target.value)} placeholder="Reason for adjustment" className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm" /></label>
+                      <div className="grid grid-cols-2 gap-2"><button disabled={quickActionBusy} onClick={() => runQuickCreditAction(true)} className="rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white disabled:opacity-40">Add credits</button><button disabled={quickActionBusy} onClick={() => runQuickCreditAction(false)} className="rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white disabled:opacity-40">Deduct credits</button></div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-extrabold text-slate-900">Backend capability & health</h3><p className="mt-1 text-xs text-slate-500">Live information from /admin/capabilities and /admin/health.</p></div><button onClick={() => { setCapabilitiesLoading(true); Promise.all([apiFetch("/admin/capabilities").then(readApiJson), apiFetch("/admin/health").then(readApiJson)]).then(([c,h]) => { setCapabilities(c); setSystemHealth(h); }).catch(e => toast({ variant: "destructive", title: "Refresh failed", description: e instanceof Error ? e.message : "Request failed" })).finally(() => setCapabilitiesLoading(false)); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold">{capabilitiesLoading ? "Checking…" : "Recheck"}</button></div>
+                  <div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] uppercase text-slate-400">API</p><p className="mt-1 text-sm font-black text-slate-800">{systemHealth?.api || "Unknown"}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] uppercase text-slate-400">Database</p><p className="mt-1 text-sm font-black text-slate-800">{systemHealth?.database || "Unknown"}</p></div></div>
+                  <div className="mt-4 space-y-2 text-xs">
+                    {[
+                      ["Login as / impersonation", capabilities?.loginAs ?? capabilities?.impersonation ?? "Disabled / not advertised"],
+                      ["Settings persistence", capabilities?.settingsPersistence ?? capabilities?.settings ?? "In-memory in supplied backend"],
+                      ["Payout provider", capabilities?.payoutProvider ?? "Manual external payout"],
+                      ["Audit source", capabilities?.auditLog ?? "admin_action transactions"],
+                    ].map(([label, value]) => <div key={String(label)} className="flex items-start justify-between gap-3 border-b border-slate-100 py-2"><span className="text-slate-500">{label}</span><strong className="max-w-[60%] text-right text-slate-800">{String(value)}</strong></div>)}
+                  </div>
+                  {capabilities?.error && <p className="mt-3 rounded-lg bg-amber-50 p-2 text-[11px] text-amber-700">Capability response unavailable: {capabilities.error}</p>}
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-extrabold text-slate-900">Date-range operations</h3><p className="mt-1 text-xs text-slate-500">Load sessions and transactions using backend date-range routes.</p></div><Clock className="h-5 w-5 text-slate-400" /></div>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3"><label className="text-[11px] font-bold text-slate-500">Start date<input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs" /></label><label className="text-[11px] font-bold text-slate-500">End date<input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs" /></label></div>
+                  <button onClick={runGlobalDateFetch} disabled={!dateFrom || !dateTo} className="mt-3 w-full rounded-xl bg-slate-900 py-3 text-xs font-bold text-white disabled:opacity-40">Fetch date-range sessions + transactions</button>
+                  <p className="mt-2 text-[10px] text-slate-400">Both dates are required. This refreshes the sessions and transactions currently held in the dashboard state.</p>
+                </section>
+              </div>
+
+              <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-100 p-5"><div><h3 className="font-extrabold text-slate-900">This-session operation log</h3><p className="mt-1 text-xs text-slate-500">A local activity trace for actions performed in this browser session.</p></div><button onClick={() => setOperationLog([])} className="text-xs font-bold text-slate-500 hover:text-rose-600">Clear log</button></div>
+                <div className="divide-y divide-slate-100">
+                  {operationLog.length ? operationLog.map(item => <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-5 py-3"><div className="flex items-start gap-2"><span className={`mt-1 h-2 w-2 rounded-full ${item.ok ? "bg-emerald-500" : "bg-rose-500"}`} /><div><p className="text-xs font-bold text-slate-800">{item.label}</p><p className="mt-0.5 text-[11px] text-slate-500">{item.detail}</p></div></div><time className="text-[10px] text-slate-400">{new Date(item.at).toLocaleString()}</time></div>) : <p className="px-5 py-10 text-center text-xs text-slate-400">No operations recorded in this browser session yet.</p>}
+                </div>
+              </section>
+
+              {/* Backend route inventory: deliberately limited to endpoints
+                  present in the supplied admin router. This is an operator
+                  reference, not a claim that every route is exposed as a button. */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div><h3 className="font-extrabold text-slate-900">Backend control inventory</h3><p className="mt-1 text-xs text-slate-500">Route map for the admin API reviewed for this panel.</p></div>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">Router aligned</span>
+                </div>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {[
+                    { title: "Platform overview", method: "GET", routes: ["/admin/stats", "/admin/overview", "/admin/health", "/admin/capabilities"] },
+                    { title: "User management", method: "GET / PATCH / POST / DELETE", routes: ["/admin/users", "/admin/users/:id", "/admin/users/:id/suspend", "/admin/users/:id/verify", "/admin/users/:id/premium", "/admin/users/:id/credits", "/admin/users/:id/credits/deduct", "/admin/users/:id/reset-password"] },
+                    { title: "User activity", method: "GET", routes: ["/admin/user/:id/history", "/admin/users/:id/sessions", "/admin/users/:id/transactions", "/admin/users/search", "/admin/users/status/suspended", "/admin/users/status/premium", "/admin/users/status/unverified"] },
+                    { title: "Session operations", method: "GET / PATCH / POST", routes: ["/admin/sessions", "/admin/sessions/:id", "/admin/sessions/:id/cancel", "/admin/sessions/:id/resolve", "/admin/sessions/:id/flag", "/admin/sessions/date-range"] },
+                    { title: "Wallet & payouts", method: "GET / POST / PATCH", routes: ["/admin/transactions", "/admin/transactions/date-range", "/admin/pending-withdrawals", "/admin/transactions/:id/complete", "/admin/transactions/:id/approve", "/admin/transactions/:id/reject"] },
+                    { title: "Communication", method: "POST", routes: ["/admin/notifications/send", "/admin/notifications/user/:id"] },
+                    { title: "Insights & reports", method: "GET / PATCH", routes: ["/admin/analytics", "/admin/analytics/summary", "/admin/reports", "/admin/user-reports", "/admin/user-reports/:id/resolve", "/admin/search"] },
+                    { title: "Configuration", method: "GET / PATCH", routes: ["/admin/settings"] },
+                  ].map(group => (
+                    <div key={group.title} className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+                      <div className="flex items-center justify-between gap-2"><h4 className="text-xs font-extrabold text-slate-800">{group.title}</h4><span className="rounded-md bg-white px-2 py-1 text-[9px] font-black text-slate-500">{group.method}</span></div>
+                      <ul className="mt-3 space-y-1.5">
+                        {group.routes.map(route => <li key={route} className="break-all font-mono text-[10px] leading-relaxed text-slate-500">{route}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-extrabold text-amber-900">Sensitive financial actions</p><p className="mt-1 text-[11px] leading-relaxed text-amber-800">Withdrawal approval only marks a payout completed after an actual external transfer and a valid UTR/reference. This panel does not initiate a bank or UPI transfer. Rejection follows the backend refund behavior.</p></div>
+                  <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4"><p className="text-xs font-extrabold text-indigo-900">Access and persistence limits</p><p className="mt-1 text-[11px] leading-relaxed text-indigo-800">Impersonation is disabled by the backend capability. Settings are in-memory in the supplied router. The operation log on this page is browser-session-local; the backend audit source is admin-action transaction records.</p></div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="font-extrabold text-slate-900">Operational safety checklist</h3>
+                <p className="mt-1 text-xs text-slate-500">Use this checklist before making account, session or wallet changes.</p>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                  {[
+                    ["Confirm identity", "Match the user ID and email before changing an account."],
+                    ["Keep a reason", "Write a clear reason for suspensions and wallet adjustments."],
+                    ["Verify payout first", "Transfer money outside SkillSwap before approving a withdrawal."],
+                    ["Resolve disputes carefully", "Review both participants and session history before refunding or paying."],
+                    ["Refresh after changes", "Reload server data after important operations to confirm the final state."],
+                    ["Export for review", "Download filtered CSV data before offline reconciliation."],
+                    ["Protect credentials", "Never share admin tokens or reset links in screenshots or chat."],
+                    ["Check backend status", "Confirm API and database health before bulk operations."],
+                  ].map(([title, description], index) => (
+                    <div key={title} className="flex gap-3 rounded-xl bg-slate-50 p-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-xs font-black text-indigo-600">{index + 1}</span>
+                      <div><p className="text-xs font-extrabold text-slate-800">{title}</p><p className="mt-1 text-[10px] leading-relaxed text-slate-500">{description}</p></div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             </div>
           )}
 
@@ -1386,6 +1930,31 @@ export default function AdminPanel() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ ADVANCED RECORD INSPECTOR ══ */}
+      {detailRecord && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onClick={() => { setDetailRecord(null); setDetailLoading(false); }}>
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-100 p-5">
+              <div><p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Record inspector</p><h3 className="mt-1 text-xl font-extrabold text-slate-900">{detailResource === "user" ? "User details" : detailResource === "session" ? "Session details" : "Transaction details"} · #{detailRecord.id}</h3></div>
+              <button onClick={() => setDetailRecord(null)} className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="overflow-y-auto p-5">
+              {detailLoading ? <div className="py-12 text-center text-sm text-slate-400"><RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin" />Loading authoritative record…</div> : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {Object.entries(detailRecord).map(([key, value]) => (
+                    <div key={key} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{key.replace(/([A-Z])/g, " $1")}</p>
+                      <p className="mt-1 break-words text-xs font-semibold text-slate-800">{value === null || value === undefined ? "—" : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="border-t border-slate-100 p-4 text-right"><button onClick={() => { navigator.clipboard.writeText(JSON.stringify(detailRecord, null, 2)); toast({ title: "Record JSON copied" }); }} className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white">Copy record JSON</button></div>
           </div>
         </div>
       )}
