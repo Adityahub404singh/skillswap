@@ -40,6 +40,14 @@ import type {
 import { customFetch } from "./custom-fetch.ts";
 import type { ErrorType, BodyType } from "./custom-fetch.ts";
 
+// POST /api/ratings response. Kept local so api.schemas.ts needs no manual import.
+type CreateRatingResponse = {
+  success: boolean;
+  rating: Omit<Rating, "studentName"> & { studentId: number };
+  averageRating: number;
+  totalRatings: number;
+};
+
 type AwaitedInput<T> = PromiseLike<T> | T;
 
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
@@ -1454,8 +1462,8 @@ export const getCreateRatingUrl = () => {
 export const createRating = async (
   createRatingRequest: CreateRatingRequest,
   options?: RequestInit,
-): Promise<Rating> => {
-  return customFetch<Rating>(getCreateRatingUrl(), {
+): Promise<CreateRatingResponse> => {
+  return customFetch<CreateRatingResponse>(getCreateRatingUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },

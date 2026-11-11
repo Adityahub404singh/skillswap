@@ -234,7 +234,7 @@ export default function MentorProfile() {
                     </span>
                     <span className="flex items-center gap-1 bg-purple-50 border border-purple-100 text-[#6C3BFF] font-black px-2.5 py-1 rounded-md text-xs">
                       <Coins className="w-3.5 h-3.5" />
-                      {(mentor as any).pricePerHour || 50} cr / session
+                      {mentor.sessionPrice ?? 50} cr / session
                     </span>
                   </div>
                 </div>
@@ -348,12 +348,12 @@ export default function MentorProfile() {
                 </div>
               ) : ratings && ratings.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {ratings.map((rating: any) => (
+                  {ratings.map((rating) => (
                     <motion.div key={rating.id} whileHover={{ y: -2 }} className="bg-slate-50 p-5 rounded-[20px] border border-gray-100">
                       <div className="flex justify-between items-start mb-3">
                         <div>
                           <p className="font-bold text-slate-800 text-sm">{rating.studentName}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{format(new Date(rating.createdAt), 'MMM d, yyyy')}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{rating.createdAt && !Number.isNaN(new Date(rating.createdAt).getTime()) ? format(new Date(rating.createdAt), 'MMM d, yyyy') : 'Date unavailable'}</p>
                         </div>
                         <div className="flex gap-0.5 bg-white px-2 py-1 rounded-md border border-gray-100 shadow-sm">
                           {[...Array(5)].map((_, i) => (
@@ -361,7 +361,7 @@ export default function MentorProfile() {
                           ))}
                         </div>
                       </div>
-                      <p className="text-sm text-slate-600 font-medium leading-relaxed">"{rating.review || "Great session, highly recommended!"}"</p>
+                      <p className="text-sm text-slate-600 font-medium leading-relaxed">"{rating.review || "No written review provided."}"</p>
                     </motion.div>
                   ))}
                 </div>

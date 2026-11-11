@@ -1,94 +1,279 @@
 import { Router, type IRouter } from "express";
 import { db } from "../db.js";
-import { eq, desc, and } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth.js";
+import {
+  ratingsTable,
+  sessionsTable,
+  usersTable,
+} from "../schema/index.js";
 import { z } from "zod";
-import { pgTable, serial, integer, real, text, timestamp } from "drizzle-orm/pg-core";
-import { sessionsTable, usersTable } from "../schema/index.js";
-
-const ratingsTable = pgTable("ratings", {
-  id:        serial("id").primaryKey(),
-  sessionId: integer("session_id").notNull(),
-  mentorId:  integer("mentor_id").notNull(),
-  rating:    integer("rating").notNull(),
-  review:    text("review"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  raterId:   integer("rater_id"),
-});
 
 const router: IRouter = Router();
 
-// GET /api/ratings/mentor/:mentorId
+const RATEABLE_STATUSES = ["pending_clearance", "completed"];
+
+const createRatingSchema = z
+  .object({
+    sessionId: z.number().int().positive(),
+    rating: z.number().int().min(1).max(5),
+    review: z.string().trim().max(400).optional().default(""),
+  })
+  .strict();
+
+function getAuthenticatedUserId(req: AuthRequest): number | null {
+  const id = Number(req.userId);
+
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+/**
+ * GET /api/ratings/mentor/:mentorId
+ *
+ * Public endpoint.
+ * Returns reviews and public reviewer names for a mentor.
+ */
 router.get("/mentor/:mentorId", async (req, res) => {
   try {
-    const mentorId = parseInt(req.params.mentorId);
+    const mentorId = Number(req.params.mentorId);
+
+    if (!Number.isSafeInteger(mentorId) || mentorId <= 0) {
+      return res.status(400).json({
+        error: "Invalid mentor ID",
+      });
+    }
+
     const ratings = await db
-      .select()
+      .select({
+        id: ratingsTable.id,
+        sessionId: ratingsTable.sessionId,
+        mentorId: ratingsTable.mentorId,
+        studentId: ratingsTable.raterId,
+        rating: ratingsTable.rating,
+        review: ratingsTable.review,
+        studentName: usersTable.name,
+        createdAt: ratingsTable.createdAt,
+      })
       .from(ratingsTable)
+      .innerJoin(
+        usersTable,
+        eq(ratingsTable.raterId, usersTable.id),
+      )
       .where(eq(ratingsTable.mentorId, mentorId))
-      .orderBy(desc(ratingsTable.createdAt));
-    res.json(ratings);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+      .orderBy(desc(ratingsTable.createdAt))
+      .limit(100);
+
+    return res.json(ratings);
+  } catch (error) {
+    console.error("[ratings] list failed:", error);
+
+    return res.status(500).json({
+      error: "Failed to load ratings",
+    });
   }
 });
 
-// POST /api/ratings
+/**
+ * POST /api/ratings
+ *
+ * Authenticated student can rate their own completed/ended
+ * one-to-one session.
+ *
+ * Mentor ID is derived from the session, never trusted from client.
+ */
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { sessionId, mentorId, rating, review } = z.object({
-      sessionId: z.number(),
-      mentorId:  z.number(),
-      rating:    z.number().min(1).max(5),
-      review:    z.string().max(500).optional(),
-    }).parse(req.body);
+    const raterId = getAuthenticatedUserId(req);
 
-    // Verify the rater actually took this session with this mentor,
-    // and that the session is done — otherwise anyone could fake-rate anyone.
-    const [session] = await db.select().from(sessionsTable).where(
-      and(eq(sessionsTable.id, sessionId), eq(sessionsTable.mentorId, mentorId))
-    );
-    if (!session) return res.status(404).json({ error: "Session not found" });
-    if (session.studentId !== req.userId!) {
-      return res.status(403).json({ error: "Only the student who took this session can rate it" });
-    }
-    if (!["completed", "pending_clearance"].includes(session.status)) {
-      return res.status(400).json({ error: "Session must be completed before rating" });
+    if (!raterId) {
+      return res.status(401).json({
+        error: "Invalid login session. Please log in again.",
+      });
     }
 
-    // 🔥 FIX: Duplicate-rating guard — pehle ye check nahi tha, ek session pe
-    // unlimited baar rating submit ho sakti thi (fake-review spam risk).
-    if ((session as any).teacherRating) {
-      return res.status(400).json({ error: "You've already rated this session" });
+    const parsed = createRatingSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: "Invalid rating details",
+        details: parsed.error.flatten(),
+      });
     }
 
-    const [r] = await db.insert(ratingsTable).values({
-      sessionId, mentorId, rating,
-      review: review ?? null,
-      raterId: req.userId!,
-    }).returning();
+    const { sessionId, rating, review } = parsed.data;
+    const cleanReview = review.trim() || null;
 
-    // 🔥 FIX: Session pe flag set karo (duplicate-check aur frontend "already
-    // rated" button hide dono isi field pe depend karte hain — pehle ye kabhi
-    // set hi nahi hota tha kyunki asli insert yahan, is route me hota hai).
-    await db.update(sessionsTable)
-      .set({ teacherRating: rating, teacherReview: review ?? null } as any)
-      .where(eq(sessionsTable.id, sessionId));
+    const result = await db.transaction(async (tx) => {
+      // Lock the session to serialize rating requests for this session.
+      const [session] = await tx
+        .select()
+        .from(sessionsTable)
+        .where(eq(sessionsTable.id, sessionId))
+        .for("update")
+        .limit(1);
 
-    // 🔥 FIX: Mentor ka averageRating ab real reviews se calculate hoke
-    // actually save hota hai — pehle ye column kabhi update hi nahi hota tha,
-    // isliye Discover/Explore/Profile pe hamesha purana/default rating dikhta rehta.
-    const allMentorRatings = await db.select({ rating: ratingsTable.rating })
-      .from(ratingsTable).where(eq(ratingsTable.mentorId, mentorId));
-    const newAvg = allMentorRatings.length > 0
-      ? Math.round((allMentorRatings.reduce((sum, x) => sum + x.rating, 0) / allMentorRatings.length) * 10) / 10
-      : rating;
-    await db.update(usersTable).set({ averageRating: newAvg } as any).where(eq(usersTable.id, mentorId));
+      if (!session) {
+        return {
+          error: "Session not found",
+          status: 404 as const,
+        };
+      }
 
-    res.status(201).json(r);
-  } catch (err: any) {
-    if (err instanceof z.ZodError) return res.status(400).json({ error: err.message });
-    res.status(400).json({ error: err.message });
+      // Only the actual student of this session can rate.
+      if (Number(session.studentId) !== raterId) {
+        return {
+          error: "Only the student who took this session can rate it.",
+          status: 403 as const,
+        };
+      }
+
+      // Group sessions are not supported by this rating flow.
+      if (Number(session.isGroup ?? 0) === 1) {
+        return {
+          error: "Group sessions cannot be rated through this form.",
+          status: 400 as const,
+        };
+      }
+
+      if (!RATEABLE_STATUSES.includes(session.status)) {
+        return {
+          error: "Only ended sessions can be rated.",
+          status: 400 as const,
+        };
+      }
+
+      const mentorId = Number(session.mentorId);
+
+      if (!Number.isSafeInteger(mentorId) || mentorId <= 0) {
+        return {
+          error: "Invalid mentor for this session.",
+          status: 400 as const,
+        };
+      }
+
+      // Legacy session-level duplicate check.
+      if (session.teacherRating != null) {
+        return {
+          error: "You've already rated this session.",
+          status: 409 as const,
+        };
+      }
+
+      // Check the ratings table as well.
+      const [existing] = await tx
+        .select({
+          id: ratingsTable.id,
+        })
+        .from(ratingsTable)
+        .where(eq(ratingsTable.sessionId, sessionId))
+        .limit(1);
+
+      if (existing) {
+        return {
+          error: "This session has already been rated.",
+          status: 409 as const,
+        };
+      }
+
+      // Lock mentor row before recalculating the average.
+      const [mentor] = await tx
+        .select({
+          id: usersTable.id,
+        })
+        .from(usersTable)
+        .where(eq(usersTable.id, mentorId))
+        .for("update")
+        .limit(1);
+
+      if (!mentor) {
+        return {
+          error: "Mentor not found.",
+          status: 404 as const,
+        };
+      }
+
+      const [created] = await tx
+        .insert(ratingsTable)
+        .values({
+          sessionId,
+          raterId,
+          mentorId,
+          rating,
+          review: cleanReview,
+        })
+        .returning({
+          id: ratingsTable.id,
+          sessionId: ratingsTable.sessionId,
+          mentorId: ratingsTable.mentorId,
+          studentId: ratingsTable.raterId,
+          rating: ratingsTable.rating,
+          review: ratingsTable.review,
+          createdAt: ratingsTable.createdAt,
+        });
+
+      // Keep session-level rating fields synchronized.
+      await tx
+        .update(sessionsTable)
+        .set({
+          teacherRating: rating,
+          teacherReview: cleanReview,
+        })
+        .where(eq(sessionsTable.id, sessionId));
+
+      // Recalculate mentor average from actual rating records.
+      const [aggregate] = await tx
+        .select({
+          average: sql<number>`
+            COALESCE(AVG(${ratingsTable.rating}), 0)::float
+          `,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(ratingsTable)
+        .where(eq(ratingsTable.mentorId, mentorId));
+
+      const averageRating =
+        Math.round(Number(aggregate?.average ?? 0) * 10) / 10;
+
+      const totalRatings = Number(aggregate?.count ?? 0);
+
+      await tx
+        .update(usersTable)
+        .set({
+          averageRating,
+        })
+        .where(eq(usersTable.id, mentorId));
+
+      return {
+        created,
+        averageRating,
+        totalRatings,
+      };
+    });
+
+    if ("error" in result) {
+      return res.status(result.status).json({
+        error: result.error,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      rating: result.created,
+      averageRating: result.averageRating,
+      totalRatings: result.totalRatings,
+    });
+  } catch (error: any) {
+    if (error?.code === "23505") {
+      return res.status(409).json({
+        error: "This session has already been rated.",
+      });
+    }
+
+    console.error("[ratings] create failed:", error);
+
+    return res.status(500).json({
+      error: "Failed to submit rating. Please try again.",
+    });
   }
 });
 

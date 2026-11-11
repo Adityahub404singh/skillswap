@@ -5,6 +5,7 @@
  * SkillSwap API - Peer-to-peer skill exchange platform
  * OpenAPI spec version: 0.1.0
  */
+
 export interface HealthStatus {
   status: string;
 }
@@ -88,7 +89,7 @@ export interface MentorMatch {
 
 export interface BookSessionRequest {
   mentorId: number;
-    scheduledAt: string;
+  scheduledAt: string;
   skill: string;
   scheduledDate: string;
   /** Duration in minutes */
@@ -97,7 +98,8 @@ export interface BookSessionRequest {
   creditsAmount?: number;
 }
 
-export type SessionStatus = (typeof SessionStatus)[keyof typeof SessionStatus];
+export type SessionStatus =
+  (typeof SessionStatus)[keyof typeof SessionStatus];
 
 export const SessionStatus = {
   requested: "requested",
@@ -106,6 +108,13 @@ export const SessionStatus = {
   cancelled: "cancelled",
 } as const;
 
+/* =========================
+   RATINGS
+========================= */
+
+/**
+ * Rating returned by GET mentor ratings API.
+ */
 export interface Rating {
   id: number;
   sessionId: number;
@@ -116,6 +125,50 @@ export interface Rating {
   studentName: string;
   createdAt: string;
 }
+
+/**
+ * Request body for creating a rating.
+ * mentorId is derived from the session on the backend.
+ */
+export interface CreateRatingRequest {
+  sessionId: number;
+
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+
+  review?: string;
+}
+
+/**
+ * Rating object returned after creating a rating.
+ * studentName is not included unless the backend explicitly returns it.
+ */
+export interface CreatedRating {
+  id: number;
+  sessionId: number;
+  mentorId: number;
+  studentId: number;
+  rating: number;
+  review?: string | null;
+  createdAt: string;
+}
+
+/**
+ * Response returned by POST /ratings.
+ */
+export interface CreateRatingResponse {
+  success: boolean;
+  rating: CreatedRating;
+  averageRating: number;
+  totalRatings: number;
+}
+
+/* =========================
+   SESSIONS
+========================= */
 
 export interface Session {
   id: number;
@@ -134,12 +187,20 @@ export interface Session {
   createdAt: string;
 }
 
+/* =========================
+   WALLET
+========================= */
+
 export interface Wallet {
   balance: number;
   userId: number;
   totalEarned: number;
   totalSpent: number;
 }
+
+/* =========================
+   TRANSACTIONS
+========================= */
 
 export type TransactionType =
   (typeof TransactionType)[keyof typeof TransactionType];
@@ -157,28 +218,28 @@ export const TransactionType = {
 export interface Transaction {
   id: number;
   userId: number;
+
   /** Positive for credit, negative for debit */
   amount: number;
+
   type: TransactionType;
   description: string;
   sessionId?: number | null;
   createdAt: string;
 }
 
-export interface CreateRatingRequest {
-  sessionId: number;
-  /**
-   * @minimum 1
-   * @maximum 5
-   */
-  rating: number;
-  review?: string;
-}
+/* =========================
+   SKILLS API PARAMS
+========================= */
 
 export type GetSkillsParams = {
   category?: string;
   search?: string;
 };
+
+/* =========================
+   MY SESSIONS API PARAMS
+========================= */
 
 export type GetMySessionsParams = {
   role?: GetMySessionsRole;

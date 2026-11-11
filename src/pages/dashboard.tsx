@@ -98,20 +98,36 @@ function QuickAction({
   color: string;
   wide?: boolean;
 }) {
+  const card = (
+    <motion.div
+      whileHover={{ y: -5 }}
+      whileTap={{ scale: 0.97 }}
+      className="h-full min-h-[132px] bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col items-center justify-center gap-3 text-center cursor-pointer group"
+    >
+      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110 ${color}`}>
+        {icon}
+      </div>
+      <span className="font-bold text-slate-700 text-sm group-hover:text-violet-700 transition-colors">
+        {title}
+      </span>
+    </motion.div>
+  );
+
+  const wrapperClass = wide ? "col-span-2 sm:col-span-1" : "";
+  const isStaticHtmlPage = href.split("?")[0].endsWith(".html");
+
+  // Static HTML files must use normal browser navigation, not Wouter routing.
+  if (isStaticHtmlPage) {
+    return (
+      <a href={href} className={wrapperClass}>
+        {card}
+      </a>
+    );
+  }
+
   return (
-    <Link href={href} className={wide ? "col-span-2 sm:col-span-1" : ""}>
-      <motion.div
-        whileHover={{ y: -5 }}
-        whileTap={{ scale: 0.97 }}
-        className="h-full min-h-[132px] bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col items-center justify-center gap-3 text-center cursor-pointer group"
-      >
-        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110 ${color}`}>
-          {icon}
-        </div>
-        <span className="font-bold text-slate-700 text-sm group-hover:text-violet-700 transition-colors">
-          {title}
-        </span>
-      </motion.div>
+    <Link href={href} className={wrapperClass}>
+      {card}
     </Link>
   );
 }
