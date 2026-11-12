@@ -21,6 +21,7 @@ export default defineConfig({
       includeAssets: [
         "favicon.svg",
         "certificate.html",
+        "verify.html",
       ],
 
       manifest: {
@@ -70,6 +71,7 @@ export default defineConfig({
         navigateFallbackDenylist: [
           /^\/api\/.*/,
           /^\/certificate\.html$/,
+          /^\/verify\.html$/,
         ],
 
         cleanupOutdatedCaches: true,
