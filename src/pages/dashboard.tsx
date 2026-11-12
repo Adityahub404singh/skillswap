@@ -614,7 +614,7 @@ export default function Dashboard() {
             />
 
             <QuickAction
-              href={`/certificate.html?email=${encodeURIComponent(user.email || "")}`}
+              href="/certificate.html"
               icon={<Award className="w-6 h-6" />}
               title="Get Certified"
               color="bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white"
