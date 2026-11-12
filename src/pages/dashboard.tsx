@@ -116,10 +116,19 @@ function QuickAction({
   const wrapperClass = wide ? "col-span-2 sm:col-span-1" : "";
   const isStaticHtmlPage = href.split("?")[0].endsWith(".html");
 
-  // Static HTML files must use normal browser navigation, not Wouter routing.
+  // Static HTML pages must perform a full browser navigation.
+  // This deliberately bypasses Wouter's client-side route handling.
   if (isStaticHtmlPage) {
     return (
-      <a href={href} className={wrapperClass}>
+      <a
+        href={href}
+        className={wrapperClass}
+        target="_self"
+        onClick={(event) => {
+          event.preventDefault();
+          window.location.assign(href);
+        }}
+      >
         {card}
       </a>
     );
