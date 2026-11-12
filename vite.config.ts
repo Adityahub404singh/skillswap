@@ -29,8 +29,10 @@ export default defineConfig({
         short_name: "SkillSwap",
         description:
           "AI-powered peer-to-peer skill exchange platform",
+
         theme_color: "#7c3aed",
         background_color: "#ffffff",
+
         display: "standalone",
         orientation: "portrait",
         start_url: "/",
