@@ -139,18 +139,44 @@ export default function Footer() {
               <div key={group.title} className="space-y-6">
                 <h3 className="text-sm font-black uppercase tracking-widest text-white">{group.title}</h3>
                 <ul className="space-y-4">
-                  {group.links.map((l, i) => (
-                    <motion.li key={l.label} 
-                      initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} 
-                      viewport={{ once: true }} transition={{ delay: (groupIdx * 0.1) + (i * 0.05) }}
-                      onHoverStart={() => setHoveredLink(l.label)} onHoverEnd={() => setHoveredLink(null)}
-                    >
-                      <Link href={l.href} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group/link w-fit">
+                  {group.links.map((l, i) => {
+                    const isStaticHtmlPage = l.href.split("?")[0].endsWith(".html");
+
+                    const linkContent = (
+                      <>
                         <ArrowRight className={`w-3 h-3 transition-all duration-300 ${hoveredLink === l.label ? "opacity-100 text-primary translate-x-0" : "opacity-0 -translate-x-4 w-0"}`} />
                         <span className="text-sm font-medium">{l.label}</span>
-                      </Link>
-                    </motion.li>
-                  ))}
+                      </>
+                    );
+
+                    return (
+                      <motion.li
+                        key={l.label}
+                        initial={{ opacity: 0, x: -10 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: groupIdx * 0.1 + i * 0.05 }}
+                        onHoverStart={() => setHoveredLink(l.label)}
+                        onHoverEnd={() => setHoveredLink(null)}
+                      >
+                        {isStaticHtmlPage ? (
+                          <a
+                            href={l.href}
+                            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group/link w-fit"
+                          >
+                            {linkContent}
+                          </a>
+                        ) : (
+                          <Link
+                            href={l.href}
+                            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group/link w-fit"
+                          >
+                            {linkContent}
+                          </Link>
+                        )}
+                      </motion.li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}
