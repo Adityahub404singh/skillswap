@@ -1,3 +1,4 @@
+
 {
   "rewrites": [
     {
@@ -17,7 +18,7 @@
       "destination": "/google876107b7140265e0.html"
     },
     {
-      "source": "/((?!assets/|favicon\\.svg|logo\\.svg|opengraph\\.jpg|ads\\.txt).*)",
+      "source": "/((?!api/|assets/|certificate\\.html$|verify\\.html$|favicon\\.svg$|logo\\.svg$|opengraph\\.jpg$|ads\\.txt$|robots\\.txt$).*)",
       "destination": "/index.html"
     }
   ],
@@ -25,7 +26,10 @@
     {
       "source": "/(.*)\\.png",
       "headers": [
-        { "key": "Content-Type", "value": "image/png" }
+        {
+          "key": "Content-Type",
+          "value": "image/png"
+        }
       ]
     }
   ]
