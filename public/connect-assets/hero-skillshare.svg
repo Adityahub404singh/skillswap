@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F4F0FF"/><stop offset="1" stop-color="#E5F5FF"/></linearGradient><linearGradient id="purple" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9A7BFF"/><stop offset="1" stop-color="#6247E8"/></linearGradient><linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#54D8C1"/><stop offset="1" stop-color="#1E9E9B"/></linearGradient><linearGradient id="skin" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFD4B2"/><stop offset="1" stop-color="#D99470"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#32266D" flood-opacity=".16"/></filter></defs>
+<rect width="1000" height="700" rx="42" fill="url(#bg)"/>
+<g opacity=".42" fill="none" stroke="#A99AF4"><circle cx="500" cy="330" r="250" stroke-width="2"/><circle cx="500" cy="330" r="205" stroke-dasharray="8 14"/><circle cx="500" cy="330" r="155"/></g>
+<g filter="url(#shadow)">
+<path d="M220 505c45-110 130-160 280-160s235 50 280 160v90H220z" fill="#fff"/>
+<path d="M260 510c35-80 100-118 190-118s155 38 190 118v45H260z" fill="#E7E2FF"/>
+<path d="M360 350c-75-5-120 42-135 120l-15 85h230l-10-112c-8-57-31-88-70-93z" fill="url(#teal)"/>
+<path d="M640 350c75-5 120 42 135 120l15 85H560l10-112c8-57 31-88 70-93z" fill="url(#purple)"/>
+<path d="M282 220c0-78 54-132 119-132s119 54 119 132v62c0 83-53 133-119 133s-119-50-119-133z" fill="url(#skin)"/>
+<path d="M280 232c-28-113 27-184 121-184 82 0 137 63 119 167-17-28-38-43-65-51-42 43-103 64-175 68z" fill="#27305C"/>
+<path d="M478 215c26-1 40 19 35 47-4 24-20 37-38 35" fill="url(#skin)"/>
+<path d="M520 220c0-78 54-132 119-132s119 54 119 132v62c0 83-53 133-119 133s-119-50-119-133z" fill="url(#skin)"/>
+<path d="M518 229c-20-108 32-181 122-181 85 0 139 62 119 166-25-36-57-52-93-56-44 39-94 62-148 71z" fill="#1C8C87"/>
+<path d="M715 215c26-1 40 19 35 47-4 24-20 37-38 35" fill="url(#skin)"/>
+<g fill="#342C52"><circle cx="356" cy="252" r="7"/><circle cx="439" cy="252" r="7"/><circle cx="594" cy="252" r="7"/><circle cx="677" cy="252" r="7"/></g>
+<g fill="none" stroke="#A65F55" stroke-width="6" stroke-linecap="round"><path d="M375 295q22 18 44 0"/><path d="M613 295q22 18 44 0"/></g>
+<path d="M300 525h400l-28 85H328z" fill="#1F2D55"/><path d="M345 532h310l-15 56H360z" fill="#D7F7F0"/>
+<rect x="380" y="540" width="240" height="35" rx="8" fill="#fff"/><path d="M410 558h62m-31-15 17 15-17 15" stroke="#7157E8" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M505 558h80" stroke="#27A69B" stroke-width="7" stroke-linecap="round"/>
+</g>
+<g fill="none" stroke="#7458E8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M270 130q230-190 460 0" stroke-dasharray="10 15"/><path d="M465 98l22 22 22-22"/></g>
+<g><circle cx="190" cy="245" r="34" fill="#FFF"/><path d="M190 224v42m-21-21h42" stroke="#7458E8" stroke-width="7" stroke-linecap="round"/><circle cx="815" cy="185" r="31" fill="#DFFAF2"/><path d="M800 185l11 11 21-24" fill="none" stroke="#169E8E" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M780 500l10 20 22 4-16 15 4 22-20-11-20 11 4-22-16-15 22-4z" fill="#FFD66B"/></g>
+<g font-family="Arial,sans-serif" filter="url(#shadow)"><rect x="75" y="565" width="190" height="66" rx="18" fill="#fff"/><circle cx="110" cy="598" r="17" fill="#E9E3FF"/><path d="M103 598h14m-7-7v14" stroke="#7458E8" stroke-width="3" stroke-linecap="round"/><text x="139" y="594" font-size="14" font-weight="700" fill="#28234F">Share a skill</text><text x="139" y="612" font-size="11" fill="#77718F">Make progress together</text></g>
+</svg>

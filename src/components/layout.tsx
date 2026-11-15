@@ -1,4 +1,4 @@
-import Footer from "@/components/footer";
+﻿import Footer from "@/components/footer";
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/store/auth";
@@ -108,6 +108,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/discover", label: "Discover", icon: Sparkles }, // ?? YE NAYI LINE ADD HUI HAI
     { href: "/explore", label: "Search", icon: Compass }, // Iska naam thoda chhota kar diya
     { href: "/sessions", label: "Sessions", icon: BookOpen },
+  { href: "/connect", label: "Connect", icon: Compass },
     { href: "/matches", label: "Chats", icon: MessageCircle },
     { href: "/profile", label: "Profile", icon: User }
   ];
@@ -310,6 +311,7 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default Layout;
+
 
 
 

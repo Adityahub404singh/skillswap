@@ -23,7 +23,6 @@ export function requireAuth(
 ) {
   const authHeader = req.headers.authorization;
 
-  // Debug: Never print the actual token.
   console.log("AUTH CHECK:", {
     authorizationPresent: Boolean(authHeader),
     bearerTokenPresent: Boolean(
@@ -62,7 +61,10 @@ export function requireAuth(
 
     return next();
   } catch (error) {
-    console.error("AUTH TOKEN ERROR:", error);
+    console.error(
+      "AUTH TOKEN ERROR:",
+      error instanceof Error ? error.message : "Unknown JWT error"
+    );
 
     return res.status(401).json({
       success: false,
@@ -93,8 +95,6 @@ export function requireAdmin(
   res: Response,
   next: NextFunction
 ) {
-  // If user authentication has not already happened,
-  // verify the token here.
   if (!req.userEmail) {
     const authHeader = req.headers.authorization;
 
@@ -122,7 +122,10 @@ export function requireAdmin(
       req.userId = payload.userId;
       req.userEmail = payload.email;
     } catch (error) {
-      console.error("ADMIN TOKEN ERROR:", error);
+      console.error(
+        "ADMIN TOKEN ERROR:",
+        error instanceof Error ? error.message : "Unknown JWT error"
+      );
 
       return res.status(401).json({
         success: false,
@@ -132,7 +135,6 @@ export function requireAdmin(
     }
   }
 
-  // Verify admin email.
   const userEmail = req.userEmail?.toLowerCase();
 
   if (!userEmail || !ADMIN_EMAILS.includes(userEmail)) {

@@ -1,4 +1,5 @@
-﻿
+﻿import ConnectApp from '@/features/connect/App';
+
 import {
   Switch,
   Route,
@@ -391,7 +392,12 @@ function Router() {
         {/* 404                                */}
         {/* ================================== */}
 
-        <Route>
+        <Route path="/connect"><ConnectApp /></Route>
+        <Route path="/connect/events/:slug"><ConnectApp /></Route>
+        <Route path="/connect/host/:userId"><ConnectApp /></Route>
+        <Route path="/connect/meetings/:bookingId"><ConnectApp /></Route>
+        <Route path="/connect/:rest*"><ConnectApp /></Route>
+<Route>
           <Layout>
             <NotFound />
           </Layout>
@@ -533,3 +539,5 @@ function App() {
 }
 
 export default App;
+
+

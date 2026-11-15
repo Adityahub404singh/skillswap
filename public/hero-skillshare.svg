@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" fill="none">
+ <defs>
+  <linearGradient id="skin1" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFD7B2"/><stop offset="1" stop-color="#D88E66"/></linearGradient>
+  <linearGradient id="skin2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F7C9A4"/><stop offset="1" stop-color="#B96E54"/></linearGradient>
+  <linearGradient id="shirt1" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2EF0B7"/><stop offset="1" stop-color="#079D78"/></linearGradient>
+  <linearGradient id="shirt2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7B7AFF"/><stop offset="1" stop-color="#3B63C8"/></linearGradient>
+  <linearGradient id="laptop" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#D5FFF2"/><stop offset="1" stop-color="#4D9E91"/></linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="14"/></filter>
+ </defs>
+ <ellipse cx="395" cy="461" rx="270" ry="28" fill="#001E18" opacity=".45" filter="url(#shadow)"/>
+ <circle cx="420" cy="245" r="196" stroke="#53F4C5" stroke-opacity=".18" stroke-width="2"/><circle cx="420" cy="245" r="150" stroke="#53F4C5" stroke-opacity=".16" stroke-dasharray="5 8"/>
+ <path d="M80 370c30-40 70-65 112-65 42 0 70 23 91 61" stroke="#2EF0B7" stroke-opacity=".3" stroke-width="2"/>
+ <!-- left learner -->
+ <path d="M135 430c5-88 30-139 93-145 59-5 95 40 101 145H135Z" fill="url(#shirt1)"/>
+ <path d="M166 294c-14-30-10-74 5-98 15-23 40-34 68-30 36 4 58 31 55 68-2 36-20 65-49 77-30 13-64 7-79-17Z" fill="url(#skin1)"/>
+ <path d="M158 240c-4-53 20-91 68-96 37-4 66 16 75 48-18-8-33-13-50-11-20 3-35 18-49 32-11 11-25 19-44 27Z" fill="#203D37"/>
+ <path d="M171 249c-15 1-22-12-17-25 5-12 17-14 25-5M283 244c13-2 21 7 19 18-2 10-11 15-21 11" fill="url(#skin1)"/>
+ <path d="M215 257c8 7 18 7 26 0" stroke="#8B4D3E" stroke-width="3" stroke-linecap="round"/><circle cx="204" cy="230" r="3" fill="#263C36"/><circle cx="254" cy="228" r="3" fill="#263C36"/>
+ <path d="M160 320c28 23 68 28 100 7l30 103H139l21-110Z" fill="url(#shirt1)"/>
+ <!-- right learner -->
+ <path d="M460 438c8-90 36-143 100-143 58 0 92 53 95 143H460Z" fill="url(#shirt2)"/>
+ <path d="M493 293c-12-24-10-65 5-89 16-25 41-36 71-32 36 4 58 32 55 69-3 35-21 63-49 75-31 13-67 5-82-23Z" fill="url(#skin2)"/>
+ <path d="M485 239c-2-51 24-84 70-91 39-5 65 15 75 47-23-9-40-8-58-1-18 7-30 25-47 35-11 7-24 10-40 10Z" fill="#2B2541"/>
+ <path d="M501 248c-14-1-20-13-15-25 5-11 16-14 24-5M607 242c12-3 21 5 20 17-1 10-10 16-21 13" fill="url(#skin2)"/>
+ <path d="M539 257c8 7 18 7 26 0" stroke="#8B4D3E" stroke-width="3" stroke-linecap="round"/><circle cx="529" cy="229" r="3" fill="#2A2736"/><circle cx="579" cy="228" r="3" fill="#2A2736"/>
+ <!-- desks and laptops -->
+ <path d="M90 420h286l-27 20H114l-24-20Z" fill="#1B7D68"/><path d="M195 332h131l15 88H181l14-88Z" fill="url(#laptop)" stroke="#B8FFEA" stroke-width="3"/><path d="M205 343h111v67H205z" fill="#073A32"/><path d="m222 365 18-9 15 9-15 10-18-10Zm37 0h36m-36 12h28" stroke="#3BF2BC" stroke-width="3" stroke-linecap="round"/>
+ <path d="M410 420h278l-25 20H435l-25-20Z" fill="#3C4A9D"/><path d="M453 329h143l15 91H438l15-91Z" fill="url(#laptop)" stroke="#C9FFF0" stroke-width="3"/><path d="M463 340h122v69H463z" fill="#102E4B"/><path d="m481 365 18-10 15 10-15 10-18-10Zm39 0h38m-38 12h30" stroke="#7E8BFF" stroke-width="3" stroke-linecap="round"/>
+ <!-- connection sparkles -->
+ <path d="m376 89 9 24 24 9-24 9-9 24-9-24-24-9 24-9 9-24Z" fill="#FFE08B"/><path d="m650 158 6 16 16 6-16 6-6 16-6-16-16-6 16-6 6-16Z" fill="#3EF0B9"/><circle cx="105" cy="190" r="7" fill="#4BEEC0"/><circle cx="680" cy="318" r="5" fill="#FFD46D"/>
+ <path d="M337 202c20-26 49-39 82-39" stroke="#41F0BE" stroke-width="4" stroke-linecap="round" stroke-dasharray="7 9"/><path d="m406 151 16 12-16 13" stroke="#41F0BE" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
